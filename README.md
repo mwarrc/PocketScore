@@ -100,4 +100,12 @@ Contributions are welcome! If you have suggestions or want to report a bug, plea
 
 ---
 
-Built by https://github.com/mwarrc
+## Connect
+
+[![Twitter](https://img.shields.io/badge/Twitter-1DA1F2?style=for-the-badge&logo=twitter&logoColor=white)](https://twitter.com/mwarrc)
+[![Instagram](https://img.shields.io/badge/Instagram-E4405F?style=for-the-badge&logo=instagram&logoColor=white)](https://instagram.com/mwarrc)
+[![GitHub](https://img.shields.io/badge/GitHub-100000?style=for-the-badge&logo=github&logoColor=white)](https://github.com/mwarrc)
+
+---
+
+Built with ❤️ by [mwarrc](https://github.com/mwarrc)
