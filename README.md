@@ -2,10 +2,33 @@
 
 PocketScore is a modern, expressive, and user-friendly score-keeping application for Android. Built with **Kotlin** and **Jetpack Compose**, it offers a seamless experience for managing game nights, tracking scores, and celebrating victories.
 
+---
+
+### 📥 [**Download Latest APK (v0.1.0)**](https://github.com/mwarrc/PocketScore/releases/download/v-0.1.0/PocketScore.apk)
+*Quick and direct installation for Android.*
+
+---
+
+
 ![Android](https://img.shields.io/badge/Android-3DDC84?style=for-the-badge&logo=android&logoColor=white)
 ![Kotlin](https://img.shields.io/badge/Kotlin-7F52FF?style=for-the-badge&logo=kotlin&logoColor=white)
 ![Jetpack Compose](https://img.shields.io/badge/Jetpack%20Compose-4285F4?style=for-the-badge&logo=android&logoColor=white)
 ![Material 3](https://img.shields.io/badge/Material%203-757575?style=for-the-badge&logo=materialdesign&logoColor=white)
+
+## Screenshots
+
+<div align="center">
+  <img src="Extras/screenshots/st_1.jpg" width="200" />
+  <img src="Extras/screenshots/st_2.jpg" width="200" />
+  <img src="Extras/screenshots/st_3.jpg" width="200" />
+  <img src="Extras/screenshots/st_4.jpg" width="200" />
+  <br>
+  <img src="Extras/screenshots/st_5.jpg" width="200" />
+  <img src="Extras/screenshots/st_6.jpg" width="200" />
+  <img src="Extras/screenshots/st_7.jpg" width="200" />
+  <img src="Extras/screenshots/st_8.jpg" width="200" />
+</div>
+
 
 ## Features
 
