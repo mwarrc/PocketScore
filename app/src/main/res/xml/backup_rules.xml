@@ -6,8 +6,7 @@
    See https://developer.android.com/about/versions/12/backup-restore
 -->
 <full-backup-content>
-    <!--
-   <include domain="sharedpref" path="."/>
-   <exclude domain="sharedpref" path="device.xml"/>
--->
+    <!-- Include the DataStore file where all records and settings are stored -->
+    <include domain="file" path="datastore/game_prefs.preferences_pb"/>
+    <include domain="file" path="backups"/>
 </full-backup-content>

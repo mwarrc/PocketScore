@@ -3,9 +3,13 @@ package com.mwarrc.pocketscore.ui.feature.game.components
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.CenterFocusStrong
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.outlined.GridView
 import androidx.compose.material.icons.outlined.ViewAgenda
@@ -15,7 +19,9 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Switch
+import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
@@ -52,43 +58,64 @@ fun QuickSettingsSheet(
                 fontWeight = FontWeight.Bold
             )
 
-            Row(
+            Column(
                 modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically
+                verticalArrangement = Arrangement.spacedBy(10.dp)
             ) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Text("Scoreboard Layout", style = MaterialTheme.typography.titleMedium)
-                    Text(
-                        if (settings.defaultLayout == ScoreboardLayout.LIST) {
-                            "Current: List"
-                        } else {
-                            "Current: Grid"
-                        },
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-                IconButton(
-                    onClick = {
-                        onUpdateSettings {
-                            it.copy(
-                                defaultLayout = if (it.defaultLayout == ScoreboardLayout.LIST) {
-                                    ScoreboardLayout.GRID
-                                } else {
-                                    ScoreboardLayout.LIST
-                                }
-                            )
+                Text("Scoreboard Layout", style = MaterialTheme.typography.titleMedium)
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    // List View Toggle
+                    if (settings.defaultLayout == ScoreboardLayout.LIST) {
+                        Button(
+                            modifier = Modifier.weight(1f),
+                            onClick = { /* Already selected */ },
+                            shape = RoundedCornerShape(12.dp)
+                        ) {
+                            Icon(Icons.Outlined.ViewAgenda, null)
+                            Spacer(Modifier.width(8.dp))
+                            Text("List View")
+                        }
+                    } else {
+                        OutlinedButton(
+                            modifier = Modifier.weight(1f),
+                            onClick = {
+                                onUpdateSettings { it.copy(defaultLayout = ScoreboardLayout.LIST) }
+                            },
+                            shape = RoundedCornerShape(12.dp)
+                        ) {
+                            Icon(Icons.Outlined.ViewAgenda, null)
+                            Spacer(Modifier.width(8.dp))
+                            Text("List View")
                         }
                     }
-                ) {
-                    Icon(
-                        if (settings.defaultLayout == ScoreboardLayout.LIST) {
-                            Icons.Outlined.GridView
-                        } else {
-                            Icons.Outlined.ViewAgenda
-                        },
-                        null
-                    )
+
+                    // Grid View Toggle
+                    if (settings.defaultLayout == ScoreboardLayout.GRID) {
+                        Button(
+                            modifier = Modifier.weight(1f),
+                            onClick = { /* Already selected */ },
+                            shape = RoundedCornerShape(12.dp)
+                        ) {
+                            Icon(Icons.Outlined.GridView, null)
+                            Spacer(Modifier.width(8.dp))
+                            Text("Grid View")
+                        }
+                    } else {
+                        OutlinedButton(
+                            modifier = Modifier.weight(1f),
+                            onClick = {
+                                onUpdateSettings { it.copy(defaultLayout = ScoreboardLayout.GRID) }
+                            },
+                            shape = RoundedCornerShape(12.dp)
+                        ) {
+                            Icon(Icons.Outlined.GridView, null)
+                            Spacer(Modifier.width(8.dp))
+                            Text("Grid View")
+                        }
+                    }
                 }
             }
 
@@ -119,35 +146,64 @@ fun QuickSettingsSheet(
                 Column(modifier = Modifier.weight(1f)) {
                     Text("Strict Turn Mode", style = MaterialTheme.typography.titleMedium)
                     Text(
-                        if (settings.strictTurnMode) {
-                            "Security Active"
-                        } else {
-                            "Can be enabled for fair play"
-                        },
+                        if (settings.enforceStrictMode) "Rules Locked (In Settings)" 
+                        else if (settings.strictTurnMode) "Security Active" 
+                        else "Quick play enabled",
                         style = MaterialTheme.typography.bodySmall,
-                        color = if (settings.strictTurnMode) {
-                            MaterialTheme.colorScheme.primary
-                        } else {
-                            MaterialTheme.colorScheme.onSurfaceVariant
-                        }
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
-                if (!settings.strictTurnMode) {
-                    Button(
-                        onClick = {
-                            onUpdateSettings { it.copy(strictTurnMode = true) }
-                        }
-                    ) {
-                        Text("Turn On")
+                Switch(
+                    enabled = !settings.enforceStrictMode,
+                    checked = settings.strictTurnMode,
+                    onCheckedChange = { enabled ->
+                        onUpdateSettings { it.copy(strictTurnMode = enabled) }
+                    },
+                    colors = SwitchDefaults.colors(
+                        checkedThumbColor = MaterialTheme.colorScheme.error,
+                        checkedTrackColor = MaterialTheme.colorScheme.errorContainer,
+                    )
+                )
+            }
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text("Auto-Scroll to Active", style = MaterialTheme.typography.titleMedium)
+                    Text(
+                        "Keep current player in view",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                Switch(
+                    checked = settings.autoScrollToActivePlayer,
+                    onCheckedChange = { enabled ->
+                        onUpdateSettings { it.copy(autoScrollToActivePlayer = enabled) }
                     }
-                } else {
-                    Icon(
-                        Icons.Default.Lock,
-                        null,
-                        tint = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.padding(end = 12.dp)
+                )
+            }
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text("Auto-Advance Turn", style = MaterialTheme.typography.titleMedium)
+                    Text(
+                        "Switch player after scoring",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
+                Switch(
+                    checked = settings.autoNextTurn,
+                    onCheckedChange = { enabled ->
+                        onUpdateSettings { it.copy(autoNextTurn = enabled) }
+                    }
+                )
             }
 
             Row(

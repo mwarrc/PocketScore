@@ -18,6 +18,9 @@ class GameViewModel(private val repository: GameRepository) : ViewModel() {
     private val _state = MutableStateFlow(AppState())
     val state: StateFlow<AppState> = _state.asStateFlow()
 
+    private val _snapshots = MutableStateFlow<List<Pair<String, Long>>>(emptyList())
+    val snapshots: StateFlow<List<Pair<String, Long>>> = _snapshots.asStateFlow()
+
     init {
         viewModelScope.launch {
             combine(
@@ -29,6 +32,17 @@ class GameViewModel(private val repository: GameRepository) : ViewModel() {
             }.collect { newState ->
                 _state.value = newState
             }
+        }
+        refreshSnapshots()
+        viewModelScope.launch {
+            repository.triggerDailyAutoSnapshot()
+            refreshSnapshots() // Refresh again if it created a new one
+        }
+    }
+
+    private fun refreshSnapshots() {
+        viewModelScope.launch {
+            _snapshots.value = repository.getLocalSnapshots()
         }
     }
 
@@ -62,6 +76,15 @@ class GameViewModel(private val repository: GameRepository) : ViewModel() {
                 repository.deleteGameFromHistory(game.id)
             }
             updateGameState(game.copy(isGameActive = true, lastUpdate = System.currentTimeMillis()))
+        }
+    }
+
+    /**
+     * Deletes a specific game from the storage history.
+     */
+    fun deleteGameFromHistory(gameId: String) {
+        viewModelScope.launch {
+            repository.deleteGameFromHistory(gameId)
         }
     }
 
@@ -119,9 +142,9 @@ class GameViewModel(private val repository: GameRepository) : ViewModel() {
         )
         val updatedGlobalEvents = currentState.globalEvents + globalEvent
 
-        // Advance to next active player
+        // Advance to next active player if enabled
         val activePlayers = updatedPlayers.filter { it.isActive }
-        val nextPlayerId = if (activePlayers.isNotEmpty()) {
+        val nextPlayerId = if (settings.autoNextTurn && activePlayers.isNotEmpty()) {
             val currentIndex = activePlayers.indexOfFirst { it.id == currentState.currentPlayerId }
             val nextIndex = (currentIndex + 1) % activePlayers.size
             activePlayers[nextIndex].id
@@ -232,11 +255,11 @@ class GameViewModel(private val repository: GameRepository) : ViewModel() {
      * Resets the current game.
      * Archives the game to history if any player has a non-zero score.
      */
-    fun resetGame() {
+    fun resetGame(finalized: Boolean = true) {
         viewModelScope.launch {
             val currentGame = _state.value.gameState
             if (currentGame.players.any { it.score != 0 }) {
-                repository.archiveCurrentGame(currentGame)
+                repository.archiveCurrentGame(currentGame.copy(isFinalized = finalized))
             }
             repository.clearGameState()
         }
@@ -248,7 +271,92 @@ class GameViewModel(private val repository: GameRepository) : ViewModel() {
     fun updateSettings(update: (AppSettings) -> AppSettings) {
         viewModelScope.launch {
             val currentSettings = _state.value.settings
-            repository.updateSettings(update(currentSettings))
+            val newSettings = update(currentSettings)
+
+            if (currentSettings.strictTurnMode != newSettings.strictTurnMode) {
+                val currentState = _state.value.gameState
+                val message = if (newSettings.strictTurnMode) {
+                    "Strict Mode ENABLED"
+                } else {
+                    "Strict Mode DISABLED"
+                }
+                val statusEvent = GameEvent(
+                    playerId = "", // System event
+                    playerName = "SYSTEM",
+                    type = GameEventType.STATUS_CHANGE,
+                    points = 0,
+                    message = message
+                )
+                val updatedGlobalEvents = currentState.globalEvents + statusEvent
+
+                updateGameState(currentState.copy(
+                    globalEvents = updatedGlobalEvents,
+                    lastUpdate = System.currentTimeMillis()
+                ))
+            }
+
+            repository.updateSettings(newSettings)
+        }
+    }
+
+    /**
+     * Prepares data for sharing based on a specific game ID or the entire history.
+     */
+    suspend fun getShareData(gameId: String? = null): PocketScoreShare {
+        return repository.getShareableData(gameId)
+    }
+
+    /**
+     * Imports shared data using smart merging.
+     */
+    fun importData(share: PocketScoreShare) {
+        viewModelScope.launch {
+            repository.mergeShareData(share)
+        }
+    }
+
+    /**
+     * Renames a player globally across all records and settings.
+     */
+    fun renamePlayer(oldName: String, newName: String) {
+        viewModelScope.launch {
+            repository.renamePlayer(oldName, newName)
+        }
+    }
+
+    suspend fun getLocalSnapshots(): List<Pair<String, Long>> {
+        return repository.getLocalSnapshots()
+    }
+
+    fun createSnapshot(name: String) {
+        viewModelScope.launch {
+            repository.createLocalSnapshot(name)
+            refreshSnapshots()
+        }
+    }
+
+    suspend fun getSnapshotData(name: String): PocketScoreShare? {
+        return repository.getSnapshotContent(name)
+    }
+
+    fun restoreSnapshot(name: String, onSuccess: () -> Unit) {
+        viewModelScope.launch {
+            repository.restoreFromSnapshot(name)
+            onSuccess()
+        }
+    }
+
+    fun deleteSnapshot(name: String) {
+        viewModelScope.launch {
+            repository.deleteSnapshot(name)
+            refreshSnapshots()
+        }
+    }
+
+    fun triggerCloudBackup() {
+        viewModelScope.launch {
+            repository.triggerCloudBackup()
+            refreshSnapshots()
         }
     }
 

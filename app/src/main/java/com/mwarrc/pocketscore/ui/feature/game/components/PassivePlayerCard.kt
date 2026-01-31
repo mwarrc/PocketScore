@@ -1,27 +1,35 @@
 package com.mwarrc.pocketscore.ui.feature.game.components
 
-import androidx.compose.foundation.border
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.draw.rotate
+import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.graphics.Color
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.EmojiEvents
 import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.mwarrc.pocketscore.domain.model.Player
@@ -33,52 +41,80 @@ fun PassivePlayerCard(
     isCurrent: Boolean,
     isActualTurn: Boolean,
     onClick: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    lastPoints: Int? = null
 ) {
-    val borderColor = when {
-        isCurrent -> MaterialTheme.colorScheme.primary
-        isActualTurn -> MaterialTheme.colorScheme.primary.copy(alpha = 0.5f)
-        isLeader -> MaterialTheme.colorScheme.tertiary.copy(alpha = 0.5f)
-        else -> Color.Transparent
-    }
-
-    val borderWidth = when {
-        isCurrent || isActualTurn -> 2.dp
-        isLeader -> 1.dp
-        else -> 0.dp
-    }
-
     val containerColor = when {
-        isActualTurn -> MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.2f)
+        isActualTurn -> MaterialTheme.colorScheme.primaryContainer
+        isLeader -> MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.28f)
         isCurrent -> MaterialTheme.colorScheme.surfaceContainerHigh
         else -> MaterialTheme.colorScheme.surfaceContainerLow
+    }
+
+    val contentColor = when {
+        isActualTurn -> MaterialTheme.colorScheme.onPrimaryContainer
+        isLeader -> MaterialTheme.colorScheme.onTertiaryContainer
+        else -> MaterialTheme.colorScheme.onSurface
+    }
+
+    val borderStroke = if (isCurrent) {
+        BorderStroke(2.dp, MaterialTheme.colorScheme.primary)
+    } else {
+        null
     }
 
     Card(
         modifier = modifier
             .fillMaxWidth()
-            .clickable { onClick() }
-            .then(
-                if (borderWidth > 0.dp) {
-                    Modifier.border(borderWidth, borderColor, RoundedCornerShape(16.dp))
-                } else {
-                    Modifier
-                }
-            ),
+            .clickable { onClick() },
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
-        colors = CardDefaults.cardColors(containerColor = containerColor),
+        border = borderStroke,
+        colors = CardDefaults.cardColors(
+            containerColor = containerColor,
+            contentColor = contentColor
+        ),
         shape = RoundedCornerShape(16.dp)
     ) {
-        Box(modifier = Modifier.padding(16.dp)) {
-            if (isLeader) {
-                Icon(
-                    Icons.Filled.EmojiEvents,
-                    contentDescription = "Leader",
+        Box(modifier = Modifier.fillMaxWidth().height(100.dp)) {
+            // Last Points Indicator
+            if (lastPoints != null) {
+                val pointsColor = when {
+                    lastPoints > 0 -> Color(0xFF4CAF50) // Green
+                    lastPoints < 0 -> MaterialTheme.colorScheme.error
+                    else -> MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
+                }
+                val pointsText = when {
+                    lastPoints > 0 -> "+$lastPoints"
+                    lastPoints < 0 -> "$lastPoints"
+                    else -> "0"
+                }
+
+                Surface(
+                    color = pointsColor.copy(alpha = 0.15f),
+                    shape = RoundedCornerShape(4.dp),
                     modifier = Modifier
-                        .align(Alignment.TopEnd)
-                        .size(20.dp),
-                    tint = MaterialTheme.colorScheme.tertiary
-                )
+                        .align(Alignment.BottomEnd)
+                        .padding(8.dp)
+                ) {
+                    Text(
+                        text = pointsText,
+                        style = MaterialTheme.typography.labelSmall,
+                        fontWeight = FontWeight.Bold,
+                        color = pointsColor,
+                        modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp)
+                    )
+                }
+            }
+
+            // Leader: visible star field
+            if (isLeader) {
+                val starTint = MaterialTheme.colorScheme.tertiary
+                Box(modifier = Modifier.matchParentSize()) {
+                    Icon(Icons.Default.Star, null, modifier = Modifier.size(14.dp).align(Alignment.TopStart).offset(12.dp, 12.dp).alpha(0.4f).rotate(-10f), tint = starTint)
+                    Icon(Icons.Default.Star, null, modifier = Modifier.size(10.dp).align(Alignment.TopEnd).offset((-16).dp, 14.dp).alpha(0.35f).rotate(6f), tint = starTint)
+                    Icon(Icons.Default.Star, null, modifier = Modifier.size(12.dp).align(Alignment.BottomStart).offset(20.dp, (-16).dp).alpha(0.35f).rotate(4f), tint = starTint)
+                    Icon(Icons.Default.Star, null, modifier = Modifier.size(8.dp).align(Alignment.BottomEnd).offset((-20).dp, (-12).dp).alpha(0.4f).rotate(-6f), tint = starTint)
+                }
             }
 
             if (isActualTurn) {
@@ -86,38 +122,57 @@ fun PassivePlayerCard(
                     Icons.Default.PlayArrow,
                     contentDescription = "Playing",
                     modifier = Modifier
+                        .padding(8.dp)
                         .align(Alignment.TopStart)
-                        .size(20.dp),
-                    tint = MaterialTheme.colorScheme.primary
+                        .size(16.dp),
+                    tint = contentColor
                 )
+            }
+
+            if (isLeader) {
+                Row(
+                    modifier = Modifier
+                        .align(Alignment.TopEnd)
+                        .padding(6.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                    Text(
+                        "Lead",
+                        style = MaterialTheme.typography.labelSmall,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.tertiary
+                    )
+                    Icon(
+                        Icons.Default.EmojiEvents,
+                        contentDescription = "Leader",
+                        modifier = Modifier.size(18.dp),
+                        tint = MaterialTheme.colorScheme.tertiary
+                    )
+                }
             }
 
             Column(
                 horizontalAlignment = Alignment.CenterHorizontally,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(top = 8.dp)
+                    .align(Alignment.Center)
             ) {
                 Text(
                     player.name,
                     style = MaterialTheme.typography.titleMedium,
-                    fontWeight = if (isActualTurn) FontWeight.Bold else FontWeight.Medium,
+                    fontWeight = if (isActualTurn || isLeader) FontWeight.Black else FontWeight.Medium,
                     maxLines = 1,
-                    color = if (isActualTurn) {
-                        MaterialTheme.colorScheme.primary
-                    } else {
-                        MaterialTheme.colorScheme.onSurfaceVariant
-                    }
+                    color = contentColor
                 )
                 Spacer(Modifier.height(4.dp))
                 Text(
                     "${player.score}",
                     style = MaterialTheme.typography.displaySmall,
                     fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onSurface
+                    color = contentColor
                 )
             }
         }
     }
 }
-

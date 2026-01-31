@@ -18,9 +18,12 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.ArrowForward
+import androidx.compose.foundation.clickable
 import androidx.compose.material.icons.filled.AlternateEmail
 import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.Favorite
+import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Terminal
 import androidx.compose.material.icons.filled.Timeline
 import androidx.compose.material3.CenterAlignedTopAppBar
@@ -43,19 +46,35 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
+import kotlinx.coroutines.launch
+import com.mwarrc.pocketscore.domain.model.AppSettings
 import com.mwarrc.pocketscore.R
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.material3.Switch
+import androidx.compose.material3.SwitchDefaults
+import androidx.compose.runtime.*
+import androidx.compose.ui.draw.scale
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
 fun AboutScreen(
     onNavigateBack: () -> Unit,
     onNavigateToRoadmap: () -> Unit,
-    showComingSoonFeatures: Boolean = true
+    showComingSoonFeatures: Boolean = true,
+    onUpdateSettings: ((AppSettings) -> AppSettings) -> Unit
 ) {
+    val scope = rememberCoroutineScope()
+    val snackbarHostState = remember { SnackbarHostState() }
+    var logoClickCount by remember { mutableIntStateOf(0) }
     val uriHandler = LocalUriHandler.current
 
     Scaffold(
         modifier = Modifier.fillMaxSize(),
+        snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
             CenterAlignedTopAppBar(
                 title = {
@@ -97,7 +116,25 @@ fun AboutScreen(
                     Spacer(Modifier.height(16.dp))
 
                     Surface(
-                        modifier = Modifier.size(80.dp),
+                        modifier = Modifier
+                            .size(80.dp)
+                            .clickable(
+                                interactionSource = remember { MutableInteractionSource() },
+                                indication = null
+                            ) {
+                                if (showComingSoonFeatures) return@clickable // Already enabled
+
+                                logoClickCount++
+                                if (logoClickCount >= 3) {
+                                    onUpdateSettings { it.copy(showComingSoonFeatures = true) }
+                                    logoClickCount = 0
+                                    scope.launch {
+                                        snackbarHostState.showSnackbar("Developer features unlocked! ")
+                                    }
+                                } else {
+                                    // Optional: Subtle haptic or feedback?
+                                }
+                            },
                         shape = RoundedCornerShape(24.dp),
                         color = MaterialTheme.colorScheme.surface,
                         tonalElevation = 2.dp,
@@ -119,24 +156,48 @@ fun AboutScreen(
                     Spacer(Modifier.height(16.dp))
 
                     Text(
-                        "v0.1.0-expressive",
+                        "v0.1.1-expressive",
                         style = MaterialTheme.typography.labelMedium,
                         color = MaterialTheme.colorScheme.primary,
                         fontWeight = FontWeight.Bold,
                         modifier = Modifier.alpha(0.6f)
                     )
 
+                    if (showComingSoonFeatures) {
+                        Spacer(Modifier.height(8.dp))
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                "Dev Mode",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.primary
+                            )
+                            Spacer(Modifier.width(8.dp))
+                            Switch(
+                                checked = true,
+                                onCheckedChange = { 
+                                    onUpdateSettings { it.copy(showComingSoonFeatures = false) }
+                                },
+                                modifier = Modifier.scale(0.7f),
+                                colors = SwitchDefaults.colors(
+                                    checkedThumbColor = MaterialTheme.colorScheme.primary,
+                                    checkedTrackColor = MaterialTheme.colorScheme.primaryContainer
+                                )
+                            )
+                        }
+                    }
+
                     Spacer(Modifier.height(32.dp))
 
                     AboutInfoCard(
                         icon = Icons.Default.AutoAwesome,
                         title = "The Experience",
-                        description = "A fluid, intuitive scoreboard designed for speed and clarity during intense gameplay."
+                        description = "Crafted for focus. Featuring Material You dynamic coloring, tactile haptic feedback, and a seamless interface that adapts to your device's aesthetic."
                     )
-
-                    Spacer(Modifier.height(12.dp))
-
+                    
                     if (showComingSoonFeatures) {
+                        Spacer(Modifier.height(12.dp))
                         AboutInfoCard(
                             icon = Icons.Default.Timeline,
                             title = "Future Roadmap",
@@ -144,13 +205,22 @@ fun AboutScreen(
                             onClick = onNavigateToRoadmap,
                             containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.15f)
                         )
-                        Spacer(Modifier.height(12.dp))
                     }
+
+                    Spacer(Modifier.height(12.dp))
 
                     AboutInfoCard(
                         icon = Icons.Default.Terminal,
-                        title = "Modern Tech Stack",
-                        description = "Built with Jetpack Compose, Material 3, Kotlin Coroutines, and DataStore for a robust experience."
+                        title = "Open Source & Tech",
+                        description = "100% Kotlin & Jetpack Compose. PocketScore is open-source, built with Material 3 principles and type-safe DataStore for a modern, high-performance architecture."
+                    )
+
+                    Spacer(Modifier.height(12.dp))
+
+                    AboutInfoCard(
+                        icon = Icons.Filled.Lock,
+                        title = "Privacy Focused",
+                        description = "Zero tracking, zero ads. All your game data stays on your device. Offline-first architecture ensures you can play anywhere, anytime."
                     )
                     
                     Spacer(Modifier.height(120.dp)) // Padding for bottom anchored section
@@ -172,7 +242,7 @@ fun AboutScreen(
                     MinimalSocialButton(
                         iconRes = R.drawable.ic_brand_github,
                         contentDescription = "GitHub",
-                        onClick = { uriHandler.openUri("https://github.com/mwarrc") }
+                        onClick = { uriHandler.openUri("https://github.com/mwarrc/PocketScore") }
                     )
                     MinimalSocialButton(
                         iconRes = R.drawable.ic_brand_x,
@@ -235,54 +305,61 @@ fun AboutInfoCard(
     icon: ImageVector,
     title: String,
     description: String,
-    containerColor: Color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f),
+    containerColor: Color = Color.Transparent,
     iconColor: Color = MaterialTheme.colorScheme.primary,
     onClick: (() -> Unit)? = null
 ) {
-    Surface(
-        modifier = Modifier.fillMaxWidth(),
-        onClick = onClick ?: {},
-        enabled = onClick != null,
-        shape = RoundedCornerShape(20.dp),
-        color = containerColor,
-        border = BorderStroke(
-            1.dp,
-            MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)
-        )
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(enabled = onClick != null, onClick = onClick ?: {})
+            .padding(vertical = 12.dp, horizontal = 4.dp), // Added horizontal padding for touch target
+        verticalAlignment = Alignment.Top
     ) {
-        Row(
-            modifier = Modifier.padding(16.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Surface(
-                modifier = Modifier.size(40.dp),
-                shape = RoundedCornerShape(12.dp),
-                color = iconColor.copy(alpha = 0.1f)
+        // Minimal Icon - Direct, no background container
+        Icon(
+            icon,
+            null,
+            modifier = Modifier
+                .size(24.dp)
+                .padding(top = 2.dp), // Visual alignment with text cap height
+            tint = iconColor
+        )
+
+        Spacer(Modifier.width(20.dp))
+
+        Column(modifier = Modifier.weight(1f)) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.fillMaxWidth()
             ) {
-                Box(contentAlignment = Alignment.Center) {
+                Text(
+                    title,
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.SemiBold,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    modifier = Modifier.weight(1f)
+                )
+                
+                // Show arrow if clickable
+                if (onClick != null) {
                     Icon(
-                        icon,
+                        Icons.AutoMirrored.Filled.ArrowForward,
                         null,
-                        modifier = Modifier.size(20.dp),
-                        tint = iconColor
+                        modifier = Modifier.size(16.dp),
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
                     )
                 }
             }
-
-            Spacer(Modifier.width(16.dp))
-
-            Column {
-                Text(
-                    title,
-                    style = MaterialTheme.typography.titleSmall,
-                    fontWeight = FontWeight.Bold
-                )
-                Text(
-                    description,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
+            
+            Spacer(Modifier.height(4.dp))
+            
+            Text(
+                description,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f),
+                lineHeight = 18.sp
+            )
         }
     }
 }

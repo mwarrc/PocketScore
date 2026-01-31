@@ -13,5 +13,6 @@ data class GameState(
     val lastUpdate: Long = System.currentTimeMillis(),
     val currentPlayerId: String? = null,
     val globalEvents: List<GameEvent> = emptyList(),
-    val canUndo: Boolean = false
+    val canUndo: Boolean = false,
+    val isFinalized: Boolean = false
 )

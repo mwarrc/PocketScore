@@ -16,8 +16,11 @@ import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.isImeVisible
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
@@ -25,12 +28,15 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Help
 import androidx.compose.material.icons.automirrored.filled.Undo
 import androidx.compose.material.icons.filled.Calculate
+import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Group
 import androidx.compose.material.icons.filled.Help
@@ -38,6 +44,7 @@ import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Lightbulb
 import androidx.compose.material.icons.filled.Lock
+import androidx.compose.material.icons.filled.LockOpen
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.outlined.Group
 import androidx.compose.material.icons.outlined.Tune
@@ -72,21 +79,23 @@ import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
 import com.mwarrc.pocketscore.domain.model.AppSettings
 import com.mwarrc.pocketscore.domain.model.GameEvent
 import com.mwarrc.pocketscore.domain.model.GameEventType
 import com.mwarrc.pocketscore.domain.model.Player
 import com.mwarrc.pocketscore.domain.model.ScoreboardLayout
-import com.mwarrc.pocketscore.ui.components.HelpDialog
 import com.mwarrc.pocketscore.ui.feature.game.components.ActivePlayerCard
 import com.mwarrc.pocketscore.ui.feature.game.components.BottomNavItem
 import com.mwarrc.pocketscore.ui.feature.game.components.GameHistoryDialog
+import com.mwarrc.pocketscore.ui.feature.game.components.GameHelpSheet
 import com.mwarrc.pocketscore.ui.feature.game.components.PassivePlayerCard
 import com.mwarrc.pocketscore.ui.feature.game.components.QuickCalculatorSheet
 import com.mwarrc.pocketscore.ui.feature.game.components.QuickSettingsSheet
+import kotlinx.coroutines.delay
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
 fun GameScreen(
     players: List<Player>,
@@ -96,7 +105,7 @@ fun GameScreen(
     canUndo: Boolean,
     onUpdateScore: (String, Int) -> Unit,
     onGlobalUndo: () -> Unit,
-    onReset: () -> Unit,
+    onReset: (Boolean) -> Unit,
     onToggleLayout: () -> Unit,
     onNavigateToSettings: () -> Unit,
     onNavigateToHistory: () -> Unit,
@@ -112,7 +121,28 @@ fun GameScreen(
     var showUndoConfirmation by remember { mutableStateOf(false) }
     var showCalculator by remember { mutableStateOf(false) }
     var showHelp by remember { mutableStateOf(false) }
+    var showHistoryBadge by remember { mutableStateOf(false) }
+    var showTemporaryBanner by remember { mutableStateOf(false) }
     val haptic = LocalHapticFeedback.current
+
+    LaunchedEffect(settings.strictTurnMode) {
+        showTemporaryBanner = true
+        delay(60000) // 1 minute timeout for banner
+        showTemporaryBanner = false
+    }
+
+    LaunchedEffect(globalEvents) {
+        val lastEvent = globalEvents.lastOrNull()
+        if (lastEvent?.type == GameEventType.STATUS_CHANGE &&
+            (lastEvent.message?.contains("Strict Mode", ignoreCase = true) == true)
+        ) {
+            showHistoryBadge = true
+            delay(60000) // 1 minute timeout
+            showHistoryBadge = false
+        } else {
+            showHistoryBadge = false
+        }
+    }
 
     val activePlayers = remember(players) { players.filter { it.isActive } }
     val leaderId = remember(activePlayers, settings.leaderSpotlightEnabled) {
@@ -124,6 +154,27 @@ fun GameScreen(
     }
 
     var localHeaderSelection by remember { mutableStateOf<String?>(null) }
+    
+    val lazyListState = rememberLazyListState()
+    val lazyGridState = rememberLazyGridState()
+
+    LaunchedEffect(currentPlayerId, settings.autoScrollToActivePlayer) {
+        if (settings.autoScrollToActivePlayer) {
+            val index = activePlayers.indexOfFirst { it.id == currentPlayerId }
+            if (index != -1) {
+                if (settings.defaultLayout == ScoreboardLayout.GRID) {
+                    lazyGridState.animateScrollToItem(index)
+                } else {
+                    // Offset -150px gives "breathing room" so it doesn't snap harshly to the very top
+                    lazyListState.animateScrollToItem(index, scrollOffset = -150)
+                }
+            }
+        }
+    }
+
+    LaunchedEffect(currentPlayerId) {
+        localHeaderSelection = null
+    }
 
     val selectionForHeader = remember(localHeaderSelection, currentPlayerId, activePlayers) {
         val selected = activePlayers.find { it.id == localHeaderSelection }
@@ -134,23 +185,48 @@ fun GameScreen(
     if (showResetDialog) {
         AlertDialog(
             onDismissRequest = { showResetDialog = false },
-            title = { Text("End Session?") },
+            icon = { Icon(Icons.Default.Info, null, tint = MaterialTheme.colorScheme.primary) },
+            title = { Text("End This Match?") },
             text = {
-                Text(
-                    "Are you done playing? You can end and archive this session now, or keep it open and continue playing later."
-                )
+                Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                    Text(
+                        "How would you like to handle this session?",
+                        style = MaterialTheme.typography.bodyMedium
+                    )
+                    
+                    Button(
+                        onClick = {
+                            onReset(true)
+                            showResetDialog = false
+                        },
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
+                    ) {
+                        Icon(Icons.Default.CheckCircle, null, modifier = Modifier.size(18.dp))
+                        Spacer(Modifier.width(8.dp))
+                        Text("Finish & Archive (Locked)")
+                    }
+
+                    Button(
+                        onClick = {
+                            onReset(false)
+                            showResetDialog = false
+                        },
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = MaterialTheme.colorScheme.secondaryContainer,
+                            contentColor = MaterialTheme.colorScheme.onSecondaryContainer
+                        )
+                    ) {
+                        Icon(Icons.Default.History, null, modifier = Modifier.size(18.dp))
+                        Spacer(Modifier.width(8.dp))
+                        Text("Resume Later")
+                    }
+                }
             },
-            confirmButton = {
-                Button(
-                    onClick = {
-                        onReset()
-                        showResetDialog = false
-                    },
-                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
-                ) { Text("End & Archive") }
-            },
+            confirmButton = {},
             dismissButton = {
-                TextButton(onClick = { showResetDialog = false }) { Text("Keep Playing") }
+                TextButton(onClick = { showResetDialog = false }) { Text("Stay & Play") }
             }
         )
     }
@@ -164,7 +240,11 @@ fun GameScreen(
     }
 
     val lastScoreEvent = remember(globalEvents, canUndo) {
-        if (canUndo) globalEvents.lastOrNull { it.type == GameEventType.SCORE } else null
+        if (canUndo) globalEvents.lastOrNull { it.type == GameEventType.SCORE || it.type == GameEventType.CORRECTION } else null
+    }
+
+    val mostRecentChange = remember(globalEvents) {
+        globalEvents.lastOrNull { it.type == GameEventType.SCORE || it.type == GameEventType.CORRECTION }
     }
 
     if (showUndoConfirmation && lastScoreEvent != null) {
@@ -256,7 +336,7 @@ fun GameScreen(
     }
 
     if (showHelp) {
-        HelpDialog(onDismiss = { showHelp = false })
+        GameHelpSheet(onDismiss = { showHelp = false })
     }
 
     Scaffold(
@@ -274,25 +354,39 @@ fun GameScreen(
                     )
                 },
                 navigationIcon = {
-                    IconButton(onClick = { showResetDialog = true }) {
-                        Icon(
-                            Icons.Default.Close,
-                            "End Session",
-                            tint = MaterialTheme.colorScheme.error
-                        )
+                    TextButton(
+                        onClick = { showResetDialog = true },
+                        colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error)
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(
+                                Icons.Default.Close,
+                                "End Session",
+                                modifier = Modifier.size(18.dp)
+                            )
+                            Spacer(Modifier.width(4.dp))
+                            Text("End", style = MaterialTheme.typography.labelLarge)
+                        }
                     }
                 },
                 actions = {
-                    IconButton(onClick = { showUndoConfirmation = true }, enabled = canUndo) {
-                        Icon(
-                            Icons.AutoMirrored.Filled.Undo,
-                            "Undo Last",
-                            tint = if (canUndo) {
-                                MaterialTheme.colorScheme.primary
-                            } else {
-                                MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f)
-                            }
+                    TextButton(
+                        onClick = { showUndoConfirmation = true },
+                        enabled = canUndo,
+                        colors = ButtonDefaults.textButtonColors(
+                            contentColor = MaterialTheme.colorScheme.primary,
+                            disabledContentColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f)
                         )
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(
+                                Icons.AutoMirrored.Filled.Undo,
+                                "Undo Last",
+                                modifier = Modifier.size(18.dp)
+                            )
+                            Spacer(Modifier.width(4.dp))
+                            Text("Undo", style = MaterialTheme.typography.labelLarge)
+                        }
                     }
                 },
                 windowInsets = WindowInsets(top = 32.dp),
@@ -328,6 +422,7 @@ fun GameScreen(
                     BottomNavItem(
                         icon = Icons.Default.History,
                         label = "History",
+                        hasBadge = showHistoryBadge,
                         onClick = { showHistoryDialog = true }
                     )
                     BottomNavItem(
@@ -353,37 +448,81 @@ fun GameScreen(
             .fillMaxSize()
             .padding(padding)
             .consumeWindowInsets(padding)
+            .imePadding()
 
         Column(modifier = contentModifier) {
-            if (!settings.strictTurnMode) {
-                Surface(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 8.dp),
-                    shape = RoundedCornerShape(8.dp),
-                    color = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.4f),
-                    tonalElevation = 2.dp
-                ) {
-                    Row(
-                        modifier = Modifier.padding(12.dp, 8.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.Center
+            // Mode Status Banners (Free Edit or Strict) with Timeout
+            AnimatedVisibility(
+                visible = showTemporaryBanner && settings.showStrictModeBanner,
+                enter = fadeIn() + scaleIn(initialScale = 0.95f),
+                exit = fadeOut() + scaleOut(targetScale = 0.95f)
+            ) {
+                if (settings.strictTurnMode) {
+                    // Strict Mode Banner
+                    Surface(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp, vertical = 8.dp),
+                        shape = RoundedCornerShape(12.dp),
+                        color = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.7f),
+                        tonalElevation = 0.dp
                     ) {
-                        Icon(
-                            Icons.Default.Info,
-                            null,
-                            modifier = Modifier.size(16.dp),
-                            tint = MaterialTheme.colorScheme.error
-                        )
-                        Spacer(Modifier.width(8.dp))
-                        Text(
-                            "Strict Mode is OFF. Anyone can edit any score.",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onErrorContainer
-                        )
+                        Row(
+                            modifier = Modifier.padding(12.dp, 8.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.Center
+                        ) {
+                            Icon(
+                                Icons.Default.Lock,
+                                null,
+                                modifier = Modifier.size(16.dp),
+                                tint = MaterialTheme.colorScheme.error
+                            )
+                            Spacer(Modifier.width(8.dp))
+                            Text(
+                                "Strict Mode Active: Unlock in Settings",
+                                style = MaterialTheme.typography.labelSmall,
+                                fontWeight = androidx.compose.ui.text.font.FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onErrorContainer
+                            )
+                        }
+                    }
+                } else {
+                    // Free Edit Mode Banner
+                    Surface(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp, vertical = 8.dp),
+                        shape = RoundedCornerShape(12.dp),
+                        color = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.5f),
+                        tonalElevation = 0.dp
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(12.dp, 8.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.Center
+                        ) {
+                            Icon(
+                                Icons.Default.LockOpen,
+                                null,
+                                modifier = Modifier.size(16.dp),
+                                tint = MaterialTheme.colorScheme.onSecondaryContainer
+                            )
+                            Spacer(Modifier.width(8.dp))
+                            Text(
+                                "Free Edit Mode: Anyone can score",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSecondaryContainer
+                            )
+                        }
                     }
                 }
             }
+
+
+
+            val isImeVisible = WindowInsets.isImeVisible
+            val listBottomPadding = if (isImeVisible) 16.dp else 88.dp
 
             if (settings.defaultLayout == ScoreboardLayout.GRID) {
                 if (selectionForHeader != null) {
@@ -393,6 +532,7 @@ fun GameScreen(
                             isLeader = selectionForHeader.id == leaderId,
                             isCurrentTurn = selectionForHeader.id == currentPlayerId,
                             isStrictTurnMode = settings.strictTurnMode,
+                            lastPoints = if (selectionForHeader.id == mostRecentChange?.playerId) mostRecentChange.points else null,
                             onAdd = { pts ->
                                 if (settings.hapticFeedbackEnabled) {
                                     haptic.performHapticFeedback(HapticFeedbackType.LongPress)
@@ -418,7 +558,8 @@ fun GameScreen(
                     modifier = Modifier
                         .fillMaxWidth()
                         .weight(1f),
-                    contentPadding = PaddingValues(16.dp),
+                    state = lazyGridState,
+                    contentPadding = PaddingValues(start = 16.dp, top = 16.dp, end = 16.dp, bottom = listBottomPadding),
                     horizontalArrangement = Arrangement.spacedBy(12.dp),
                     verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
@@ -432,6 +573,7 @@ fun GameScreen(
                             isLeader = isLeader,
                             isCurrent = isSelected,
                             isActualTurn = isActualTurn,
+                            lastPoints = if (player.id == mostRecentChange?.playerId) mostRecentChange.points else null,
                             onClick = {
                                 localHeaderSelection = player.id
                                 if (!settings.strictTurnMode) {
@@ -446,7 +588,8 @@ fun GameScreen(
                     modifier = Modifier
                         .fillMaxWidth()
                         .weight(1f),
-                    contentPadding = PaddingValues(16.dp),
+                    state = lazyListState,
+                    contentPadding = PaddingValues(start = 16.dp, top = 16.dp, end = 16.dp, bottom = listBottomPadding),
                     verticalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
                     items(activePlayers, key = { it.id }) { player ->
@@ -458,6 +601,7 @@ fun GameScreen(
                             isLeader = isLeader,
                             isCurrentTurn = isTurn,
                             isStrictTurnMode = settings.strictTurnMode,
+                            lastPoints = if (player.id == mostRecentChange?.playerId) mostRecentChange.points else null,
                             onAdd = { pts ->
                                 if (settings.hapticFeedbackEnabled) {
                                     haptic.performHapticFeedback(HapticFeedbackType.LongPress)

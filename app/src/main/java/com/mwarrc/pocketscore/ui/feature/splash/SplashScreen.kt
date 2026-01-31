@@ -73,7 +73,7 @@ fun SplashScreen(
     LaunchedEffect(Unit) {
         visible = true
         // Keep existing behavior for now; can be made data-driven later
-        delay(2800)
+        delay(1800)
         onTimeout()
     }
 

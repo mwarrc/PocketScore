@@ -20,7 +20,7 @@ fun StrictModeInfoDialog(onDismissRequest: () -> Unit) {
         title = { Text("About Strict Mode", fontWeight = FontWeight.Bold) },
         text = {
             Text(
-                "Strict Mode is designed for competitive play. It prevents cheating and accidental score edits by locking the player roster and ensuring only the active player's score can be modified.\n\nTo turn OFF: Quickly tap the 'Strict Turn Mode' setting 3 times.",
+                "Strict Mode is designed for fair, competitive play. It prevents unauthorized edits by ensuring only the active player's score can be modified and locking the roster during a game.\n\nWhen 'Lock Scoring Rules' is enabled, these protections are forced ON and cannot be disabled until the match is finalized or reset.",
                 style = MaterialTheme.typography.bodyMedium
             )
         },

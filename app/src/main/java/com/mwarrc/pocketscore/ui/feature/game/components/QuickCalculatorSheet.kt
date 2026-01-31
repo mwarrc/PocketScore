@@ -17,8 +17,10 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Clear
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Remove
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.BottomSheetDefaults
 import androidx.compose.material3.Button
@@ -196,7 +198,14 @@ fun QuickCalculatorSheet(
                         }
                     },
                     modifier = Modifier.fillMaxWidth(),
-                    placeholder = { Text("e.g. 12 * 4 + 7") },
+                    placeholder = { 
+                        Text(
+                            "Enter numbers or sum (12 + 4)...", 
+                            style = MaterialTheme.typography.bodyMedium.copy(
+                                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
+                            )
+                        ) 
+                    },
                     singleLine = true,
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                     shape = RoundedCornerShape(16.dp),
@@ -241,7 +250,12 @@ fun QuickCalculatorSheet(
                             shape = RoundedCornerShape(12.dp),
                             contentPadding = PaddingValues(0.dp)
                         ) {
-                            Text(op, style = MaterialTheme.typography.titleLarge)
+                            when(op) {
+                                "+" -> Icon(Icons.Default.Add, contentDescription = "Add")
+                                "-" -> Icon(Icons.Default.Remove, contentDescription = "Subtract")
+                                "*" -> Text("×", style = MaterialTheme.typography.titleLarge)
+                                "/" -> Text("÷", style = MaterialTheme.typography.titleLarge)
+                            }
                         }
                     }
                 }
@@ -274,9 +288,9 @@ fun QuickCalculatorSheet(
                         modifier = Modifier.weight(1f),
                         shape = RoundedCornerShape(12.dp)
                     ) {
-                        Icon(Icons.Default.Check, null)
+                        Icon(Icons.Default.Close, null)
                         Spacer(Modifier.width(8.dp))
-                        Text("Done")
+                        Text("Close")
                     }
                 }
             }

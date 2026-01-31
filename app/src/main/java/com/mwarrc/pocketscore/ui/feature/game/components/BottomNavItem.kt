@@ -1,8 +1,12 @@
 package com.mwarrc.pocketscore.ui.feature.game.components
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -19,6 +23,7 @@ import androidx.compose.ui.unit.dp
 fun BottomNavItem(
     icon: ImageVector,
     label: String,
+    hasBadge: Boolean = false,
     onClick: () -> Unit
 ) {
     Column(
@@ -28,7 +33,29 @@ fun BottomNavItem(
             .clickable { onClick() }
             .padding(8.dp)
     ) {
-        Icon(icon, contentDescription = label, tint = MaterialTheme.colorScheme.onSurfaceVariant)
+        Box {
+            Icon(icon, contentDescription = label, tint = MaterialTheme.colorScheme.onSurfaceVariant)
+            if (hasBadge) {
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.TopEnd)
+                        .padding(top = 0.dp, end = 0.dp)
+                        .size(14.dp)
+                        .background(
+                            MaterialTheme.colorScheme.error,
+                            CircleShape
+                        ),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        "!",
+                        color = MaterialTheme.colorScheme.onError,
+                        style = MaterialTheme.typography.labelSmall,
+                        fontWeight = FontWeight.Black
+                    )
+                }
+            }
+        }
         Text(
             label,
             style = MaterialTheme.typography.labelSmall,

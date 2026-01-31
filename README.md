@@ -4,7 +4,7 @@ PocketScore is a modern, expressive, and user-friendly score-keeping application
 
 ---
 
-### 📥 [**Download Latest APK (v0.1.0)**](https://github.com/mwarrc/PocketScore/releases/download/v-0.1.0/PocketScore.apk)
+### 📥 [**Download Latest APK (v0.1.1)**](https://github.com/mwarrc/PocketScore/releases/download/v-0.1.1/PocketScore.apk)
 *Quick and direct installation for Android.*
 
 ---
@@ -18,26 +18,40 @@ PocketScore is a modern, expressive, and user-friendly score-keeping application
 ## Screenshots
 
 <div align="center">
-  <img src="Extras/screenshots/st_1.jpg" width="200" />
-  <img src="Extras/screenshots/st_2.jpg" width="200" />
-  <img src="Extras/screenshots/st_3.jpg" width="200" />
-  <img src="Extras/screenshots/st_4.jpg" width="200" />
-  <br>
-  <img src="Extras/screenshots/st_5.jpg" width="200" />
-  <img src="Extras/screenshots/st_6.jpg" width="200" />
-  <img src="Extras/screenshots/st_7.jpg" width="200" />
-  <img src="Extras/screenshots/st_8.jpg" width="200" />
+  <table>
+    <tr>
+      <td><img src="Extras/screenshots/screen_01.jpg" width="180" /></td>
+      <td><img src="Extras/screenshots/screen_02.jpg" width="180" /></td>
+      <td><img src="Extras/screenshots/screen_03.jpg" width="180" /></td>
+    </tr>
+    <tr>
+      <td><img src="Extras/screenshots/screen_04.jpg" width="180" /></td>
+      <td><img src="Extras/screenshots/screen_05.jpg" width="180" /></td>
+      <td><img src="Extras/screenshots/screen_06.jpg" width="180" /></td>
+    </tr>
+    <tr>
+      <td><img src="Extras/screenshots/screen_07.jpg" width="180" /></td>
+      <td><img src="Extras/screenshots/screen_08.jpg" width="180" /></td>
+      <td><img src="Extras/screenshots/screen_09.jpg" width="180" /></td>
+    </tr>
+  </table>
 </div>
+
+
 
 
 ## Features
 
-*   **Game Management**: Easily set up new games, add players, and track scores in real-time.
-*   **History Tracking**: Keep a record of all your past games. Never argue about who won last time again!
-*   **Expressive UI**: Enjoy a beautiful, modern interface with fluid animations, including a confetti celebration for winners.
-*   **Strict Mode**: Enforce strict turn-based rules for competitive consistency.
-*   **Dark/Light Mode**: Fully supports system themes (and it looks great in both!).
-*   **Local Persistence**: Your data is saved locally on your device using DataStore and managing JSON serialization.
+*   **Home Screen & Player Pool**: Quick access to saved players and streamlined game setup
+*   **Game Management**: Real-time score tracking with tactile haptic feedback
+*   **Backup & Data Sharing**: Local snapshots, import/export games, and share with friends via `.pscore` files
+*   **History Tracking**: Complete game archive with detailed statistics
+*   **Expressive UI**: Material You dynamic coloring, fluid animations, and confetti celebrations
+*   **Strict Mode**: Enforced turn-based rules with in-game help system
+*   **Privacy First**: Zero tracking, zero ads, 100% offline-first architecture
+*   **Open Source**: Fully transparent codebase built with modern Android best practices
+
+> 📋 See [CHANGELOG.md](CHANGELOG.md) for detailed version history and recent updates.
 
 ## Tech Stack
 

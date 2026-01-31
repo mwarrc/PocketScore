@@ -22,13 +22,24 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Extension
 import androidx.compose.material.icons.filled.Group
 import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.IosShare
+import androidx.compose.material.icons.filled.CloudDone
+import androidx.compose.material.icons.filled.CloudSync
+import androidx.compose.material.icons.filled.FileDownload
+import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.LockOpen
 import androidx.compose.material.icons.filled.Palette
 import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.Security
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.TouchApp
 import androidx.compose.material.icons.filled.ViewModule
+import androidx.compose.material.icons.outlined.GridView
+import androidx.compose.material.icons.outlined.ViewAgenda
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CenterAlignedTopAppBar
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -41,12 +52,19 @@ import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
+import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState 
+import androidx.compose.runtime.LaunchedEffect
+import kotlinx.coroutines.launch
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -66,11 +84,23 @@ fun SettingsScreen(
     onUpdateSettings: ((AppSettings) -> AppSettings) -> Unit,
     onNavigateToGame: () -> Unit,
     onNavigateToHistory: () -> Unit,
-    onNavigateToAbout: () -> Unit
+    onNavigateToAbout: () -> Unit,
+    onExportBackup: () -> Unit,
+    onImportBackup: () -> Unit,
+    onNavigateToBackups: () -> Unit
 ) {
-    var strictModeTapCount by remember { mutableStateOf(0) }
-    var lastTapTime by remember { mutableStateOf(0L) }
     var showStrictModeInfo by remember { mutableStateOf(false) }
+    var showEnforceDialog by remember { mutableStateOf(false) }
+    var upcomingFeaturesClickCount by remember { mutableIntStateOf(0) }
+    val snackbarHostState = remember { SnackbarHostState() }
+    val scope = rememberCoroutineScope()
+    
+    // Reset click count when disabled
+    LaunchedEffect(settings.showComingSoonFeatures) {
+        if (!settings.showComingSoonFeatures) {
+            upcomingFeaturesClickCount = 0
+        }
+    }
 
     Scaffold(
         modifier = Modifier.fillMaxSize(),
@@ -99,7 +129,8 @@ fun SettingsScreen(
                 },
                 windowInsets = WindowInsets(top = 32.dp)
             )
-        }
+        },
+        snackbarHost = { SnackbarHost(hostState = snackbarHostState) }
     ) { padding ->
         Column(
             modifier = Modifier
@@ -147,50 +178,77 @@ fun SettingsScreen(
             )
 
             SettingsItem(
-                title = "Strict Turn Mode",
-                subtitle = if (settings.strictTurnMode) "Security Active" else "Quick play enabled",
-                icon = if (settings.strictTurnMode) Icons.Default.Lock else Icons.Default.LockOpen,
-                onIconClick = { showStrictModeInfo = true },
-                modifier = Modifier.clickable {
-                    if (!settings.strictTurnMode) {
-                        onUpdateSettings { it.copy(strictTurnMode = true) }
-                    } else {
-                        val now = System.currentTimeMillis()
-                        if (now - lastTapTime < 500) {
-                            strictModeTapCount++
-                        } else {
-                            strictModeTapCount = 1
-                        }
-                        lastTapTime = now
-
-                        if (strictModeTapCount >= 3) {
-                            onUpdateSettings { it.copy(strictTurnMode = false) }
-                            strictModeTapCount = 0
-                        }
-                    }
-                },
+                title = "Saved Players",
+                subtitle = "Show saved players on Home Screen",
+                icon = Icons.Default.Group,
                 trailing = {
-                    Surface(
-                        shape = RoundedCornerShape(12.dp),
-                        color = if (settings.strictTurnMode) {
-                            MaterialTheme.colorScheme.primaryContainer
-                        } else {
-                            MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
-                        },
-                        modifier = Modifier.padding(start = 8.dp)
-                    ) {
-                        Text(
-                            text = if (settings.strictTurnMode) "ON" else "OFF",
-                            style = MaterialTheme.typography.labelLarge,
-                            fontWeight = FontWeight.Black,
-                            color = if (settings.strictTurnMode) {
-                                MaterialTheme.colorScheme.onPrimaryContainer
+                    Switch(
+                        checked = settings.showQuickSelectOnHome,
+                        onCheckedChange = { enabled ->
+                            onUpdateSettings { it.copy(showQuickSelectOnHome = enabled) }
+                        }
+                    )
+                }
+            )
+
+            SettingsItem(
+                title = "Lock Scoring Rules",
+                subtitle = if (settings.enforceStrictMode) "Strict Mode cannot be disabled in-game" else "Enable to lock turn-based security",
+                icon = if (settings.enforceStrictMode) Icons.Default.Lock else Icons.Default.LockOpen,
+                onIconClick = { showStrictModeInfo = true },
+                trailing = {
+                    Switch(
+                        checked = settings.enforceStrictMode,
+                        onCheckedChange = { enabled ->
+                            if (enabled) {
+                                showEnforceDialog = true
                             } else {
-                                MaterialTheme.colorScheme.onSurfaceVariant
-                            },
-                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
+                                onUpdateSettings { it.copy(enforceStrictMode = false) }
+                            }
+                        },
+                        colors = SwitchDefaults.colors(
+                            checkedThumbColor = MaterialTheme.colorScheme.error,
+                            checkedTrackColor = MaterialTheme.colorScheme.errorContainer,
+                            checkedBorderColor = MaterialTheme.colorScheme.error
                         )
+                    )
+                }
+            )
+
+            if (showEnforceDialog) {
+                AlertDialog(
+                    onDismissRequest = { showEnforceDialog = false },
+                    icon = { Icon(Icons.Default.Security, null, tint = MaterialTheme.colorScheme.error) },
+                    title = { Text("Enforce Strict Mode?") },
+                    text = {
+                        Text("When this is enabled, 'Strict Turn Mode' will be forced ON and cannot be turned off during a game session. Only disable this if you trust all players.")
+                    },
+                    confirmButton = {
+                        Button(
+                            onClick = {
+                                onUpdateSettings { it.copy(enforceStrictMode = true, strictTurnMode = true) }
+                                showEnforceDialog = false
+                            },
+                            colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
+                        ) { Text("Confirm Lock") }
+                    },
+                    dismissButton = {
+                        TextButton(onClick = { showEnforceDialog = false }) { Text("Cancel") }
                     }
+                )
+            }
+
+            SettingsItem(
+                title = "In-Match Mode Alerts",
+                subtitle = "Banner when mode changes (Strict/Free)",
+                icon = Icons.Default.Info,
+                trailing = {
+                    Switch(
+                        checked = settings.showStrictModeBanner,
+                        onCheckedChange = { enabled ->
+                            onUpdateSettings { it.copy(showStrictModeBanner = enabled) }
+                        }
+                    )
                 }
             )
 
@@ -198,19 +256,7 @@ fun SettingsScreen(
                 StrictModeInfoDialog(onDismissRequest = { showStrictModeInfo = false })
             }
 
-            SettingsItem(
-                title = "Upcoming Features",
-                subtitle = "Toggle 'Coming Soon' visibility in setup",
-                icon = Icons.Default.Extension,
-                trailing = {
-                    Switch(
-                        checked = settings.showComingSoonFeatures,
-                        onCheckedChange = { enabled ->
-                            onUpdateSettings { it.copy(showComingSoonFeatures = enabled) }
-                        }
-                    )
-                }
-            )
+
 
             SettingsDivider(alpha = 0.5f)
 
@@ -269,29 +315,56 @@ fun SettingsScreen(
                 }
             }
 
-            SettingsItem(
-                title = "Default Layout",
-                subtitle = "Preferred scoreboard view",
-                icon = Icons.Default.ViewModule,
-                trailing = {
-                    val isGrid = settings.defaultLayout == ScoreboardLayout.GRID
-                    TextButton(
-                        onClick = {
-                            onUpdateSettings {
-                                it.copy(
-                                    defaultLayout = if (isGrid) {
-                                        ScoreboardLayout.LIST
-                                    } else {
-                                        ScoreboardLayout.GRID
-                                    }
-                                )
-                            }
-                        }
-                    ) {
-                        Text(if (isGrid) "Grid" else "List")
+            Column(modifier = Modifier.fillMaxWidth()) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(16.dp)
+                ) {
+                    Icon(Icons.Default.ViewModule, null, tint = MaterialTheme.colorScheme.primary)
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text("Default Layout", style = MaterialTheme.typography.titleMedium)
+                        Text(
+                            "Preferred scoreboard view",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
                     }
                 }
-            )
+                Spacer(Modifier.height(12.dp))
+                SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
+                    val options = listOf("Grid", "List")
+                    options.forEachIndexed { index, label ->
+                        val isGridChoice = label == "Grid"
+                        val isSelected = (settings.defaultLayout == ScoreboardLayout.GRID && isGridChoice) ||
+                                       (settings.defaultLayout == ScoreboardLayout.LIST && !isGridChoice)
+                        
+                        SegmentedButton(
+                            shape = SegmentedButtonDefaults.itemShape(
+                                index = index,
+                                count = options.size
+                            ),
+                            onClick = {
+                                onUpdateSettings { 
+                                    it.copy(defaultLayout = if (isGridChoice) ScoreboardLayout.GRID else ScoreboardLayout.LIST) 
+                                }
+                            },
+                            selected = isSelected,
+                            label = { 
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Icon(
+                                        if (isGridChoice) Icons.Outlined.GridView else Icons.Outlined.ViewAgenda,
+                                        null,
+                                        modifier = Modifier.size(16.dp)
+                                    )
+                                    Spacer(Modifier.width(8.dp))
+                                    Text(label, style = MaterialTheme.typography.labelSmall)
+                                }
+                            }
+                        )
+                    }
+                }
+            }
 
             SettingsDivider(alpha = 0.5f)
 
@@ -332,6 +405,70 @@ fun SettingsScreen(
             }
 
             Spacer(Modifier.height(8.dp))
+
+            // BACKUP & SHARING
+            Text(
+                "Backup & Sharing",
+                style = MaterialTheme.typography.labelLarge,
+                color = MaterialTheme.colorScheme.primary,
+                fontWeight = FontWeight.Bold,
+                modifier = Modifier.padding(start = 4.dp)
+            )
+
+            SettingsItem(
+                title = "Export Backup",
+                subtitle = "Share history and friends as a file",
+                icon = Icons.Default.IosShare,
+                onClick = onExportBackup
+            )
+
+            SettingsItem(
+                title = "Import Backup",
+                subtitle = "Load data from a .pscore file",
+                icon = Icons.Default.FileDownload,
+                onClick = onImportBackup
+            )
+
+            SettingsItem(
+                title = "Backup Center",
+                subtitle = "Manage local snapshots and history",
+                icon = Icons.Default.Security,
+                onClick = onNavigateToBackups
+            )
+
+            Surface(
+                color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.2f),
+                shape = RoundedCornerShape(12.dp),
+                modifier = Modifier.fillMaxWidth().padding(top = 4.dp)
+            ) {
+                Row(
+                    modifier = Modifier.padding(12.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(
+                        Icons.Default.Security,
+                        null,
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(20.dp)
+                    )
+                    Spacer(Modifier.width(12.dp))
+                    Column {
+                        Text(
+                            "Safe Snapshot System",
+                            style = MaterialTheme.typography.labelMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                        Text(
+                            "Automatic daily snapshots and manual recovery points to keep your data safe.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+            }
+
+            SettingsDivider(alpha = 0.5f)
 
             // ABOUT LINK - SEPARATED
             Surface(
@@ -381,7 +518,7 @@ fun SettingsScreen(
             }
 
             Text(
-                "v0.1.0-expressive",
+                "v0.1.1-expressive",
                 modifier = Modifier.fillMaxWidth(),
                 textAlign = TextAlign.Center,
                 style = MaterialTheme.typography.labelSmall,

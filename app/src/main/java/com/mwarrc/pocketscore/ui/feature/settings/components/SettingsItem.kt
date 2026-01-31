@@ -26,13 +26,20 @@ fun SettingsItem(
     icon: ImageVector,
     modifier: Modifier = Modifier,
     onIconClick: (() -> Unit)? = null,
+    onClick: (() -> Unit)? = null,
     trailing: @Composable () -> Unit = { }
 ) {
-    Row(
-        modifier = modifier.fillMaxWidth(),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(16.dp)
+    Surface(
+        onClick = { onClick?.invoke() },
+        enabled = onClick != null,
+        color = Color.Transparent,
+        modifier = modifier.fillMaxWidth()
     ) {
+        Row(
+            modifier = Modifier.padding(vertical = 8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
         if (onIconClick != null) {
             Surface(
                 onClick = onIconClick,
@@ -62,6 +69,7 @@ fun SettingsItem(
             )
         }
         trailing()
+        }
     }
 }
 
