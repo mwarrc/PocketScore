@@ -4,7 +4,7 @@ PocketScore is a modern, expressive, and user-friendly score-keeping application
 
 ---
 
-### 📥 [**Download Latest APK (v0.1.1)**](https://github.com/mwarrc/PocketScore/releases/download/v-0.1.1/PocketScore.apk)
+### 📥 [**Download Latest APK (v0.1.1)**](https://github.com/mwarrc/PocketScore/releases/download/v0.1.1-expressive/PocketScore.v0.1.1-expressive.apk)
 *Quick and direct installation for Android.*
 
 ---
