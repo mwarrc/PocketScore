@@ -1,0 +1,41 @@
+workflows:
+  android-release:
+    name: "PocketScore Android Release"
+    max_build_duration: 60
+    instance_type: "mac_mini_m2"
+    environment:
+      java: 17
+      groups:
+        - "keystore_credentials"
+      vars:
+        PACKAGE_NAME: "com.mwarrc.pocketscore"
+    cache:
+      cache_paths:
+        - $HOME/.gradle/caches
+        - $HOME/.gradle/wrapper
+    scripts:
+      - name: "Set up local.properties"
+        script: |
+          echo "sdk.dir=$ANDROID_SDK_ROOT" > local.properties
+      - name: "Static analysis (Lint)"
+        script: |
+          ./gradlew lintRelease
+      - name: "Unit tests"
+        script: |
+          ./gradlew testReleaseUnitTest
+      - name: "Build Android APK"
+        script: |
+          ./gradlew assembleRelease
+      - name: "Build Android App Bundle (AAB)"
+        script: |
+          ./gradlew bundleRelease
+    artifacts:
+      - "app/build/outputs/apk/release/*.apk"
+      - "app/build/outputs/bundle/release/*.aab"
+    publishing:
+      email:
+        recipients:
+          - $NOTIFICATION_EMAIL
+        notify:
+          success: true
+          failure: true
