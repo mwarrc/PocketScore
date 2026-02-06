@@ -6,10 +6,13 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.background
+import androidx.compose.ui.graphics.Color
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -95,12 +98,37 @@ fun GameHistoryDialog(
 }
 
 @Composable
+private fun getPlayerColor(name: String): Color {
+    val colors = listOf(
+        Color(0xFF0061A4), // Vibrant Blue
+        Color(0xFF006E1C), // Forest Green
+        Color(0xFF984061), // Berry/Pink
+        Color(0xFF6750A4), // Deep Purple
+        Color(0xFF8B5000), // Rich Orange
+        Color(0xFF006A6A), // Teal
+        Color(0xFFBA1A1A), // Bright Red
+        Color(0xFF626200)  // Olive/Gold
+    )
+    if (name.isBlank()) return MaterialTheme.colorScheme.surfaceVariant
+    val index = Math.abs(name.hashCode()) % colors.size
+    return colors[index]
+}
+
+@Composable
 private fun EventItem(event: GameEvent) {
+    val playerColor = if (!event.playerName.isNullOrBlank()) {
+        getPlayerColor(event.playerName)
+    } else {
+        null
+    }
+
+    val isDark = androidx.compose.foundation.isSystemInDarkTheme()
     val cardColor = when {
-        event.type == GameEventType.UNDO -> MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.5f)
-        event.type == GameEventType.STATUS_CHANGE -> MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.7f)
-        event.isZeroInput -> MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.5f)
-        else -> MaterialTheme.colorScheme.surfaceVariant
+        event.type == GameEventType.UNDO -> MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.4f)
+        event.type == GameEventType.STATUS_CHANGE -> MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.5f)
+        event.isZeroInput -> MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.4f)
+        playerColor != null -> playerColor.copy(alpha = if (isDark) 0.25f else 0.15f)
+        else -> MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f)
     }
 
     val icon = when {
@@ -112,71 +140,104 @@ private fun EventItem(event: GameEvent) {
 
     Card(
         colors = CardDefaults.cardColors(containerColor = cardColor),
-        shape = RoundedCornerShape(8.dp),
-        modifier = Modifier.fillMaxWidth()
+        shape = RoundedCornerShape(12.dp),
+        modifier = Modifier.fillMaxWidth(),
+        border = androidx.compose.foundation.BorderStroke(
+            1.5.dp, 
+            playerColor?.copy(alpha = 0.4f) ?: MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f)
+        )
     ) {
         Row(
-            modifier = Modifier.padding(12.dp),
+            modifier = Modifier.fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Icon(
-                imageVector = icon,
-                contentDescription = null,
-                tint = if (event.type == GameEventType.STATUS_CHANGE) {
-                    MaterialTheme.colorScheme.primary
-                } else {
-                    MaterialTheme.colorScheme.onSurfaceVariant
-                },
-                modifier = Modifier.size(20.dp)
-            )
-            Spacer(modifier = Modifier.width(12.dp))
-            Column {
-                val text = when (event.type) {
-                    GameEventType.SCORE -> "${event.playerName} scored ${event.points}"
-                    GameEventType.UNDO -> "Undo action on ${event.playerName}"
-                    GameEventType.CORRECTION -> "Correction on ${event.playerName}"
-                    GameEventType.STATUS_CHANGE -> event.message ?: "Status changed for ${event.playerName}"
-                }
-
-                Text(
-                    text = text,
-                    style = MaterialTheme.typography.bodyMedium,
-                    fontWeight = FontWeight.Bold
+            // Player Accent Bar - Now more prominent
+            if (playerColor != null) {
+                Box(
+                    modifier = Modifier
+                        .width(6.dp)
+                        .height(72.dp)
+                        .background(playerColor.copy(alpha = 0.8f))
                 )
-
-                when {
-                    event.isZeroInput -> {
-                        Text(
-                            text = "ZERO INPUT DETECTED: ${event.playerName} GOT A ZERO",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.tertiary,
-                            fontWeight = FontWeight.ExtraBold
-                        )
-                    }
-                    event.type == GameEventType.STATUS_CHANGE -> {
-                        Text(
-                            text = "IMPORTANT: GAME ELIGIBILITY UPDATED",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.primary,
-                            fontWeight = FontWeight.ExtraBold
-                        )
-                    }
-                    else -> {
-                        Text(
-                            text = formatTimeAgo(event.timestamp),
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-                }
             }
-            Spacer(modifier = Modifier.weight(1f))
-            if (event.type == GameEventType.SCORE) {
-                Text(
-                    text = "${if (event.points > 0) "+" else ""}${event.points}",
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold
+
+            Row(
+                modifier = Modifier.padding(12.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Icon(
+                    imageVector = icon,
+                    contentDescription = null,
+                    tint = when {
+                        event.type == GameEventType.STATUS_CHANGE -> MaterialTheme.colorScheme.primary
+                        playerColor != null -> playerColor.copy(alpha = if (isDark) 0.9f else 1f)
+                        else -> MaterialTheme.colorScheme.onSurfaceVariant
+                    },
+                    modifier = Modifier.size(22.dp)
                 )
+                Spacer(modifier = Modifier.width(12.dp))
+                Column {
+                    val text = when (event.type) {
+                        GameEventType.SCORE -> {
+                            if (event.previousScore != null && event.newScore != null) {
+                                "${event.playerName}: ${event.previousScore} ➝ ${event.newScore}"
+                            } else {
+                                "${event.playerName} scored ${event.points}"
+                            }
+                        }
+                        GameEventType.UNDO -> {
+                            if (event.previousScore != null && event.newScore != null) {
+                                "Undo: ${event.previousScore} ➝ ${event.newScore}"
+                            } else {
+                                "Undo action on ${event.playerName}"
+                            }
+                        }
+                        GameEventType.CORRECTION -> "Correction on ${event.playerName}"
+                        GameEventType.STATUS_CHANGE -> event.message ?: "Status changed for ${event.playerName}"
+                    }
+
+                    Text(
+                        text = text,
+                        style = MaterialTheme.typography.bodyMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = playerColor?.copy(alpha = if (isDark) 1f else 0.85f) ?: MaterialTheme.colorScheme.onSurface
+                    )
+
+                    when {
+                        event.isZeroInput -> {
+                            Text(
+                                text = "ZERO INPUT DETECTED",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.tertiary,
+                                fontWeight = FontWeight.ExtraBold
+                            )
+                        }
+                        event.type == GameEventType.STATUS_CHANGE -> {
+                            Text(
+                                text = "IMPORTANT: GAME ELIGIBILITY UPDATED",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.primary,
+                                fontWeight = FontWeight.ExtraBold
+                            )
+                        }
+                        else -> {
+                            Text(
+                                text = formatTimeAgo(event.timestamp),
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f)
+                            )
+                        }
+                    }
+                }
+                Spacer(modifier = Modifier.weight(1f))
+                if (event.type == GameEventType.SCORE) {
+                    Text(
+                        text = "${if (event.points > 0) "+" else ""}${event.points}",
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.Black,
+                        color = playerColor?.copy(alpha = if (isDark) 1f else 0.9f) ?: MaterialTheme.colorScheme.onSurface
+                    )
+                }
             }
         }
     }

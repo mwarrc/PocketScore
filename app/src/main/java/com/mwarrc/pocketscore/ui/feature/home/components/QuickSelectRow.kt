@@ -57,12 +57,16 @@ fun QuickSelectRow(
             LazyRow(
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                items(savedPlayerNames) { name ->
+                val sortedNames = savedPlayerNames.sortedByDescending { savedName -> 
+                    currentNames.any { it.trim().equals(savedName.trim(), ignoreCase = true) }
+                }
+                items(sortedNames) { name ->
+                    val isSelected = currentNames.any { it.trim().equals(name.trim(), ignoreCase = true) }
                     FilterChip(
-                        selected = currentNames.contains(name),
+                        selected = isSelected,
                         onClick = { onSelectName(name) },
                         label = { Text(name, style = MaterialTheme.typography.labelLarge) },
-                        leadingIcon = if (currentNames.contains(name)) {
+                        leadingIcon = if (isSelected) {
                             { Icon(Icons.Default.Check, contentDescription = null, modifier = Modifier.size(18.dp)) }
                         } else null
                     )

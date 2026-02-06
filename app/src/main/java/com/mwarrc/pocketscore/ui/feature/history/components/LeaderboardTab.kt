@@ -21,34 +21,63 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.mwarrc.pocketscore.domain.model.AppSettings
 import com.mwarrc.pocketscore.domain.model.GameHistory
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 
 data class LeaderboardEntry(
     val name: String,
     val wins: Int,
+    val losses: Int,
     val gamesPlayed: Int,
     val winRate: Float,
     val totalPoints: Int,
-    val avgScore: Float
+    val avgScore: Float,
+    val bestScore: Int
 )
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun LeaderboardTab(
-    history: GameHistory
+    history: GameHistory,
+    settings: AppSettings
 ) {
-    val leaderboard: List<LeaderboardEntry> = remember(history) {
+    var selectedFilter by remember { mutableStateOf("All-Time") }
+    val filters = listOf("All-Time", "Today")
+
+    val leaderboard: List<LeaderboardEntry> = remember(history, selectedFilter, settings.hiddenPlayers) {
         val statsMap = mutableMapOf<String, MutableList<Int>>()
         val totalWins = mutableMapOf<String, Int>()
+        val totalLosses = mutableMapOf<String, Int>()
         
-        history.pastGames.forEach { game ->
-            val winner = if (game.isFinalized) game.players.maxByOrNull { it.score } else null
+        val today = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(Date())
+        
+        val filteredGames = if (selectedFilter == "Today") {
+            history.pastGames.filter { 
+                SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(Date(it.endTime ?: it.startTime)) == today 
+            }
+        } else {
+            history.pastGames
+        }
+
+        filteredGames.forEach { game ->
+            val sortedPlayers = game.players
+                .filter { it.name.trim().isNotEmpty() && it.name.trim() !in settings.hiddenPlayers }
+                .sortedByDescending { it.score }
+            val winner = if (game.isFinalized && sortedPlayers.isNotEmpty()) sortedPlayers.first() else null
             
             game.players.forEach { player ->
                 val name = player.name.trim()
-                if (name.isNotEmpty()) {
+                if (name.isNotEmpty() && name !in settings.hiddenPlayers) {
                     statsMap.getOrPut(name) { mutableListOf() }.add(player.score)
-                    if (winner != null && winner.name.trim() == name) {
-                        totalWins[name] = (totalWins[name] ?: 0) + 1
+                    if (winner != null) {
+                        if (winner.name.trim() == name) {
+                            totalWins[name] = (totalWins[name] ?: 0) + 1
+                        } else {
+                            totalLosses[name] = (totalLosses[name] ?: 0) + 1
+                        }
                     }
                 }
             }
@@ -56,14 +85,17 @@ fun LeaderboardTab(
         
         statsMap.map { (name, scores) ->
             val wins = totalWins[name] ?: 0
+            val losses = totalLosses[name] ?: 0
             val played = scores.size
             LeaderboardEntry(
                 name = name,
                 wins = wins,
+                losses = losses,
                 gamesPlayed = played,
                 winRate = if (played > 0) (wins.toFloat() / played.toFloat()) * 100f else 0f,
                 totalPoints = scores.sum(),
-                avgScore = if (played > 0) scores.average().toFloat() else 0f
+                avgScore = if (played > 0) scores.average().toFloat() else 0f,
+                bestScore = scores.maxOrNull() ?: 0
             )
         }.sortedWith(
             compareByDescending<LeaderboardEntry> { it.wins }
@@ -77,6 +109,21 @@ fun LeaderboardTab(
         contentPadding = PaddingValues(16.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
+        item {
+            SingleChoiceSegmentedButtonRow(
+                modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp)
+            ) {
+                filters.forEachIndexed { index, filter ->
+                    SegmentedButton(
+                        shape = SegmentedButtonDefaults.itemShape(index = index, count = filters.size),
+                        onClick = { selectedFilter = filter },
+                        selected = selectedFilter == filter,
+                        label = { Text(filter) }
+                    )
+                }
+            }
+        }
+
         if (leaderboard.isEmpty()) {
             item {
                 Box(
@@ -94,7 +141,7 @@ fun LeaderboardTab(
                         )
                         Spacer(Modifier.height(16.dp))
                         Text(
-                            "No data for leaderboard",
+                            "No Data for $selectedFilter",
                             style = MaterialTheme.typography.titleMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -102,16 +149,7 @@ fun LeaderboardTab(
                 }
             }
         } else {
-            item {
-                Text(
-                    "All-Time Ranking",
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.primary
-                )
-            }
-
-            itemsIndexed(leaderboard) { index, entry ->
+            itemsIndexed(leaderboard, key = { _, entry -> "${selectedFilter}_${entry.name}" }) { index, entry ->
                 LeaderboardCard(index + 1, entry)
             }
             
@@ -126,113 +164,103 @@ fun LeaderboardCard(
     entry: LeaderboardEntry
 ) {
     val rankColor = when (rank) {
-        1 -> Color(0xFFFFC107) // Premium Gold (Vibrant)
-        2 -> Color(0xFF90A4AE) // Metallic Silver (Distinct Blue-Gray)
-        3 -> Color(0xFFB08D57) // Classic Bronze
+        1 -> Color(0xFFFFC107) // Gold
+        2 -> Color(0xFF90A4AE) // Silver
+        3 -> Color(0xFFB08D57) // Bronze
         else -> MaterialTheme.colorScheme.secondary.copy(alpha = 0.1f)
     }
 
     Card(
-        shape = RoundedCornerShape(20.dp),
+        shape = RoundedCornerShape(24.dp),
         modifier = Modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(
-            containerColor = if (rank <= 3) rankColor.copy(alpha = 0.25f) 
-                            else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f)
+            containerColor = if (rank <= 3) rankColor.copy(alpha = 0.15f) 
+                            else MaterialTheme.colorScheme.surface
         ),
-        border = if (rank <= 3) androidx.compose.foundation.BorderStroke(2.dp, rankColor.copy(alpha = 0.6f)) else null
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+        border = if (rank <= 3) {
+            androidx.compose.foundation.BorderStroke(2.dp, rankColor.copy(alpha = 0.4f))
+        } else {
+            androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+        }
     ) {
-        Row(
-            modifier = Modifier.padding(16.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            // Rank Badge
-            Surface(
-                shape = CircleShape,
-                color = if (rank <= 3) rankColor else MaterialTheme.colorScheme.outline.copy(alpha = 0.15f),
-                modifier = Modifier.size(42.dp)
+        Column(modifier = Modifier.padding(16.dp)) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                Box(contentAlignment = Alignment.Center) {
-                    if (rank <= 3) {
-                        Icon(
-                            Icons.Default.Star,
-                            null,
-                            tint = if (rank == 1) Color(0xFF3E2723) else Color.White,
-                            modifier = Modifier.size(24.dp)
-                        )
-                    } else {
+                // Rank & Name
+                Surface(
+                    shape = CircleShape,
+                    color = if (rank <= 3) rankColor else MaterialTheme.colorScheme.surfaceVariant,
+                    modifier = Modifier.size(36.dp)
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
                         Text(
                             "$rank",
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                            style = MaterialTheme.typography.titleSmall,
+                            fontWeight = FontWeight.ExtraBold,
+                            color = if (rank <= 3) Color.White else MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
                 }
-            }
 
-            Spacer(Modifier.width(16.dp))
+                Spacer(Modifier.width(12.dp))
 
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    entry.name,
-                    style = MaterialTheme.typography.titleLarge,
-                    fontWeight = FontWeight.ExtraBold
-                )
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(
-                        Icons.Default.EmojiEvents,
-                        null,
-                        modifier = Modifier.size(14.dp),
-                        tint = MaterialTheme.colorScheme.primary
-                    )
-                    Spacer(Modifier.width(4.dp))
+                Column(modifier = Modifier.weight(1f)) {
                     Text(
-                        "${entry.wins} Wins • ${String.format("%.1f", entry.winRate)}% Win Rate",
-                        style = MaterialTheme.typography.bodySmall,
+                        entry.name,
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Text(
+                        "${entry.gamesPlayed} Matches Played",
+                        style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+
+                Column(horizontalAlignment = Alignment.End) {
+                    Text(
+                        "${entry.totalPoints}",
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.Black,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                    Text(
+                        "Total Pts",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
                     )
                 }
             }
 
-            Column(horizontalAlignment = Alignment.End) {
-                Text(
-                    "${entry.totalPoints}",
-                    style = MaterialTheme.typography.titleLarge,
-                    fontWeight = FontWeight.Black,
-                    color = MaterialTheme.colorScheme.primary
-                )
-                Text(
-                    "Total Points",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
-        }
-        
-        // Detailed Stats Row
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.05f))
-                .padding(horizontal = 16.dp, vertical = 8.dp),
-            horizontalArrangement = Arrangement.SpaceBetween
-        ) {
-            StatMini(Icons.AutoMirrored.Filled.TrendingUp, "Avg", String.format("%.1f", entry.avgScore))
-            StatMini(Icons.Default.Leaderboard, "Played", "${entry.gamesPlayed}")
-            if (rank == 1) {
-               Text("🏆 RECORD HOLDER", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold, color = rankColor)
+            Spacer(Modifier.height(16.dp))
+
+            // Stats Grid
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                StatItem("Wins", "${entry.wins}", MaterialTheme.colorScheme.primary)
+                StatItem("Losses", "${entry.losses}", MaterialTheme.colorScheme.error.copy(alpha = 0.7f))
+                StatItem("Win Rate", "${entry.winRate.toInt()}%", MaterialTheme.colorScheme.secondary)
+                StatItem("Best", "${entry.bestScore}", MaterialTheme.colorScheme.tertiary)
             }
         }
     }
 }
 
 @Composable
-fun StatMini(icon: androidx.compose.ui.graphics.vector.ImageVector, label: String, value: String) {
-    Row(verticalAlignment = Alignment.CenterVertically) {
-        Icon(icon, null, modifier = Modifier.size(12.dp), tint = MaterialTheme.colorScheme.primary)
-        Spacer(Modifier.width(4.dp))
+fun StatItem(label: String, value: String, color: Color) {
+    Column(horizontalAlignment = Alignment.CenterHorizontally) {
         Text(
-            "$label: $value",
+            value,
+            style = MaterialTheme.typography.titleMedium,
+            fontWeight = FontWeight.ExtraBold,
+            color = color
+        )
+        Text(
+            label,
             style = MaterialTheme.typography.labelSmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )

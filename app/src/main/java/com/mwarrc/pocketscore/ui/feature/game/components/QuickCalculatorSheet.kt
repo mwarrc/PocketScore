@@ -1,5 +1,9 @@
 package com.mwarrc.pocketscore.ui.feature.game.components
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.shrinkVertically
+
 import android.content.ClipData
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -14,6 +18,10 @@ import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
@@ -23,6 +31,8 @@ import androidx.compose.material.icons.filled.Remove
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.BottomSheetDefaults
+import androidx.compose.ui.focus.onFocusChanged
+import com.mwarrc.pocketscore.domain.model.AppSettings
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -59,10 +69,12 @@ import kotlinx.coroutines.launch
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun QuickCalculatorSheet(
+    settings: AppSettings,
     onDismiss: () -> Unit
 ) {
     var result by remember { mutableStateOf("0") }
     var expression by remember { mutableStateOf(TextFieldValue("")) }
+    var showNumpad by remember { mutableStateOf(false) }
 
     val clipboard = LocalClipboard.current
     val snackbarHostState = remember { SnackbarHostState() }
@@ -123,12 +135,19 @@ fun QuickCalculatorSheet(
         containerColor = MaterialTheme.colorScheme.surface,
         modifier = Modifier.imePadding()
     ) {
-        Box(modifier = Modifier.fillMaxWidth()) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .navigationBarsPadding()
+        ) {
+            // Scrollable Content Area
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(16.dp)
-                    .padding(bottom = 32.dp),
+                    .weight(1f, fill = false)
+                    .verticalScroll(rememberScrollState())
+                    .padding(horizontal = 16.dp)
+                    .padding(bottom = 16.dp),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
                 Text(
@@ -197,7 +216,13 @@ fun QuickCalculatorSheet(
                             if (evalResult != "...") result = evalResult
                         }
                     },
-                    modifier = Modifier.fillMaxWidth(),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .onFocusChanged { 
+                            if (it.isFocused && settings.useCustomKeyboard) {
+                                showNumpad = true
+                            }
+                        },
                     placeholder = { 
                         Text(
                             "Enter numbers or sum (12 + 4)...", 
@@ -207,6 +232,7 @@ fun QuickCalculatorSheet(
                         ) 
                     },
                     singleLine = true,
+                    readOnly = settings.useCustomKeyboard,
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                     shape = RoundedCornerShape(16.dp),
                     trailingIcon = {
@@ -295,12 +321,65 @@ fun QuickCalculatorSheet(
                 }
             }
 
-            SnackbarHost(
-                hostState = snackbarHostState,
-                modifier = Modifier
-                    .align(Alignment.BottomCenter)
-                    .padding(bottom = 16.dp)
-            )
+            Box(modifier = Modifier.fillMaxWidth()) {
+                SnackbarHost(
+                    hostState = snackbarHostState,
+                    modifier = Modifier
+                        .align(Alignment.BottomCenter)
+                        .padding(bottom = 16.dp)
+                )
+            }
+
+            // Custom Numpad at the bottom of the Column
+            AnimatedVisibility(
+                visible = showNumpad && settings.useCustomKeyboard,
+                enter = expandVertically(),
+                exit = shrinkVertically()
+            ) {
+                ScoreNumpad(
+                    onNumberClick = { char ->
+                        val text = expression.text
+                        val selection = expression.selection
+                        val before = text.substring(0, selection.start)
+                        val after = text.substring(selection.end)
+                        val newText = "$before$char$after"
+                        val newCursorPos = selection.start + char.length
+                        expression = TextFieldValue(
+                            text = newText,
+                            selection = TextRange(newCursorPos)
+                        )
+                        val evalResult = evaluate(newText)
+                        if (evalResult != "...") result = evalResult
+                    },
+                    onBackspaceClick = {
+                        val text = expression.text
+                        val selection = expression.selection
+                        if (selection.start > 0 || selection.end > selection.start) {
+                            val before = if (selection.start == selection.end) {
+                                text.substring(0, selection.start - 1)
+                            } else {
+                                text.substring(0, selection.start)
+                            }
+                            val after = text.substring(selection.end)
+                            val newText = "$before$after"
+                            val newCursorPos = if (selection.start == selection.end) {
+                                selection.start - 1
+                            } else {
+                                selection.start
+                            }
+                            expression = TextFieldValue(
+                                text = newText,
+                                selection = TextRange(newCursorPos)
+                            )
+                            val evalResult = evaluate(newText)
+                            if (evalResult != "...") result = evalResult
+                        }
+                    },
+                    onDismiss = { showNumpad = false },
+                    isPinned = false,
+                    onTogglePin = {}
+                )
+            }
         }
     }
 }

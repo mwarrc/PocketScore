@@ -6,30 +6,28 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.ui.focus.onFocusChanged
-import androidx.compose.ui.focus.FocusRequester
-import androidx.compose.ui.focus.focusRequester
-import androidx.compose.foundation.layout.WindowInsets
-import androidx.compose.foundation.layout.isImeVisible
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
+import androidx.compose.ui.unit.sp
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.ui.draw.rotate
-import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.draw.*
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.EmojiEvents
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.outlined.Add
 import androidx.compose.material.icons.outlined.Remove
+import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.FilledIconButton
@@ -37,20 +35,18 @@ import androidx.compose.material3.FilledTonalIconButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalSoftwareKeyboardController
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import com.mwarrc.pocketscore.domain.model.Player
@@ -65,53 +61,41 @@ fun ActivePlayerCard(
     onAdd: (Int) -> Unit,
     onSubtract: (Int) -> Unit,
     onSetTurn: (() -> Unit)? = null,
+    scoreInput: String = "",
+    onScoreInputChange: (String) -> Unit = {},
+    onFocus: () -> Unit = {},
+    useCustomKeyboard: Boolean = true,
     modifier: Modifier = Modifier,
-    lastPoints: Int? = null
+    lastPoints: Int? = null,
+    alwaysShowControls: Boolean = false
 ) {
-    var inputValue by remember(player.id) { mutableStateOf("") }
-    val focusRequester = remember { FocusRequester() }
-    val keyboardController = LocalSoftwareKeyboardController.current
-    val isImeVisible = WindowInsets.isImeVisible
-
-    LaunchedEffect(isCurrentTurn) {
-        if (isCurrentTurn && isImeVisible) {
-            focusRequester.requestFocus()
-            keyboardController?.show()
-        }
-    }
-
     val canEdit = !isStrictTurnMode || isCurrentTurn
+    val focusRequester = remember { FocusRequester() }
 
     val containerColor = when {
         isCurrentTurn -> MaterialTheme.colorScheme.primaryContainer
-        isLeader -> MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.18f)
+        isLeader -> MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.15f)
         else -> MaterialTheme.colorScheme.surface
     }
 
     val contentColor = when {
         isCurrentTurn -> MaterialTheme.colorScheme.onPrimaryContainer
-        isLeader -> MaterialTheme.colorScheme.onTertiaryContainer
+        isLeader -> MaterialTheme.colorScheme.onSurface // Standard text
         else -> MaterialTheme.colorScheme.onSurface
     }
 
-    val borderStroke = if (isCurrentTurn) {
-        BorderStroke(2.dp, MaterialTheme.colorScheme.primary)
-    } else {
-        null
-    }
-
-    val modifierWithClick = if (canEdit) {
-        modifier.clickable {
-            onSetTurn?.invoke()
-            focusRequester.requestFocus()
-            keyboardController?.show()
-        }
-    } else {
-        modifier
+    val borderStroke = when {
+        isCurrentTurn -> BorderStroke(2.dp, MaterialTheme.colorScheme.primary)
+        else -> BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
     }
 
     Card(
-        modifier = modifierWithClick.fillMaxWidth(),
+        modifier = modifier
+            .fillMaxWidth()
+            .clickable(enabled = (!isStrictTurnMode || isCurrentTurn)) {
+                onSetTurn?.invoke()
+                onFocus()
+            },
         shape = RoundedCornerShape(16.dp),
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
         border = borderStroke,
@@ -121,13 +105,58 @@ fun ActivePlayerCard(
         )
     ) {
         Box(modifier = Modifier.fillMaxWidth()) {
-            // Leader: subtle star field (no border; current-turn card stays the clear focus)
+            // Leader: subtle premium sparkle field
             if (isLeader && !isCurrentTurn) {
                 val starTint = MaterialTheme.colorScheme.tertiary
                 Box(modifier = Modifier.matchParentSize()) {
-                    Icon(Icons.Default.Star, null, modifier = Modifier.size(16.dp).align(Alignment.TopStart).offset(22.dp, 22.dp).alpha(0.22f).rotate(-12f), tint = starTint)
-                    Icon(Icons.Default.Star, null, modifier = Modifier.size(12.dp).align(Alignment.TopEnd).offset((-28).dp, 26.dp).alpha(0.2f).rotate(8f), tint = starTint)
-                    Icon(Icons.Default.Star, null, modifier = Modifier.size(14.dp).align(Alignment.BottomEnd).offset((-44).dp, (-22).dp).alpha(0.22f).rotate(-8f), tint = starTint)
+                    // Top Left
+                    Icon(
+                        Icons.Default.Star,
+                        null,
+                        modifier = Modifier.size(28.dp).align(Alignment.TopStart)
+                            .offset(16.dp, 16.dp).alpha(0.18f).rotate(-15f),
+                        tint = starTint
+                    )
+                    // Top Right area
+                    Icon(
+                        Icons.Default.Star,
+                        null,
+                        modifier = Modifier.size(20.dp).align(Alignment.TopEnd)
+                            .offset((-60).dp, 12.dp).alpha(0.12f).rotate(10f),
+                        tint = starTint
+                    )
+                    // Far Top Right
+                    Icon(
+                        Icons.Default.Star,
+                        null,
+                        modifier = Modifier.size(24.dp).align(Alignment.TopEnd)
+                            .offset((-12).dp, 20.dp).alpha(0.15f).rotate(25f),
+                        tint = starTint
+                    )
+                    // Middle Left
+                    Icon(
+                        Icons.Default.Star,
+                        null,
+                        modifier = Modifier.size(16.dp).align(Alignment.CenterStart)
+                            .offset(40.dp, (-20).dp).alpha(0.1f).rotate(5f),
+                        tint = starTint
+                    )
+                    // Bottom Left area
+                    Icon(
+                        Icons.Default.Star,
+                        null,
+                        modifier = Modifier.size(22.dp).align(Alignment.BottomStart)
+                            .offset(32.dp, (-16).dp).alpha(0.12f).rotate(-10f),
+                        tint = starTint
+                    )
+                    // Bottom Right
+                    Icon(
+                        Icons.Default.Star,
+                        null,
+                        modifier = Modifier.size(26.dp).align(Alignment.BottomEnd)
+                            .offset((-20).dp, (-12).dp).alpha(0.18f).rotate(-5f),
+                        tint = starTint
+                    )
                 }
             }
 
@@ -174,10 +203,14 @@ fun ActivePlayerCard(
                                         style = MaterialTheme.typography.labelSmall,
                                         color = if (isLeader) MaterialTheme.colorScheme.onTertiary else MaterialTheme.colorScheme.onPrimary,
                                         fontWeight = FontWeight.Bold,
-                                        modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp)
+                                        modifier = Modifier.padding(
+                                            horizontal = 4.dp,
+                                            vertical = 2.dp
+                                        )
                                     )
                                 }
                             }
+
                             isStrictTurnMode -> {
                                 Row(
                                     verticalAlignment = Alignment.CenterVertically,
@@ -197,11 +230,13 @@ fun ActivePlayerCard(
                                     )
                                 }
                             }
+
                             onSetTurn != null -> {
                                 Text(
                                     "Tap to Play",
                                     style = MaterialTheme.typography.labelSmall,
-                                    color = contentColor.copy(alpha = 0.6f)
+                                    color = contentColor.copy(alpha = 0.6f),
+                                    modifier = Modifier.clickable { onSetTurn() }
                                 )
                             }
                         }
@@ -235,91 +270,169 @@ fun ActivePlayerCard(
                         }
                         Text(
                             "${player.score}",
-                            style = MaterialTheme.typography.displayMedium,
+                            style = if (isCurrentTurn) MaterialTheme.typography.displayMedium else MaterialTheme.typography.headlineLarge,
                             fontWeight = FontWeight.Black,
                             color = contentColor
                         )
                     }
                 }
 
-                Spacer(Modifier.height(16.dp))
-
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                androidx.compose.animation.AnimatedVisibility(
+                    visible = isCurrentTurn || alwaysShowControls,
+                    enter = androidx.compose.animation.expandVertically() + androidx.compose.animation.fadeIn(),
+                    exit = androidx.compose.animation.shrinkVertically() + androidx.compose.animation.fadeOut()
                 ) {
-                    OutlinedTextField(
-                        value = inputValue,
-                        onValueChange = {
-                            if (!isStrictTurnMode && !isCurrentTurn) onSetTurn?.invoke()
-                            if (it.isEmpty() || it.toIntOrNull() != null) inputValue = it
-                        },
-                        placeholder = { Text("+ pts", style = MaterialTheme.typography.bodyMedium.copy(color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f))) },
-                        modifier = Modifier
-                            .weight(1f)
-                            .focusRequester(focusRequester)
-                            .onFocusChanged {
-                                if (it.isFocused && !isStrictTurnMode && !isCurrentTurn) onSetTurn?.invoke()
-                            },
-                        singleLine = true,
-                        enabled = canEdit,
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                        shape = RoundedCornerShape(12.dp),
-                        colors = OutlinedTextFieldDefaults.colors(
-                            focusedContainerColor = MaterialTheme.colorScheme.surfaceContainerLow,
-                            unfocusedContainerColor = MaterialTheme.colorScheme.surfaceContainerLow.copy(alpha = 0.7f),
-                            focusedTextColor = MaterialTheme.colorScheme.onSurface,
-                            unfocusedTextColor = MaterialTheme.colorScheme.onSurface,
-                            cursorColor = MaterialTheme.colorScheme.primary,
-                            focusedBorderColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.4f),
-                            unfocusedBorderColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.15f),
-                            disabledBorderColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.1f),
-                            disabledTextColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
-                            disabledPlaceholderColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.35f)
-                        )
-                    )
+                    Column {
+                        Spacer(Modifier.height(16.dp))
 
-                    FilledTonalIconButton(
-                        onClick = {
-                            if (!isStrictTurnMode && !isCurrentTurn) onSetTurn?.invoke()
-                            val points = inputValue.toIntOrNull() ?: 0
-                            onSubtract(points)
-                            inputValue = ""
-                        },
-                        modifier = Modifier.size(56.dp),
-                        enabled = canEdit && inputValue.isNotEmpty(),
-                        colors = IconButtonDefaults.filledTonalIconButtonColors(
-                            containerColor = MaterialTheme.colorScheme.errorContainer,
-                            contentColor = MaterialTheme.colorScheme.onErrorContainer,
-                            disabledContainerColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f),
-                            disabledContentColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f)
-                        )
-                    ) {
-                        Icon(Icons.Outlined.Remove, "Subtract")
-                    }
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(12.dp)
+                        ) {
+                            // Score Input Area (50% width)
+                            Surface(
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .height(56.dp)
+                                    .clip(RoundedCornerShape(12.dp))
+                                    .clickable(enabled = canEdit && useCustomKeyboard) {
+                                        onSetTurn?.invoke()
+                                        onFocus()
+                                    },
+                                color = MaterialTheme.colorScheme.surfaceContainerLow.copy(alpha = if (canEdit) 1f else 0.5f),
+                                border = BorderStroke(
+                                    1.dp,
+                                    MaterialTheme.colorScheme.outline.copy(alpha = 0.15f)
+                                )
+                            ) {
+                                if (!useCustomKeyboard && canEdit) {
+                                    BasicTextField(
+                                        value = scoreInput,
+                                        onValueChange = onScoreInputChange,
+                                        modifier = Modifier
+                                            .fillMaxSize()
+                                            .focusRequester(focusRequester),
+                                        textStyle = MaterialTheme.typography.titleLarge.copy(
+                                            fontWeight = FontWeight.ExtraBold,
+                                            color = MaterialTheme.colorScheme.onSurface,
+                                            fontSize = 22.sp
+                                        ),
+                                        keyboardOptions = KeyboardOptions(
+                                            keyboardType = KeyboardType.Number,
+                                            imeAction = ImeAction.Done
+                                        ),
+                                        cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
+                                        decorationBox = { innerTextField ->
+                                            Box(
+                                                modifier = Modifier.padding(horizontal = 16.dp),
+                                                contentAlignment = Alignment.CenterStart
+                                            ) {
+                                                if (scoreInput.isEmpty()) {
+                                                    Text(
+                                                        "+ pts",
+                                                        style = MaterialTheme.typography.bodyMedium,
+                                                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(
+                                                            alpha = 0.5f
+                                                        )
+                                                    )
+                                                }
+                                                innerTextField()
+                                            }
+                                        }
+                                    )
+                                } else {
+                                    Box(
+                                        modifier = Modifier.padding(horizontal = 16.dp),
+                                        contentAlignment = Alignment.CenterStart
+                                    ) {
+                                        if (scoreInput.isEmpty()) {
+                                            Text(
+                                                "+ pts",
+                                                style = MaterialTheme.typography.bodyMedium,
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(
+                                                    alpha = 0.5f
+                                                )
+                                            )
+                                        } else {
+                                            Text(
+                                                scoreInput,
+                                                style = MaterialTheme.typography.titleLarge,
+                                                fontWeight = FontWeight.ExtraBold,
+                                                fontSize = 22.sp,
+                                                color = MaterialTheme.colorScheme.onSurface
+                                            )
+                                        }
+                                    }
+                                }
+                            }
 
-                    FilledIconButton(
-                        onClick = {
-                            if (!isStrictTurnMode && !isCurrentTurn) onSetTurn?.invoke()
-                            val points = inputValue.toIntOrNull() ?: 0
-                            onAdd(points)
-                            inputValue = ""
-                        },
-                        modifier = Modifier.size(56.dp),
-                        enabled = canEdit && inputValue.isNotEmpty(),
-                        colors = IconButtonDefaults.filledIconButtonColors(
-                            containerColor = MaterialTheme.colorScheme.primary,
-                            contentColor = MaterialTheme.colorScheme.onPrimary,
-                            disabledContainerColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f),
-                            disabledContentColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f)
-                        )
-                    ) {
-                        Icon(Icons.Outlined.Add, "Add")
+                            // Buttons Area (50% width)
+                            Row(
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .height(56.dp),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp) // Tiny gap
+                            ) {
+                                val isDark = isSystemInDarkTheme()
+
+                                FilledTonalIconButton(
+                                    onClick = {
+                                        if (!isStrictTurnMode && !isCurrentTurn) onSetTurn?.invoke()
+                                        val points = scoreInput.toIntOrNull() ?: 0
+                                        onSubtract(points)
+                                        onScoreInputChange("")
+                                    },
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .fillMaxHeight(),
+                                    shape = RoundedCornerShape(12.dp),
+                                    enabled = canEdit && scoreInput.isNotEmpty(),
+                                    colors = IconButtonDefaults.filledTonalIconButtonColors(
+                                        containerColor = if (isDark) MaterialTheme.colorScheme.errorContainer else Color(
+                                            0xFFFFDAD4
+                                        ), // More red in light mode
+                                        contentColor = MaterialTheme.colorScheme.onErrorContainer,
+                                        disabledContainerColor = MaterialTheme.colorScheme.onSurface.copy(
+                                            alpha = 0.12f
+                                        ),
+                                        disabledContentColor = MaterialTheme.colorScheme.onSurface.copy(
+                                            alpha = 0.38f
+                                        )
+                                    )
+                                ) {
+                                    Icon(Icons.Outlined.Remove, "Subtract")
+                                }
+
+                                FilledIconButton(
+                                    onClick = {
+                                        if (!isStrictTurnMode && !isCurrentTurn) onSetTurn?.invoke()
+                                        val points = scoreInput.toIntOrNull() ?: 0
+                                        onAdd(points)
+                                        onScoreInputChange("")
+                                    },
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .fillMaxHeight(),
+                                    shape = RoundedCornerShape(12.dp),
+                                    enabled = canEdit && scoreInput.isNotEmpty(),
+                                    colors = IconButtonDefaults.filledIconButtonColors(
+                                        containerColor = MaterialTheme.colorScheme.primary,
+                                        contentColor = MaterialTheme.colorScheme.onPrimary,
+                                        disabledContainerColor = MaterialTheme.colorScheme.onSurface.copy(
+                                            alpha = 0.12f
+                                        ),
+                                        disabledContentColor = MaterialTheme.colorScheme.onSurface.copy(
+                                            alpha = 0.38f
+                                        )
+                                    )
+                                ) {
+                                    Icon(Icons.Outlined.Add, "Add")
+                                }
+                            }
+                        }
                     }
                 }
             }
-
-
         }
     }
 }

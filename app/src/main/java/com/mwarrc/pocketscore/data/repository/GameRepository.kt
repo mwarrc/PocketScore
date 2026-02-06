@@ -19,7 +19,7 @@ interface GameRepository {
     suspend fun updateSettings(settings: AppSettings)
     
     suspend fun getShareableData(gameId: String? = null): PocketScoreShare
-    suspend fun mergeShareData(share: PocketScoreShare)
+    suspend fun mergeShareData(share: PocketScoreShare, playerNameMappings: Map<String, String> = emptyMap())
     suspend fun renamePlayer(oldName: String, newName: String)
     
     // Snapshot Management

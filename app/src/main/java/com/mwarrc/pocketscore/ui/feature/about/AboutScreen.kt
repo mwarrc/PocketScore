@@ -125,7 +125,7 @@ fun AboutScreen(
                                 if (showComingSoonFeatures) return@clickable // Already enabled
 
                                 logoClickCount++
-                                if (logoClickCount >= 3) {
+                                if (logoClickCount >= 6) {
                                     onUpdateSettings { it.copy(showComingSoonFeatures = true) }
                                     logoClickCount = 0
                                     scope.launch {
@@ -156,7 +156,7 @@ fun AboutScreen(
                     Spacer(Modifier.height(16.dp))
 
                     Text(
-                        "v0.1.1-expressive",
+                        "v0.1.2 Expressive",
                         style = MaterialTheme.typography.labelMedium,
                         color = MaterialTheme.colorScheme.primary,
                         fontWeight = FontWeight.Bold,

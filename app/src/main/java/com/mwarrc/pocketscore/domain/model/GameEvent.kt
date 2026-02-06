@@ -21,5 +21,7 @@ data class GameEvent(
     val previousPlayerId: String? = null,
     val isZeroInput: Boolean = false,
     val message: String? = null,
-    val timestamp: Long = System.currentTimeMillis()
+    val timestamp: Long = System.currentTimeMillis(),
+    val previousScore: Int? = null,
+    val newScore: Int? = null
 )

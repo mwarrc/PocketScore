@@ -46,7 +46,7 @@ fun PassivePlayerCard(
 ) {
     val containerColor = when {
         isActualTurn -> MaterialTheme.colorScheme.primaryContainer
-        isLeader -> MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.28f)
+        isLeader -> MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.2f)
         isCurrent -> MaterialTheme.colorScheme.surfaceContainerHigh
         else -> MaterialTheme.colorScheme.surfaceContainerLow
     }
@@ -57,10 +57,9 @@ fun PassivePlayerCard(
         else -> MaterialTheme.colorScheme.onSurface
     }
 
-    val borderStroke = if (isCurrent) {
-        BorderStroke(2.dp, MaterialTheme.colorScheme.primary)
-    } else {
-        null
+    val borderStroke = when {
+        isCurrent -> BorderStroke(2.dp, MaterialTheme.colorScheme.primary)
+        else -> BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
     }
 
     Card(
@@ -107,13 +106,70 @@ fun PassivePlayerCard(
             }
 
             // Leader: visible star field
+            // Leader: premium sparkle field
             if (isLeader) {
                 val starTint = MaterialTheme.colorScheme.tertiary
                 Box(modifier = Modifier.matchParentSize()) {
-                    Icon(Icons.Default.Star, null, modifier = Modifier.size(14.dp).align(Alignment.TopStart).offset(12.dp, 12.dp).alpha(0.4f).rotate(-10f), tint = starTint)
-                    Icon(Icons.Default.Star, null, modifier = Modifier.size(10.dp).align(Alignment.TopEnd).offset((-16).dp, 14.dp).alpha(0.35f).rotate(6f), tint = starTint)
-                    Icon(Icons.Default.Star, null, modifier = Modifier.size(12.dp).align(Alignment.BottomStart).offset(20.dp, (-16).dp).alpha(0.35f).rotate(4f), tint = starTint)
-                    Icon(Icons.Default.Star, null, modifier = Modifier.size(8.dp).align(Alignment.BottomEnd).offset((-20).dp, (-12).dp).alpha(0.4f).rotate(-6f), tint = starTint)
+                    // Top Left
+                    Icon(
+                        Icons.Default.Star,
+                        null,
+                        modifier = Modifier
+                            .size(24.dp)
+                            .align(Alignment.TopStart)
+                            .offset(8.dp, 8.dp)
+                            .alpha(0.15f)
+                            .rotate(-15f),
+                        tint = starTint
+                    )
+                    // Top Right
+                    Icon(
+                        Icons.Default.Star,
+                        null,
+                        modifier = Modifier
+                            .size(16.dp)
+                            .align(Alignment.TopEnd)
+                            .offset((-24).dp, 6.dp)
+                            .alpha(0.12f)
+                            .rotate(20f),
+                        tint = starTint
+                    )
+                    // Middle area
+                    Icon(
+                        Icons.Default.Star,
+                        null,
+                        modifier = Modifier
+                            .size(14.dp)
+                            .align(Alignment.CenterEnd)
+                            .offset((-8).dp, (-12).dp)
+                            .alpha(0.1f)
+                            .rotate(10f),
+                        tint = starTint
+                    )
+                    // Bottom Left
+                    Icon(
+                        Icons.Default.Star,
+                        null,
+                        modifier = Modifier
+                            .size(20.dp)
+                            .align(Alignment.BottomStart)
+                            .offset(12.dp, (-8).dp)
+                            .alpha(0.15f)
+                            .rotate(-10f),
+                        tint = starTint
+                    )
+                    // Bottom Right
+                    Icon(
+                        Icons.Default.Star,
+                        null,
+                        modifier = Modifier
+                            .size(22.dp)
+                            .align(Alignment.BottomEnd)
+                            .offset((-10).dp, (-6).dp)
+                            .alpha(0.18f)
+                            .rotate(-5f),
+                        tint = starTint
+                    )
                 }
             }
 

@@ -40,7 +40,7 @@ class GameViewModel(private val repository: GameRepository) : ViewModel() {
         }
     }
 
-    private fun refreshSnapshots() {
+    fun refreshSnapshots() {
         viewModelScope.launch {
             _snapshots.value = repository.getLocalSnapshots()
         }
@@ -53,7 +53,12 @@ class GameViewModel(private val repository: GameRepository) : ViewModel() {
     fun startNewGame(playerNames: List<String>) {
         val newPlayers = playerNames.filter { it.isNotBlank() }.map { Player(name = it.trim()) }
         val firstPlayerId = newPlayers.firstOrNull()?.id
-        val newState = GameState(players = newPlayers, isGameActive = true, currentPlayerId = firstPlayerId)
+        val newState = GameState(
+            players = newPlayers, 
+            isGameActive = true, 
+            currentPlayerId = firstPlayerId,
+            deviceInfo = _state.value.settings.customDeviceName ?: android.os.Build.MODEL
+        )
         updateGameState(newState)
     }
 
@@ -138,7 +143,9 @@ class GameViewModel(private val repository: GameRepository) : ViewModel() {
             type = GameEventType.SCORE,
             points = points,
             previousPlayerId = currentState.currentPlayerId,
-            isZeroInput = isZero
+            isZeroInput = isZero,
+            previousScore = player.score,
+            newScore = newScore
         )
         val updatedGlobalEvents = currentState.globalEvents + globalEvent
 
@@ -185,7 +192,9 @@ class GameViewModel(private val repository: GameRepository) : ViewModel() {
             playerName = lastEvent.playerName,
             type = GameEventType.UNDO,
             points = -lastEvent.points,
-            previousPlayerId = currentState.currentPlayerId
+            previousPlayerId = currentState.currentPlayerId,
+            previousScore = currentState.players.find { it.id == lastEvent.playerId }?.score,
+            newScore = currentState.players.find { it.id == lastEvent.playerId }?.score?.minus(lastEvent.points)
         )
 
         updateGameState(currentState.copy(
@@ -309,9 +318,9 @@ class GameViewModel(private val repository: GameRepository) : ViewModel() {
     /**
      * Imports shared data using smart merging.
      */
-    fun importData(share: PocketScoreShare) {
+    fun importData(share: PocketScoreShare, playerNameMappings: Map<String, String> = emptyMap()) {
         viewModelScope.launch {
-            repository.mergeShareData(share)
+            repository.mergeShareData(share, playerNameMappings)
         }
     }
 

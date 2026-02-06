@@ -19,6 +19,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.EmojiEvents
 import androidx.compose.material.icons.filled.Extension
 import androidx.compose.material.icons.filled.Group
 import androidx.compose.material.icons.filled.Info
@@ -27,12 +28,15 @@ import androidx.compose.material.icons.filled.CloudDone
 import androidx.compose.material.icons.filled.CloudSync
 import androidx.compose.material.icons.filled.FileDownload
 import androidx.compose.material.icons.filled.History
+import androidx.compose.material.icons.filled.Keyboard
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.LockOpen
 import androidx.compose.material.icons.filled.Palette
+import androidx.compose.material.icons.filled.Payments
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Security
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.Smartphone
 import androidx.compose.material.icons.filled.TouchApp
 import androidx.compose.material.icons.filled.ViewModule
 import androidx.compose.material.icons.outlined.GridView
@@ -53,6 +57,7 @@ import androidx.compose.material3.Slider
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -92,6 +97,8 @@ fun SettingsScreen(
     var showStrictModeInfo by remember { mutableStateOf(false) }
     var showEnforceDialog by remember { mutableStateOf(false) }
     var upcomingFeaturesClickCount by remember { mutableIntStateOf(0) }
+    var showDeviceNameDialog by remember { mutableStateOf(false) }
+    var tempDeviceName by remember { mutableStateOf(settings.customDeviceName ?: "") }
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
     
@@ -177,6 +184,22 @@ fun SettingsScreen(
                 }
             )
 
+/*
+            SettingsItem(
+                title = "Custom Numpad",
+                subtitle = "Use minimal in-app keyboard for scoring",
+                icon = Icons.Default.Keyboard,
+                trailing = {
+                    Switch(
+                        checked = settings.useCustomKeyboard,
+                        onCheckedChange = { enabled ->
+                            onUpdateSettings { it.copy(useCustomKeyboard = enabled) }
+                        }
+                    )
+                }
+            )
+*/
+
             SettingsItem(
                 title = "Saved Players",
                 subtitle = "Show saved players on Home Screen",
@@ -257,6 +280,79 @@ fun SettingsScreen(
             }
 
 
+
+            SettingsDivider(alpha = 0.5f)
+
+            // UTILITIES
+            Text(
+                "Utilities",
+                style = MaterialTheme.typography.labelLarge,
+                color = MaterialTheme.colorScheme.primary,
+                fontWeight = FontWeight.Bold,
+                modifier = Modifier.padding(start = 4.dp)
+            )
+
+            SettingsItem(
+                title = "Session Cost Calculator",
+                subtitle = "Calculate match fees and debts in History",
+                icon = Icons.Default.Payments,
+                trailing = {
+                    Switch(
+                        checked = settings.matchSplitEnabled,
+                        onCheckedChange = { enabled ->
+                            onUpdateSettings { it.copy(matchSplitEnabled = enabled) }
+                        }
+                    )
+                }
+            )
+
+            SettingsItem(
+                title = "Device Identity",
+                subtitle = settings.customDeviceName ?: "Set a custom record source name",
+                icon = Icons.Default.Smartphone,
+                onClick = { 
+                    tempDeviceName = settings.customDeviceName ?: ""
+                    showDeviceNameDialog = true 
+                }
+            )
+
+            if (showDeviceNameDialog) {
+                AlertDialog(
+                    onDismissRequest = { showDeviceNameDialog = false },
+                    icon = { Icon(Icons.Default.Smartphone, null, tint = MaterialTheme.colorScheme.primary) },
+                    title = { Text("Device Identity") },
+                    text = {
+                        Column {
+                            Text(
+                                "This name will be attached to games you share. It identifies this device as the source.",
+                                style = MaterialTheme.typography.bodyMedium
+                            )
+                            Spacer(Modifier.height(16.dp))
+                            OutlinedTextField(
+                                value = tempDeviceName,
+                                onValueChange = { tempDeviceName = it },
+                                label = { Text("Device Name") },
+                                placeholder = { Text(android.os.Build.MODEL) },
+                                singleLine = true,
+                                modifier = Modifier.fillMaxWidth(),
+                                shape = RoundedCornerShape(12.dp)
+                            )
+                        }
+                    },
+                    confirmButton = {
+                        Button(
+                            onClick = {
+                                onUpdateSettings { it.copy(customDeviceName = tempDeviceName.trim().ifBlank { null }) }
+                                showDeviceNameDialog = false
+                            },
+                            shape = RoundedCornerShape(12.dp)
+                        ) { Text("Save Name") }
+                    },
+                    dismissButton = {
+                        TextButton(onClick = { showDeviceNameDialog = false }) { Text("Cancel") }
+                    }
+                )
+            }
 
             SettingsDivider(alpha = 0.5f)
 
@@ -406,6 +502,7 @@ fun SettingsScreen(
 
             Spacer(Modifier.height(8.dp))
 
+
             // BACKUP & SHARING
             Text(
                 "Backup & Sharing",
@@ -518,7 +615,7 @@ fun SettingsScreen(
             }
 
             Text(
-                "v0.1.1-expressive",
+                "v0.1.2 Expressive",
                 modifier = Modifier.fillMaxWidth(),
                 textAlign = TextAlign.Center,
                 style = MaterialTheme.typography.labelSmall,

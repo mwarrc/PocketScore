@@ -4,7 +4,7 @@ PocketScore is a modern, expressive, and user-friendly score-keeping application
 
 ---
 
-### 📥 [**Download Latest APK (v0.1.1)**](https://github.com/mwarrc/PocketScore/releases/download/v0.1.1-expressive/PocketScore.v0.1.1-expressive.apk)
+### 📥 [**Download Latest APK (v0.1.2)**](https://github.com/mwarrc/PocketScore/releases/download/v0.1.2-expressive/PocketScore.v0.1.2-expressive.apk)
 *Quick and direct installation for Android.*
 
 ---
@@ -17,25 +17,9 @@ PocketScore is a modern, expressive, and user-friendly score-keeping application
 
 ## Screenshots
 
-<div align="center">
-  <table>
-    <tr>
-      <td><img src="Extras/screenshots/screen_01.jpg" width="180" /></td>
-      <td><img src="Extras/screenshots/screen_02.jpg" width="180" /></td>
-      <td><img src="Extras/screenshots/screen_03.jpg" width="180" /></td>
-    </tr>
-    <tr>
-      <td><img src="Extras/screenshots/screen_04.jpg" width="180" /></td>
-      <td><img src="Extras/screenshots/screen_05.jpg" width="180" /></td>
-      <td><img src="Extras/screenshots/screen_06.jpg" width="180" /></td>
-    </tr>
-    <tr>
-      <td><img src="Extras/screenshots/screen_07.jpg" width="180" /></td>
-      <td><img src="Extras/screenshots/screen_08.jpg" width="180" /></td>
-      <td><img src="Extras/screenshots/screen_09.jpg" width="180" /></td>
-    </tr>
-  </table>
-</div>
+📸 **View our full high-resolution gallery and feature showcase at [pscore.netlify.app/screenshots](https://pscore.netlify.app/screenshots)**
+
+---
 
 
 
@@ -43,9 +27,11 @@ PocketScore is a modern, expressive, and user-friendly score-keeping application
 ## Features
 
 *   **Home Screen & Player Pool**: Quick access to saved players and streamlined game setup
-*   **Game Management**: Real-time score tracking with tactile haptic feedback
+*   **Custom Score Numpad**: High-performance, in-app keyboard with pinning and gesture-based dismissal
+*   **Rich Match Insights**: Interactive momentum charts, 12 unique player archetypes, and real-time leader spotlighting
+*   **Mathematical Utilities**: Built-in expression calculator for quick board sums and session cost split-tracking
 *   **Backup & Data Sharing**: Local snapshots, import/export games, and share with friends via `.pscore` files
-*   **History Tracking**: Complete game archive with detailed statistics
+*   **History Tracking**: Complete game archive with detailed statistics and settle-up fee calculations
 *   **Expressive UI**: Material You dynamic coloring, fluid animations, and confetti celebrations
 *   **Strict Mode**: Enforced turn-based rules with in-game help system
 *   **Privacy First**: Zero tracking, zero ads, 100% offline-first architecture

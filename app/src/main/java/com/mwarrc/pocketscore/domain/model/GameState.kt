@@ -14,5 +14,6 @@ data class GameState(
     val currentPlayerId: String? = null,
     val globalEvents: List<GameEvent> = emptyList(),
     val canUndo: Boolean = false,
-    val isFinalized: Boolean = false
+    val isFinalized: Boolean = false,
+    val deviceInfo: String? = null
 )

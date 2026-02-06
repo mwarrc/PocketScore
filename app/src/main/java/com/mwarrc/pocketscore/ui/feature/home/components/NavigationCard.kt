@@ -21,40 +21,50 @@ fun NavigationCard(
         horizontalArrangement = Arrangement.spacedBy(12.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        TextButton(
+        FilledTonalButton(
             onClick = onNavigateToHistory,
             modifier = Modifier.weight(1f),
-            contentPadding = PaddingValues(vertical = 12.dp, horizontal = 16.dp)
+            shape = androidx.compose.foundation.shape.RoundedCornerShape(12.dp),
+            colors = ButtonDefaults.filledTonalButtonColors(
+                containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+                contentColor = MaterialTheme.colorScheme.onSurface
+            ),
+            contentPadding = PaddingValues(vertical = 14.dp, horizontal = 16.dp)
         ) {
             Icon(
                 Icons.Default.History,
                 contentDescription = null,
                 modifier = Modifier.size(20.dp),
-                tint = MaterialTheme.colorScheme.onSurfaceVariant
+                tint = MaterialTheme.colorScheme.primary
             )
             Spacer(Modifier.width(10.dp))
             Text(
                 "Records",
                 style = MaterialTheme.typography.labelLarge,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
+                color = MaterialTheme.colorScheme.onSurface
             )
         }
-        TextButton(
+        FilledTonalButton(
             onClick = onNavigateToSettings,
             modifier = Modifier.weight(1f),
-            contentPadding = PaddingValues(vertical = 12.dp, horizontal = 16.dp)
+            shape = androidx.compose.foundation.shape.RoundedCornerShape(12.dp),
+            colors = ButtonDefaults.filledTonalButtonColors(
+                containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+                contentColor = MaterialTheme.colorScheme.onSurface
+            ),
+            contentPadding = PaddingValues(vertical = 14.dp, horizontal = 16.dp)
         ) {
             Icon(
                 Icons.Default.Settings,
                 contentDescription = null,
                 modifier = Modifier.size(20.dp),
-                tint = MaterialTheme.colorScheme.onSurfaceVariant
+                tint = MaterialTheme.colorScheme.primary
             )
             Spacer(Modifier.width(10.dp))
             Text(
                 "Settings",
                 style = MaterialTheme.typography.labelLarge,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
+                color = MaterialTheme.colorScheme.onSurface
             )
         }
     }

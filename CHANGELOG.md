@@ -5,6 +5,46 @@ All notable changes to PocketScore will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.2-expressive] - 2026-02-06
+
+### Added
+
+#### Advanced Scoring System
+- **Custom Score Numpad**: Integrated a minimal, high-performance in-app keyboard tailored for scoring.
+  - Supports pinning for rapid data entry across players.
+  - Gesture-based "swipe to dismiss" mechanics.
+  - Optional vibration feedback for tactile confirmation.
+
+
+#### Match Insights & Analytics
+- **Interactive Momentum Chart**:
+  - Toggle player visibility using interactive legend chips.
+  - Dynamic vertical scaling (Auto-Zoom) based on the score range of visible players.
+  - Added Y-axis labels and horizontal grid lines for professional data visualization.
+  - Added a "Reset Zoom" shortcut button.
+- **Expanded Player Archetypes**:
+  - Archetype library expanded from 6 to 12 unique categories (The Snake, The Closer, The Fireball, etc.).
+  - Smarter, prioritized detection logic for more authentic player "personalities".
+- **Leader Spotlight**: Real-time visual highlighting of the player currently in first place.
+
+#### Utilities & Tools
+
+- **Session Cost Calculator ("Settle")**: New utility to calculate match fees and player debts.
+  - Supports "Winner Pays" and custom match cost splitting.
+  - Integrated into the Records screen for post-game settlement.
+- **Device Identity**: Set a custom device name (e.g., "Jacob's Phone") to verify the origin of shared `.pscore` files.
+
+#### UI/UX Polishing
+- **Finish & Resume flow**: New dialog options when ending a match to either "Archive" (Finalize) or "Resume Later" (Save progress).
+- **Expressive Iconography**: Integrated `Smartphone`, `Snake`, `Timer`, and `Payments` icons.
+- **Consistency**: Switched to `AutoMirrored` icons for all directional elements.
+
+### Fixed
+
+- **Code Health**: Cleaned up redundant imports and optimized data merging logic.
+
+---
+
 ## [0.1.1-expressive] - 2026-01-31
 
 ### Added

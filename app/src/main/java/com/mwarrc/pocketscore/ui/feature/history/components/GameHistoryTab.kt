@@ -29,7 +29,8 @@ fun GameHistoryTab(
     onNavigateToGame: () -> Unit,
     onResumeGame: (GameState, Boolean) -> Unit,
     onDeleteGame: (String) -> Unit,
-    onShareGame: (String) -> Unit
+    onShareGame: (String) -> Unit,
+    onViewDetails: (String) -> Unit
 ) {
     val dateFormat = SimpleDateFormat("MMM dd, yyyy HH:mm", Locale.getDefault())
     var gameToResume by remember { mutableStateOf<GameState?>(null) }
@@ -140,219 +141,320 @@ fun GameHistoryTab(
             }
         }
     } else {
+        val groupedGames = remember(history.pastGames) {
+            val today = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(Date())
+            val yesterday = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(Date(System.currentTimeMillis() - 86400000))
+            val headerFormat = SimpleDateFormat("EEEE, MMM d", Locale.getDefault())
+            val currentYear = SimpleDateFormat("yyyy", Locale.getDefault()).format(Date())
+
+            history.pastGames
+                .sortedByDescending { it.endTime ?: it.startTime }
+                .groupBy { game ->
+                    val date = Date(game.endTime ?: game.startTime)
+                    val dateKey = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(date)
+                    
+                    when (dateKey) {
+                        today -> "Today"
+                        yesterday -> "Yesterday"
+                        else -> {
+                            val gameYear = SimpleDateFormat("yyyy", Locale.getDefault()).format(date)
+                            if (gameYear == currentYear) {
+                                headerFormat.format(date)
+                            } else {
+                                SimpleDateFormat("EEEE, MMM d, yyyy", Locale.getDefault()).format(date)
+                            }
+                        }
+                    }
+                }
+        }
+
+        val timeFormat = remember { SimpleDateFormat("HH:mm", Locale.getDefault()) }
+
         LazyColumn(
             modifier = Modifier.fillMaxSize(),
-            contentPadding = PaddingValues(top = 16.dp, bottom = 100.dp)
+            contentPadding = PaddingValues(top = 8.dp, bottom = 100.dp)
         ) {
-            items(history.pastGames.sortedByDescending { it.endTime ?: it.startTime }) { game ->
-                var isExpanded by remember { mutableStateOf(false) }
-                val winner = game.players.maxByOrNull { it.score }
-                val dateStr = dateFormat.format(Date(game.endTime ?: game.startTime))
-                val nextTurnPlayer = game.players.find { it.id == game.currentPlayerId }
+            groupedGames.forEach { (dateHeader, games) ->
+                item(key = dateHeader) {
+                    Text(
+                        text = dateHeader,
+                        style = MaterialTheme.typography.labelLarge,
+                        color = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier
+                            .padding(horizontal = 16.dp, vertical = 8.dp)
+                            .padding(top = 8.dp)
+                    )
+                }
 
-                Surface(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 12.dp, vertical = 4.dp),
-                    shape = RoundedCornerShape(16.dp),
-                    color = MaterialTheme.colorScheme.surface,
-                    tonalElevation = 1.dp
-                ) {
-                    Column {
-                        Box(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clip(RoundedCornerShape(16.dp))
-                                .clickable { isExpanded = !isExpanded }
-                        ) {
-                            ListItem(
-                                headlineContent = {
-                                    Row(verticalAlignment = Alignment.CenterVertically) {
-                                        Text(
-                                            winner?.name ?: "No Winner",
-                                            fontWeight = FontWeight.Bold,
-                                            style = MaterialTheme.typography.titleMedium
-                                        )
-                                        if (winner != null) {
-                                            Spacer(Modifier.width(8.dp))
-                                            Text(
-                                                "${winner.score} pts",
-                                                style = MaterialTheme.typography.titleMedium,
-                                                color = if (winner.score < 0) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary,
-                                                fontWeight = FontWeight.Bold
-                                            )
-                                        }
-                                    }
-                                },
-                                supportingContent = {
-                                    Text(
-                                        dateStr,
-                                        style = MaterialTheme.typography.bodySmall,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                                    )
-                                },
-                                leadingContent = {
-                                    Surface(
-                                        shape = MaterialTheme.shapes.small,
-                                        color = MaterialTheme.colorScheme.primaryContainer,
-                                        modifier = Modifier.size(40.dp)
-                                    ) {
-                                        Box(contentAlignment = Alignment.Center) {
-                                            Text(
-                                                (winner?.name?.firstOrNull() ?: '?').toString(),
-                                                fontWeight = FontWeight.Bold,
-                                                color = MaterialTheme.colorScheme.onPrimaryContainer
-                                            )
-                                        }
-                                    }
-                                },
-                                trailingContent = {
-                                    Row(verticalAlignment = Alignment.CenterVertically) {
-                                        IconButton(onClick = { gameToDelete = game }) {
-                                            Icon(
-                                                Icons.Default.DeleteOutline,
-                                                "Delete",
-                                                modifier = Modifier.size(20.dp),
-                                                tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
-                                            )
-                                        }
-                                        Icon(
-                                            if (isExpanded) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown,
-                                            contentDescription = if (isExpanded) "Collapse" else "Expand",
-                                            tint = MaterialTheme.colorScheme.onSurfaceVariant
-                                        )
-                                    }
-                                },
-                                colors = ListItemDefaults.colors(containerColor = Color.Transparent)
+                items(games, key = { it.id }) { game ->
+                    var isExpanded by remember { mutableStateOf(false) }
+                    val winner = game.players.maxByOrNull { it.score }
+                    val timeStr = timeFormat.format(Date(game.endTime ?: game.startTime))
+                    val nextTurnPlayer = game.players.find { it.id == game.currentPlayerId }
+                    val isResumable = !game.isFinalized
+
+                    Surface(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 12.dp, vertical = 4.dp),
+                        shape = RoundedCornerShape(16.dp),
+                        color = if (isResumable) {
+                            MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.2f)
+                        } else {
+                            MaterialTheme.colorScheme.surface
+                        },
+                        tonalElevation = if (isResumable) 2.dp else 1.dp,
+                        border = if (isResumable) {
+                            androidx.compose.foundation.BorderStroke(
+                                1.dp, 
+                                MaterialTheme.colorScheme.secondary.copy(alpha = 0.2f)
                             )
-                        }
-
-                        AnimatedVisibility(visible = isExpanded) {
-                            Column(
-                                modifier = Modifier.padding(
-                                    start = 72.dp,
-                                    end = 16.dp,
-                                    top = 8.dp,
-                                    bottom = 16.dp
-                                )
+                        } else null
+                    ) {
+                        Column {
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clip(RoundedCornerShape(16.dp))
+                                    .clickable { isExpanded = !isExpanded }
                             ) {
-                                if (nextTurnPlayer != null) {
-                                    Row(
-                                        verticalAlignment = Alignment.CenterVertically,
-                                        modifier = Modifier.padding(bottom = 8.dp)
-                                    ) {
-                                        Icon(
-                                            Icons.Default.PlayArrow,
-                                            null,
-                                            modifier = Modifier.size(16.dp),
-                                            tint = MaterialTheme.colorScheme.primary
-                                        )
-                                        Spacer(Modifier.width(4.dp))
+                                ListItem(
+                                    headlineContent = {
+                                        Row(verticalAlignment = Alignment.CenterVertically) {
+                                            Text(
+                                                winner?.name ?: "No Winner",
+                                                fontWeight = FontWeight.Bold,
+                                                style = MaterialTheme.typography.titleMedium
+                                            )
+                                            if (winner != null) {
+                                                Spacer(Modifier.width(8.dp))
+                                                Text(
+                                                    "${winner.score} pts",
+                                                    style = MaterialTheme.typography.titleMedium,
+                                                    color = if (winner.score < 0) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary,
+                                                    fontWeight = FontWeight.Bold
+                                                )
+                                            }
+                                            
+                                            if (isResumable) {
+                                                Spacer(Modifier.weight(1f))
+                                                Surface(
+                                                    color = MaterialTheme.colorScheme.secondaryContainer,
+                                                    shape = RoundedCornerShape(8.dp)
+                                                ) {
+                                                    Row(
+                                                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+                                                        verticalAlignment = Alignment.CenterVertically
+                                                    ) {
+                                                        Icon(
+                                                            Icons.Default.Pending,
+                                                            null,
+                                                            modifier = Modifier.size(12.dp),
+                                                            tint = MaterialTheme.colorScheme.onSecondaryContainer
+                                                        )
+                                                        Spacer(Modifier.width(4.dp))
+                                                        Text(
+                                                            "Active",
+                                                            style = MaterialTheme.typography.labelSmall,
+                                                            color = MaterialTheme.colorScheme.onSecondaryContainer,
+                                                            fontWeight = FontWeight.Bold
+                                                        )
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    },
+                                    supportingContent = {
                                         Text(
-                                            "Next Turn: ${nextTurnPlayer.name}",
-                                            style = MaterialTheme.typography.labelMedium,
-                                            color = MaterialTheme.colorScheme.primary,
-                                            fontWeight = FontWeight.Bold
+                                            timeStr,
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant
                                         )
-                                    }
-                                }
-
-                                HorizontalDivider(
-                                    modifier = Modifier.padding(bottom = 8.dp),
-                                    color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f)
+                                    },
+                                    leadingContent = {
+                                        Surface(
+                                            shape = MaterialTheme.shapes.small,
+                                            color = if (isResumable) MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.primaryContainer,
+                                            modifier = Modifier.size(40.dp)
+                                        ) {
+                                            Box(contentAlignment = Alignment.Center) {
+                                                Text(
+                                                    (winner?.name?.firstOrNull() ?: '?').toString(),
+                                                    fontWeight = FontWeight.Bold,
+                                                    color = if (isResumable) MaterialTheme.colorScheme.onSecondaryContainer else MaterialTheme.colorScheme.onPrimaryContainer
+                                                )
+                                            }
+                                        }
+                                    },
+                                    trailingContent = {
+                                        Row(verticalAlignment = Alignment.CenterVertically) {
+                                            IconButton(onClick = { gameToDelete = game }) {
+                                                Icon(
+                                                    Icons.Default.DeleteOutline,
+                                                    "Delete",
+                                                    modifier = Modifier.size(20.dp),
+                                                    tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
+                                                )
+                                            }
+                                            Icon(
+                                                if (isExpanded) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown,
+                                                contentDescription = if (isExpanded) "Collapse" else "Expand",
+                                                tint = MaterialTheme.colorScheme.onSurfaceVariant
+                                            )
+                                        }
+                                    },
+                                    colors = ListItemDefaults.colors(containerColor = Color.Transparent)
                                 )
+                            }
 
-                                game.players.sortedByDescending { it.score }.forEach { player ->
-                                    Row(
-                                        modifier = Modifier
-                                            .fillMaxWidth()
-                                            .padding(vertical = 4.dp),
-                                        horizontalArrangement = Arrangement.SpaceBetween
-                                    ) {
-                                        Text(
-                                            player.name,
-                                            style = MaterialTheme.typography.bodyMedium,
-                                            fontWeight = if (player.id == winner?.id) {
-                                                FontWeight.Bold
-                                            } else {
-                                                FontWeight.Normal
-                                            }
-                                        )
-                                        Text(
-                                            "${player.score}",
-                                            style = MaterialTheme.typography.bodyMedium,
-                                            color = if (player.score < 0) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface,
-                                            fontWeight = if (player.id == winner?.id) {
-                                                FontWeight.Bold
-                                            } else {
-                                                FontWeight.Normal
-                                            }
-                                        )
-                                    }
-                                }
-
-                                Spacer(Modifier.height(16.dp))
-
-                                if (!game.isFinalized) {
-                                    Button(
-                                        onClick = { gameToResume = game },
-                                        modifier = Modifier.fillMaxWidth(),
-                                        colors = ButtonDefaults.buttonColors(
-                                            containerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.1f),
-                                            contentColor = MaterialTheme.colorScheme.primary
-                                        ),
-                                        shape = RoundedCornerShape(12.dp)
-                                    ) {
-                                        Icon(
-                                            Icons.Default.Restore,
-                                            null,
-                                            modifier = Modifier.size(18.dp)
-                                        )
-                                        Spacer(Modifier.width(8.dp))
-                                        Text("Resume Game", fontWeight = FontWeight.Bold)
-                                    }
-                                } else {
-                                    Surface(
-                                        modifier = Modifier.fillMaxWidth(),
-                                        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f),
-                                        shape = RoundedCornerShape(12.dp)
-                                    ) {
+                            AnimatedVisibility(visible = isExpanded) {
+                                Column(
+                                    modifier = Modifier.padding(
+                                        start = 72.dp,
+                                        end = 16.dp,
+                                        top = 8.dp,
+                                        bottom = 16.dp
+                                    )
+                                ) {
+                                    if (nextTurnPlayer != null && isResumable) {
                                         Row(
-                                            modifier = Modifier.padding(12.dp),
                                             verticalAlignment = Alignment.CenterVertically,
-                                            horizontalArrangement = Arrangement.Center
+                                            modifier = Modifier.padding(bottom = 8.dp)
                                         ) {
                                             Icon(
-                                                Icons.Default.CheckCircle,
+                                                Icons.Default.PlayArrow,
                                                 null,
                                                 modifier = Modifier.size(16.dp),
                                                 tint = MaterialTheme.colorScheme.primary
                                             )
-                                            Spacer(Modifier.width(8.dp))
+                                            Spacer(Modifier.width(4.dp))
                                             Text(
-                                                "Match Completed & Locked",
+                                                "Next Turn: ${nextTurnPlayer.name}",
                                                 style = MaterialTheme.typography.labelMedium,
-                                                fontWeight = FontWeight.Bold,
-                                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                                color = MaterialTheme.colorScheme.primary,
+                                                fontWeight = FontWeight.Bold
                                             )
                                         }
                                     }
-                                }
 
-                                Spacer(Modifier.height(8.dp))
-
-                                OutlinedButton(
-                                    onClick = { onShareGame(game.id) },
-                                    modifier = Modifier.fillMaxWidth(),
-                                    shape = RoundedCornerShape(12.dp)
-                                ) {
-                                    Icon(
-                                        Icons.Default.IosShare,
-                                        null,
-                                        modifier = Modifier.size(18.dp)
+                                    HorizontalDivider(
+                                        modifier = Modifier.padding(bottom = 8.dp),
+                                        color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f)
                                     )
-                                    Spacer(Modifier.width(8.dp))
-                                    Text("Share Match Record", fontWeight = FontWeight.Bold)
+
+                                    game.players.sortedByDescending { it.score }.forEach { player ->
+                                        Row(
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .padding(vertical = 4.dp),
+                                            horizontalArrangement = Arrangement.SpaceBetween
+                                        ) {
+                                            Text(
+                                                player.name,
+                                                style = MaterialTheme.typography.bodyMedium,
+                                                fontWeight = if (player.id == winner?.id) {
+                                                    FontWeight.Bold
+                                                } else {
+                                                    FontWeight.Normal
+                                                }
+                                            )
+                                            Text(
+                                                "${player.score}",
+                                                style = MaterialTheme.typography.bodyMedium,
+                                                color = if (player.score < 0) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface,
+                                                fontWeight = if (player.id == winner?.id) {
+                                                    FontWeight.Bold
+                                                } else {
+                                                    FontWeight.Normal
+                                                }
+                                            )
+                                        }
+                                    }
+
+                                    Spacer(Modifier.height(16.dp))
+
+                                    if (!game.isFinalized) {
+                                        Button(
+                                            onClick = { gameToResume = game },
+                                            modifier = Modifier.fillMaxWidth(),
+                                            colors = ButtonDefaults.buttonColors(
+                                                containerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.1f),
+                                                contentColor = MaterialTheme.colorScheme.primary
+                                            ),
+                                            shape = RoundedCornerShape(12.dp)
+                                        ) {
+                                            Icon(
+                                                Icons.Default.Restore,
+                                                null,
+                                                modifier = Modifier.size(18.dp)
+                                            )
+                                            Spacer(Modifier.width(8.dp))
+                                            Text("Resume Game", fontWeight = FontWeight.Bold)
+                                        }
+                                    } else {
+                                        Surface(
+                                            modifier = Modifier.fillMaxWidth(),
+                                            color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f),
+                                            shape = RoundedCornerShape(12.dp)
+                                        ) {
+                                            Row(
+                                                modifier = Modifier.padding(12.dp),
+                                                verticalAlignment = Alignment.CenterVertically,
+                                                horizontalArrangement = Arrangement.Center
+                                            ) {
+                                                Icon(
+                                                    Icons.Default.CheckCircle,
+                                                    null,
+                                                    modifier = Modifier.size(16.dp),
+                                                    tint = MaterialTheme.colorScheme.primary
+                                                )
+                                                Spacer(Modifier.width(8.dp))
+                                                Text(
+                                                    "Match Completed & Locked",
+                                                    style = MaterialTheme.typography.labelMedium,
+                                                    fontWeight = FontWeight.Bold,
+                                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                                )
+                                            }
+                                        }
+                                    }
+
+                                    OutlinedButton(
+                                        onClick = { onViewDetails(game.id) },
+                                        modifier = Modifier.fillMaxWidth(),
+                                        shape = RoundedCornerShape(12.dp),
+                                        colors = ButtonDefaults.outlinedButtonColors(
+                                            contentColor = MaterialTheme.colorScheme.primary
+                                        ),
+                                        border = androidx.compose.foundation.BorderStroke(
+                                            1.dp, 
+                                            MaterialTheme.colorScheme.primary.copy(alpha = 0.5f)
+                                        )
+                                    ) {
+                                        Icon(
+                                            Icons.Default.Analytics,
+                                            null,
+                                            modifier = Modifier.size(18.dp)
+                                        )
+                                        Spacer(Modifier.width(8.dp))
+                                        Text("View Detailed Records", fontWeight = FontWeight.Bold)
+                                    }
+
+                                    Spacer(Modifier.height(8.dp))
+
+                                    OutlinedButton(
+                                        onClick = { onShareGame(game.id) },
+                                        modifier = Modifier.fillMaxWidth(),
+                                        shape = RoundedCornerShape(12.dp)
+                                    ) {
+                                        Icon(
+                                            Icons.Default.IosShare,
+                                            null,
+                                            modifier = Modifier.size(18.dp)
+                                        )
+                                        Spacer(Modifier.width(8.dp))
+                                        Text("Share Match Record", fontWeight = FontWeight.Bold)
+                                    }
                                 }
                             }
                         }

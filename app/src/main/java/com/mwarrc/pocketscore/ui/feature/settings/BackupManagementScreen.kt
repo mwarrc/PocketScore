@@ -20,6 +20,8 @@ import java.util.*
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.draw.scale
 import kotlinx.coroutines.launch
+import com.mwarrc.pocketscore.ui.feature.settings.components.SettingsItem
+import com.mwarrc.pocketscore.ui.feature.settings.components.SettingsDivider
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -28,40 +30,55 @@ fun BackupManagementScreen(
     onBack: () -> Unit,
     onCreateSnapshot: (String) -> Unit,
     onRestoreSnapshot: (String) -> Unit,
-
     onDeleteSnapshot: (String) -> Unit,
     onShareSnapshot: (String) -> Unit,
     onTriggerCloudBackup: () -> Unit,
     onToggleLocalSnapshots: (Boolean) -> Unit,
+    onRefresh: () -> Unit,
     settings: AppSettings
 ) {
+    LaunchedEffect(Unit) {
+        onRefresh()
+    }
     val dateFormat = SimpleDateFormat("MMM dd, yyyy HH:mm", Locale.getDefault())
     var showCreateDialog by remember { mutableStateOf(false) }
     var snapshotName by remember { mutableStateOf("") }
     var snapshotToRestore by remember { mutableStateOf<String?>(null) }
+    var snapshotToDelete by remember { mutableStateOf<String?>(null) }
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
 
+    // Create Dialog
     if (showCreateDialog) {
         AlertDialog(
             onDismissRequest = { showCreateDialog = false },
-            title = { Text("Create Snapshot") },
+            title = { 
+                Text(
+                    "Create Snapshot",
+                    style = MaterialTheme.typography.headlineSmall,
+                    fontWeight = FontWeight.Bold
+                )
+            },
             text = {
-                Column {
-                    Text("Save a point-in-time version of all your current records.", style = MaterialTheme.typography.bodySmall)
-                    Spacer(Modifier.height(16.dp))
+                Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                    Text(
+                        "Save a point-in-time version of all your current records.",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
                     OutlinedTextField(
                         value = snapshotName,
                         onValueChange = { snapshotName = it },
                         label = { Text("Snapshot Name") },
                         placeholder = { Text("e.g. Before merging with Bob") },
                         singleLine = true,
-                        shape = RoundedCornerShape(12.dp)
+                        shape = RoundedCornerShape(16.dp),
+                        modifier = Modifier.fillMaxWidth()
                     )
                 }
             },
             confirmButton = {
-                Button(
+                FilledTonalButton(
                     onClick = {
                         if (snapshotName.isNotBlank()) {
                             onCreateSnapshot(snapshotName)
@@ -70,243 +87,270 @@ fun BackupManagementScreen(
                         }
                     },
                     shape = RoundedCornerShape(12.dp)
-                ) { Text("Create") }
+                ) { 
+                    Icon(Icons.Default.Save, null, modifier = Modifier.size(18.dp))
+                    Spacer(Modifier.width(8.dp))
+                    Text("Create") 
+                }
             },
             dismissButton = {
                 TextButton(onClick = { showCreateDialog = false }) { Text("Cancel") }
-            }
+            },
+            shape = RoundedCornerShape(24.dp)
         )
     }
 
-    if (snapshotToRestore != null) {
+
+    // Delete Confirmation Dialog
+    if (snapshotToDelete != null) {
         AlertDialog(
-            onDismissRequest = { snapshotToRestore = null },
-            title = { Text("Restore Snapshot?") },
-            text = { Text("This will merge data from the snapshot '${snapshotToRestore}' into your current records. Duplicate games will be ignored.") },
+            onDismissRequest = { snapshotToDelete = null },
+            icon = {
+                Surface(
+                    shape = RoundedCornerShape(16.dp),
+                    color = MaterialTheme.colorScheme.errorContainer,
+                    modifier = Modifier.size(56.dp)
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Icon(
+                            Icons.Default.DeleteForever,
+                            null,
+                            modifier = Modifier.size(28.dp),
+                            tint = MaterialTheme.colorScheme.onErrorContainer
+                        )
+                    }
+                }
+            },
+            title = { 
+                Text(
+                    "Delete Snapshot?",
+                    style = MaterialTheme.typography.headlineSmall,
+                    fontWeight = FontWeight.Bold
+                )
+            },
+            text = { 
+                Text(
+                    "Are you sure you want to permanently delete '$snapshotToDelete'? This action cannot be undone.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            },
             confirmButton = {
                 Button(
                     onClick = {
-                        onRestoreSnapshot(snapshotToRestore!!)
-                        snapshotToRestore = null
+                        onDeleteSnapshot(snapshotToDelete!!)
+                        snapshotToDelete = null
                         scope.launch {
-                            snackbarHostState.showSnackbar("Snapshot restored successfully")
+                            snackbarHostState.showSnackbar("Snapshot deleted")
                         }
                     },
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.error,
+                        contentColor = MaterialTheme.colorScheme.onError
+                    ),
                     shape = RoundedCornerShape(12.dp)
-                ) { Text("Restore") }
+                ) { Text("Delete") }
             },
             dismissButton = {
-                TextButton(onClick = { snapshotToRestore = null }) { Text("Cancel") }
-            }
+                TextButton(onClick = { snapshotToDelete = null }) { Text("Cancel") }
+            },
+            shape = RoundedCornerShape(24.dp)
         )
     }
 
-    Column(modifier = Modifier.background(MaterialTheme.colorScheme.surface)) {
-        Spacer(Modifier.statusBarsPadding())
-        Scaffold(
-            modifier = Modifier.displayCutoutPadding(),
-            topBar = {
-                CenterAlignedTopAppBar(
-                    title = { Text("Backup Center", fontWeight = FontWeight.Bold) },
-                    navigationIcon = {
-                        IconButton(onClick = onBack) {
-                            Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back")
-                        }
+    Scaffold(
+        modifier = Modifier.fillMaxSize(),
+        topBar = {
+            CenterAlignedTopAppBar(
+                title = { 
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(
+                            Icons.Default.Backup,
+                            null,
+                            modifier = Modifier.size(24.dp),
+                            tint = MaterialTheme.colorScheme.primary
+                        )
+                        Spacer(Modifier.width(12.dp))
+                        Text(
+                            "Backup Center",
+                            style = MaterialTheme.typography.titleLarge,
+                            fontWeight = FontWeight.Bold
+                        )
                     }
-                )
-            },
-            floatingActionButton = {
-                FloatingActionButton(
-                    onClick = { showCreateDialog = true },
-                    containerColor = MaterialTheme.colorScheme.primary,
-                    contentColor = MaterialTheme.colorScheme.onPrimary,
-                    shape = RoundedCornerShape(16.dp)
-                ) {
-                    Icon(Icons.Default.Add, "Create Local Snapshot")
-                }
-            },
-            snackbarHost = { SnackbarHost(hostState = snackbarHostState) }
-        ) { padding ->
+                },
+                navigationIcon = {
+                    IconButton(onClick = onBack) {
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back")
+                    }
+                },
+                actions = {
+                    IconButton(onClick = onRefresh) {
+                        Icon(Icons.Default.Refresh, "Refresh")
+                    }
+                },
+                windowInsets = WindowInsets(top = 32.dp)
+            )
+        },
+        floatingActionButton = {
+            FloatingActionButton(
+                onClick = { showCreateDialog = true },
+                containerColor = MaterialTheme.colorScheme.primary,
+                contentColor = MaterialTheme.colorScheme.onPrimary,
+                shape = RoundedCornerShape(16.dp)
+            ) {
+                Icon(Icons.Default.Add, "Create Snapshot")
+            }
+        },
+        snackbarHost = { SnackbarHost(hostState = snackbarHostState) }
+    ) { padding ->
         LazyColumn(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(padding),
-            contentPadding = PaddingValues(bottom = 16.dp, start = 16.dp, end = 16.dp),
+                .padding(padding)
+                .padding(horizontal = 20.dp),
+            contentPadding = PaddingValues(bottom = 88.dp, top = 8.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            item { Spacer(Modifier.height(8.dp)) }
-            
-            // Cloud Info (Now local snapshots info)
-            // Header Section: Status & Toggle
+            // Auto-Snapshots Section
             item {
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(vertical = 12.dp)
-                ) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text(
-                                "Daily Auto-Snapshots",
-                                style = MaterialTheme.typography.titleMedium,
-                                fontWeight = FontWeight.Bold
-                            )
-                            Text(
-                                "Protect your data with automated daily saves.",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f)
-                            )
-                        }
-                        Switch(
-                            checked = settings.localSnapshotsEnabled,
-                            onCheckedChange = onToggleLocalSnapshots,
-                            colors = SwitchDefaults.colors(
-                                checkedThumbColor = MaterialTheme.colorScheme.primary,
-                                checkedTrackColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f)
-                            )
-                        )
-                    }
-
-                    Spacer(Modifier.height(24.dp))
-
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(24.dp)
-                    ) {
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text(
-                                "Last Snapshot",
-                                style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.primary,
-                                fontWeight = FontWeight.Bold
-                            )
-                            Text(
-                                if (settings.lastLocalSnapshotTime == 0L) "No snapshots recorded" else dateFormat.format(Date(settings.lastLocalSnapshotTime)),
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
-                        Column(horizontalAlignment = Alignment.End) {
-                            Text(
-                                "Storage Used",
-                                style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.primary,
-                                fontWeight = FontWeight.Bold
-                            )
-                            Text(
-                                settings.lastSnapshotSize.ifEmpty { "0 KB" },
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
-                    }
-
-                    Spacer(Modifier.height(24.dp))
-
-                    OutlinedButton(
-                        onClick = { onCreateSnapshot("Auto-Snapshot ${dateFormat.format(Date())}") },
-                        modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(14.dp),
-                        enabled = settings.localSnapshotsEnabled,
-                        border = androidx.compose.foundation.BorderStroke(
-                            1.dp,
-                            MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
-                        )
-                    ) {
-                        Icon(Icons.Default.AutoMode, null, modifier = Modifier.size(18.dp))
-                        Spacer(Modifier.width(8.dp))
-                        Text("Instant Auto-Snapshot")
-                    }
-                }
-            }
-
-            item {
-                HorizontalDivider(
-                    modifier = Modifier.padding(vertical = 8.dp),
-                    thickness = 0.5.dp,
-                    color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f)
+                Text(
+                    "Auto-Snapshots",
+                    style = MaterialTheme.typography.labelLarge,
+                    color = MaterialTheme.colorScheme.primary,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.padding(start = 4.dp, top = 8.dp)
                 )
             }
 
             item {
-                Column(modifier = Modifier.padding(vertical = 12.dp)) {
-                    Text(
-                        "History",
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold
-                    )
-                    Text(
-                        "Previously saved local snapshots.",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
-                    )
-                }
+                SettingsItem(
+                    title = "Daily Auto-Snapshots",
+                    subtitle = "Protect your data with automated daily saves",
+                    icon = Icons.Default.AutoMode,
+                    trailing = {
+                        Switch(
+                            checked = settings.localSnapshotsEnabled,
+                            onCheckedChange = onToggleLocalSnapshots
+                        )
+                    }
+                )
+            }
+
+            item {
+                SettingsItem(
+                    title = "Last Snapshot",
+                    subtitle = if (settings.lastLocalSnapshotTime == 0L) 
+                        "No snapshots recorded" 
+                    else 
+                        dateFormat.format(Date(settings.lastLocalSnapshotTime)),
+                    icon = Icons.Default.Schedule
+                )
+            }
+
+            item {
+                SettingsItem(
+                    title = "Storage Used",
+                    subtitle = settings.lastSnapshotSize.ifEmpty { "0 KB" },
+                    icon = Icons.Default.Storage
+                )
+            }
+
+            item {
+                SettingsItem(
+                    title = "Instant Auto-Snapshot",
+                    subtitle = "Create a snapshot right now",
+                    icon = Icons.Default.FlashOn,
+                    onClick = if (settings.localSnapshotsEnabled) {
+                        { onCreateSnapshot("Auto-Snapshot ${dateFormat.format(Date())}") }
+                    } else null
+                )
+            }
+
+            item {
+                SettingsDivider(alpha = 0.5f)
+            }
+
+            // History Section
+            item {
+                Text(
+                    "History",
+                    style = MaterialTheme.typography.labelLarge,
+                    color = MaterialTheme.colorScheme.primary,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.padding(start = 4.dp, top = 8.dp)
+                )
+            }
+
+            item {
+                Text(
+                    "${snapshots.size} saved snapshot${if (snapshots.size != 1) "s" else ""}",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(start = 4.dp, bottom = 4.dp)
+                )
             }
 
             if (snapshots.isEmpty()) {
                 item {
-                    Surface(
-                        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f),
-                        shape = RoundedCornerShape(16.dp),
-                        modifier = Modifier.fillMaxWidth().padding(vertical = 32.dp)
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 32.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        Column(
-                            modifier = Modifier.padding(24.dp),
-                            horizontalAlignment = Alignment.CenterHorizontally
-                        ) {
-                            Icon(Icons.Default.History, null, modifier = Modifier.size(48.dp), tint = MaterialTheme.colorScheme.surfaceVariant)
-                            Spacer(Modifier.height(16.dp))
-                            Text("No snapshots yet", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        }
+                        Icon(
+                            Icons.Default.History,
+                            null,
+                            modifier = Modifier.size(48.dp),
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f)
+                        )
+                        Text(
+                            "No snapshots yet",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
                     }
                 }
             }
 
             items(snapshots) { (name, timestamp) ->
-                SnapshotCard(
+                SnapshotItem(
                     name = name,
                     date = dateFormat.format(Date(timestamp)),
-                    onRestore = { snapshotToRestore = name },
-                    onDelete = { onDeleteSnapshot(name) },
+                    onRestore = { 
+                        onRestoreSnapshot(name)
+                        scope.launch {
+                            snackbarHostState.showSnackbar("Opening Import Manager...")
+                        }
+                    },
+                    onDelete = { snapshotToDelete = name },
                     onShare = { onShareSnapshot(name) }
                 )
             }
         }
     }
 }
-}
-
-
 
 @Composable
-fun SnapshotCard(
+fun SnapshotItem(
     name: String,
     date: String,
     onRestore: () -> Unit,
     onDelete: () -> Unit,
     onShare: () -> Unit
 ) {
-    Surface(
-        modifier = Modifier.fillMaxWidth(),
-        color = Color.Transparent,
-        shape = RoundedCornerShape(16.dp),
-        border = androidx.compose.foundation.BorderStroke(
-            1.dp,
-            MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f)
-        )
-    ) {
+    Column {
         Row(
-            modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(vertical = 8.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             Surface(
                 modifier = Modifier.size(40.dp),
                 shape = RoundedCornerShape(12.dp),
-                color = MaterialTheme.colorScheme.primary.copy(alpha = 0.05f)
+                color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f)
             ) {
                 Box(contentAlignment = Alignment.Center) {
                     Icon(
@@ -323,18 +367,18 @@ fun SnapshotCard(
             Column(modifier = Modifier.weight(1f)) {
                 Text(
                     name,
-                    style = MaterialTheme.typography.titleSmall,
-                    fontWeight = FontWeight.Bold,
+                    style = MaterialTheme.typography.bodyLarge,
+                    fontWeight = FontWeight.Medium,
                     color = MaterialTheme.colorScheme.onSurface
                 )
                 Text(
                     date,
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
 
-            Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+            Row(horizontalArrangement = Arrangement.spacedBy(0.dp)) {
                 IconButton(onClick = onRestore) {
                     Icon(
                         Icons.Default.Restore,
@@ -356,10 +400,14 @@ fun SnapshotCard(
                         Icons.Default.DeleteOutline,
                         "Delete",
                         modifier = Modifier.size(20.dp),
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
+                        tint = MaterialTheme.colorScheme.error
                     )
                 }
             }
         }
+        HorizontalDivider(
+            thickness = 0.5.dp,
+            color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f)
+        )
     }
 }

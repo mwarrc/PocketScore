@@ -3,6 +3,7 @@ package com.mwarrc.pocketscore.ui.feature.home.components
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material3.*
@@ -97,10 +98,21 @@ fun PlayerInputCard(
                     }
                     else -> null
                 },
+                trailingIcon = if (isContinuing) {
+                    {
+                        Icon(
+                            Icons.Default.CheckCircle,
+                            contentDescription = "Verified Player",
+                            tint = MaterialTheme.colorScheme.primary
+                        )
+                    }
+                } else null,
                 shape = RoundedCornerShape(16.dp),
                 colors = OutlinedTextFieldDefaults.colors(
                     focusedContainerColor = MaterialTheme.colorScheme.surface,
-                    unfocusedContainerColor = MaterialTheme.colorScheme.surface
+                    unfocusedContainerColor = MaterialTheme.colorScheme.surface,
+                    focusedBorderColor = if (isContinuing) MaterialTheme.colorScheme.primary else OutlinedTextFieldDefaults.colors().focusedIndicatorColor,
+                    unfocusedBorderColor = if (isContinuing) MaterialTheme.colorScheme.primary.copy(alpha = 0.5f) else OutlinedTextFieldDefaults.colors().unfocusedIndicatorColor
                 )
             )
 

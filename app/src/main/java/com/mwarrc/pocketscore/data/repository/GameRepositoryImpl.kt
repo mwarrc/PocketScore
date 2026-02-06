@@ -62,11 +62,21 @@ class GameRepositoryImpl(private val context: Context) : GameRepository {
 
     override suspend fun archiveCurrentGame(gameState: GameState) {
         val currentHistory = gameHistory.first()
+        val currentSettings = appSettings.first()
+        
         val updatedHistory = currentHistory.copy(
             pastGames = (listOf(gameState.copy(endTime = System.currentTimeMillis())) + currentHistory.pastGames).take(50)
         )
+        
+        val newGamesPlayedCount = currentSettings.gamesPlayedCount + 1
+        val updatedSettings = currentSettings.copy(
+            gamesPlayedCount = newGamesPlayedCount,
+            showIdentityTip = if (newGamesPlayedCount >= 2) false else currentSettings.showIdentityTip
+        )
+        
         context.dataStore.edit { preferences ->
             preferences[gameHistoryKey] = Json.encodeToString(updatedHistory)
+            preferences[appSettingsKey] = Json.encodeToString(updatedSettings)
         }
     }
 
@@ -92,7 +102,7 @@ class GameRepositoryImpl(private val context: Context) : GameRepository {
         
         return if (gameId == null) {
             PocketScoreShare(
-                sourceDevice = Build.MODEL,
+                sourceDevice = settings.customDeviceName ?: Build.MODEL,
                 friends = settings.savedPlayerNames,
                 games = history.pastGames
             )
@@ -100,28 +110,43 @@ class GameRepositoryImpl(private val context: Context) : GameRepository {
             val game = history.pastGames.find { it.id == gameId }
             val friendsInGame = game?.players?.map { it.name } ?: emptyList()
             PocketScoreShare(
-                sourceDevice = Build.MODEL,
+                sourceDevice = settings.customDeviceName ?: Build.MODEL,
                 friends = friendsInGame,
                 games = listOfNotNull(game)
             )
         }
     }
 
-    override suspend fun mergeShareData(share: PocketScoreShare) {
+    override suspend fun mergeShareData(share: PocketScoreShare, playerNameMappings: Map<String, String>) {
         val currentHistory = gameHistory.first()
         val currentSettings = appSettings.first()
 
-        // Smart merge games: avoid duplicates by ID
+        // 1. Apply name mappings and propagate device info to incoming data
+        val mappedGames = share.games.map { game ->
+            game.copy(
+                deviceInfo = game.deviceInfo ?: share.sourceDevice, // Propagate source device name
+                players = game.players.map { player ->
+                    val mappedName = playerNameMappings[player.name] ?: player.name
+                    player.copy(name = mappedName)
+                }
+            )
+        }
+        
+        val mappedFriends = share.friends.map { name ->
+            playerNameMappings[name] ?: name
+        }
+
+        // 2. Smart merge games: avoid duplicates by ID
         val existingIds = currentHistory.pastGames.map { it.id }.toSet()
-        val newGames = share.games.filter { it.id !in existingIds }
+        val newGames = mappedGames.filter { it.id !in existingIds }
         
         val updatedHistory = currentHistory.copy(
             pastGames = (newGames + currentHistory.pastGames).take(100)
         )
 
-        // Smart merge friends: avoid duplicates by case-insensitive name
+        // 3. Smart merge friends: avoid duplicates by case-insensitive name
         val existingNames = currentSettings.savedPlayerNames.map { it.lowercase() }.toSet()
-        val newFriends = share.friends.filter { it.lowercase() !in existingNames }
+        val newFriends = mappedFriends.filter { it.lowercase() !in existingNames }
         
         val updatedSettings = currentSettings.copy(
             savedPlayerNames = (currentSettings.savedPlayerNames + newFriends).distinct().take(100)

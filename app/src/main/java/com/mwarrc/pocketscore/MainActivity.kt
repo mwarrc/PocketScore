@@ -36,6 +36,7 @@ import com.mwarrc.pocketscore.ui.feature.about.AboutScreen
 import com.mwarrc.pocketscore.ui.comingsoon.ComingSoonScreen
 import com.mwarrc.pocketscore.ui.feature.game.GameScreen
 import com.mwarrc.pocketscore.ui.feature.history.HistoryScreen
+import com.mwarrc.pocketscore.ui.feature.history.MatchDetailsScreen
 import com.mwarrc.pocketscore.ui.feature.settings.SettingsScreen
 import com.mwarrc.pocketscore.ui.feature.settings.BackupManagementScreen
 import com.mwarrc.pocketscore.ui.feature.home.HomeScreen
@@ -72,6 +73,7 @@ class MainActivity : ComponentActivity() {
             var showSplash by remember { mutableStateOf(true) }
             var showOnboarding by remember { mutableStateOf(false) }
             var incomingShareData by remember { mutableStateOf<PocketScoreShare?>(null) }
+            var selectedMatchId by remember { mutableStateOf<String?>(null) }
 
             // Launcher for importing .pscore files manually
             val filePickerLauncher = rememberLauncherForActivityResult(
@@ -249,6 +251,10 @@ class MainActivity : ComponentActivity() {
                                     settings = appState.settings,
                                     onUpdateSettings = { update -> viewModel.updateSettings(update) },
                                     onRename = { old, new -> viewModel.renamePlayer(old, new) },
+                                    onViewDetails = { id ->
+                                        selectedMatchId = id
+                                        navController.navigate("match_details")
+                                    },
                                     onShareGame = { id -> 
                                         scope.launch {
                                             val share = viewModel.getShareData(id)
@@ -256,6 +262,17 @@ class MainActivity : ComponentActivity() {
                                         }
                                     }
                                 )
+                            }
+                            composable("match_details") {
+                                val match = appState.gameHistory.pastGames.find { it.id == selectedMatchId }
+                                if (match != null) {
+                                    MatchDetailsScreen(
+                                        game = match,
+                                        onBack = { navController.popBackStack() }
+                                    )
+                                } else {
+                                    navController.popBackStack()
+                                }
                             }
                             composable("settings") {
                                 SettingsScreen(
@@ -294,7 +311,11 @@ class MainActivity : ComponentActivity() {
                                         viewModel.createSnapshot(name)
                                     },
                                     onRestoreSnapshot = { name ->
-                                        viewModel.restoreSnapshot(name) { /* Optional: Callback if needed by Activity */ }
+                                        scope.launch {
+                                            viewModel.getSnapshotData(name)?.let { shareData ->
+                                                incomingShareData = shareData
+                                            }
+                                        }
                                     },
                                     onDeleteSnapshot = { name ->
                                         viewModel.deleteSnapshot(name)
@@ -313,6 +334,7 @@ class MainActivity : ComponentActivity() {
                                     onToggleLocalSnapshots = { enabled ->
                                         viewModel.updateSettings { it.copy(localSnapshotsEnabled = enabled) }
                                     },
+                                    onRefresh = { viewModel.refreshSnapshots() },
                                     settings = appState.settings
                                 )
                             }
@@ -347,8 +369,9 @@ class MainActivity : ComponentActivity() {
                 incomingShareData?.let { data ->
                     ImportPreviewScreen(
                         shareData = data,
-                        onConfirm = {
-                            viewModel.importData(data)
+                        existingPlayers = appState.settings.savedPlayerNames,
+                        onConfirm = { mappings ->
+                            viewModel.importData(data, mappings)
                             incomingShareData = null
                         },
                         onCancel = { incomingShareData = null }
