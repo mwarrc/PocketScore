@@ -70,6 +70,7 @@ import kotlinx.coroutines.launch
 @Composable
 fun QuickCalculatorSheet(
     settings: AppSettings,
+    onUpdateSettings: ((AppSettings) -> AppSettings) -> Unit,
     onDismiss: () -> Unit
 ) {
     var result by remember { mutableStateOf("0") }
@@ -207,12 +208,24 @@ fun QuickCalculatorSheet(
 
                 Spacer(Modifier.height(24.dp))
 
+                val visualExpression = expression.text
+                    .replace("*", " × ")
+                    .replace("/", " ÷ ")
+
                 OutlinedTextField(
-                    value = expression,
+                    value = expression.copy(text = visualExpression),
                     onValueChange = { newValue ->
-                        if (newValue.text.all { it.isDigit() || "+-*/. ".contains(it) }) {
-                            expression = newValue
-                            val evalResult = evaluate(newValue.text)
+                        // Reverse the visual mapping to get the raw expression for logic
+                        val rawText = newValue.text
+                            .replace(" × ", "*")
+                            .replace("×", "*")
+                            .replace(" ÷ ", "/")
+                            .replace("÷", "/")
+                        
+                        if (rawText.all { it.isDigit() || "+-*/. ".contains(it) }) {
+                            // Update the actual expression with raw symbols
+                            expression = newValue.copy(text = rawText)
+                            val evalResult = evaluate(rawText)
                             if (evalResult != "...") result = evalResult
                         }
                     },
@@ -377,7 +390,9 @@ fun QuickCalculatorSheet(
                     },
                     onDismiss = { showNumpad = false },
                     isPinned = false,
-                    onTogglePin = {}
+                    onTogglePin = {},
+                    settings = settings,
+                    onUpdateSettings = onUpdateSettings
                 )
             }
         }

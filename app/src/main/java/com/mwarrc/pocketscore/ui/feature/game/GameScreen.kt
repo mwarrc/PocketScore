@@ -143,7 +143,8 @@ fun GameScreen(
     // Unified BackHandler - only intercept when we have something to handle
     BackHandler(enabled = showNumpad || (hasActiveGame && !exitConfirmed)) {
         when {
-            showNumpad -> showNumpad = false
+            showNumpad && isNumpadPinned -> isNumpadPinned = false // Unpin first
+            showNumpad -> showNumpad = false // Then dismiss
             hasActiveGame && !exitConfirmed -> showExitConfirmation = true
         }
     }
@@ -524,6 +525,7 @@ fun GameScreen(
     if (showCalculator) {
         QuickCalculatorSheet(
             settings = settings,
+            onUpdateSettings = onUpdateSettings,
             onDismiss = { showCalculator = false }
         )
     }
@@ -850,80 +852,21 @@ fun GameScreen(
                             if (scoreInput.isNotEmpty()) scoreInput = scoreInput.dropLast(1)
                         },
                         onDismiss = { 
-                            showNumpad = false 
-                            isNumpadPinned = false // Reset pin on manual close
+                            if (!isNumpadPinned) {
+                                showNumpad = false
+                            }
                         },
                         isPinned = isNumpadPinned,
-                        onTogglePin = { isNumpadPinned = !isNumpadPinned }
+                        onTogglePin = { isNumpadPinned = !isNumpadPinned },
+                        settings = settings,
+                        onUpdateSettings = onUpdateSettings
                     )
                 }
             }
         }
     }
-}
-
-// Assuming ActivePlayerCard is defined elsewhere and imported,
-// and the user wants to see the *effect* of the changes on the call site.
-// The instruction "Modify ActivePlayerCard.kt" implies the definition is in a separate file.
-// However, the provided diff snippet for ActivePlayerCard's internal logic
-// suggests it might be part of the current file or the user wants to see how it would look.
-// Given the context, I will assume the user wants to see the *definition* of ActivePlayerCard
-// as if it were part of this file, or at least the relevant logic for the changes.
-// Since the full definition of ActivePlayerCard is not in the provided content,
-// I will insert the modified logic as a placeholder or assume it's an external change.
-
-// If ActivePlayerCard was defined in this file, it would look something like this:
-/*
-@Composable
-fun ActivePlayerCard(
-    player: Player,
-    isLeader: Boolean,
-    isCurrentTurn: Boolean,
-    isStrictTurnMode: Boolean,
-    lastPoints: Int?,
-    scoreInput: String,
-    onScoreInputChange: (String) -> Unit,
-    onFocus: () -> Unit,
-    useCustomKeyboard: Boolean,
-    onAdd: (Int) -> Unit,
-    onSubtract: (Int) -> Unit,
-    onSetTurn: (() -> Unit)? = null,
-    alwaysShowControls: Boolean = false // Added parameter
-) {
-    val canEdit = !isStrictTurnMode || isCurrentTurn
-    val focusRequester = remember { FocusRequester() }
-
-    val containerColor = when {
-        isCurrentTurn -> MaterialTheme.colorScheme.primaryContainer
-        isLeader -> MaterialTheme.colorScheme.surface // Clean surface for leader, use border/icon to distinguish
-        else -> MaterialTheme.colorScheme.surface
     }
 
-    val contentColor = when {
-        isCurrentTurn -> MaterialTheme.colorScheme.onPrimaryContainer
-        isLeader -> MaterialTheme.colorScheme.onSurface // Standard text
-        else -> MaterialTheme.colorScheme.onSurface
-    }
-
-    val borderStroke = when {
-        isCurrentTurn -> BorderStroke(2.dp, MaterialTheme.colorScheme.primary)
-        isLeader -> BorderStroke(2.dp, MaterialTheme.colorScheme.tertiary) // Gold/Bronze border for leader
-        else -> null
-    }
-
-    // ... rest of ActivePlayerCard implementation ...
-
-    // Example of where AnimatedVisibility would be updated:
-    AnimatedVisibility(
-        visible = isCurrentTurn || alwaysShowControls, // Updated condition
-        enter = expandVertically() + fadeIn(),
-        exit = shrinkVertically() + fadeOut()
-    ) {
-        // ... content of AnimatedVisibility ...
-    }
-    // ... rest of ActivePlayerCard implementation ...
-}
-*/
 
 
     if (showManagePlayers) {
@@ -1064,4 +1007,5 @@ fun ActivePlayerCard(
         }
     }
 }
+
 

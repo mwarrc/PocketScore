@@ -36,5 +36,18 @@ data class AppSettings(
     val currencySymbol: String = "KSh", // Default currency (e.g., KSh for Kenya)
     val winnersPay: Boolean = false, // If true, winners also split the cost
     val useCustomKeyboard: Boolean = true, // Toggle for the custom minimal numpad
-    val customDeviceName: String? = null // Personalized name for this device (e.g., "Jacob's Phone")
+    val customDeviceName: String? = null, // Personalized name for this device (e.g., "Jacob's Phone")
+    val keyboardTheme: KeyboardTheme = KeyboardTheme.AUTO, // Keyboard color theme
+    val keyboardTextSize: Float = 24f, // Number text size (20-32sp)
+    val keyboardHeight: KeyboardHeight = KeyboardHeight.MEDIUM // Keyboard button height
 )
+
+@Serializable
+enum class KeyboardTheme {
+    AUTO, LIGHT, DARK
+}
+
+@Serializable
+enum class KeyboardHeight {
+    COMPACT, MEDIUM, LARGE
+}

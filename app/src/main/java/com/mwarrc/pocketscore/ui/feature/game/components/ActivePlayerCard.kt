@@ -1,5 +1,6 @@
 package com.mwarrc.pocketscore.ui.feature.game.components
 
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -38,6 +39,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -72,6 +74,13 @@ fun ActivePlayerCard(
     val canEdit = !isStrictTurnMode || isCurrentTurn
     val focusRequester = remember { FocusRequester() }
 
+    // Snappy auto-focus for system keyboard to prevent it from closing on player switch
+    LaunchedEffect(isCurrentTurn, useCustomKeyboard) {
+        if (isCurrentTurn && !useCustomKeyboard && canEdit) {
+            focusRequester.requestFocus()
+        }
+    }
+
     val containerColor = when {
         isCurrentTurn -> MaterialTheme.colorScheme.primaryContainer
         isLeader -> MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.15f)
@@ -80,7 +89,7 @@ fun ActivePlayerCard(
 
     val contentColor = when {
         isCurrentTurn -> MaterialTheme.colorScheme.onPrimaryContainer
-        isLeader -> MaterialTheme.colorScheme.onSurface // Standard text
+        isLeader -> MaterialTheme.colorScheme.onSurface 
         else -> MaterialTheme.colorScheme.onSurface
     }
 
@@ -94,6 +103,7 @@ fun ActivePlayerCard(
             .fillMaxWidth()
             .clickable(enabled = (!isStrictTurnMode || isCurrentTurn)) {
                 onSetTurn?.invoke()
+                if (!useCustomKeyboard) focusRequester.requestFocus()
                 onFocus()
             },
         shape = RoundedCornerShape(16.dp),
@@ -105,11 +115,9 @@ fun ActivePlayerCard(
         )
     ) {
         Box(modifier = Modifier.fillMaxWidth()) {
-            // Leader: subtle premium sparkle field
             if (isLeader && !isCurrentTurn) {
                 val starTint = MaterialTheme.colorScheme.tertiary
                 Box(modifier = Modifier.matchParentSize()) {
-                    // Top Left
                     Icon(
                         Icons.Default.Star,
                         null,
@@ -117,7 +125,6 @@ fun ActivePlayerCard(
                             .offset(16.dp, 16.dp).alpha(0.18f).rotate(-15f),
                         tint = starTint
                     )
-                    // Top Right area
                     Icon(
                         Icons.Default.Star,
                         null,
@@ -125,7 +132,6 @@ fun ActivePlayerCard(
                             .offset((-60).dp, 12.dp).alpha(0.12f).rotate(10f),
                         tint = starTint
                     )
-                    // Far Top Right
                     Icon(
                         Icons.Default.Star,
                         null,
@@ -133,7 +139,6 @@ fun ActivePlayerCard(
                             .offset((-12).dp, 20.dp).alpha(0.15f).rotate(25f),
                         tint = starTint
                     )
-                    // Middle Left
                     Icon(
                         Icons.Default.Star,
                         null,
@@ -141,7 +146,6 @@ fun ActivePlayerCard(
                             .offset(40.dp, (-20).dp).alpha(0.1f).rotate(5f),
                         tint = starTint
                     )
-                    // Bottom Left area
                     Icon(
                         Icons.Default.Star,
                         null,
@@ -149,7 +153,6 @@ fun ActivePlayerCard(
                             .offset(32.dp, (-16).dp).alpha(0.12f).rotate(-10f),
                         tint = starTint
                     )
-                    // Bottom Right
                     Icon(
                         Icons.Default.Star,
                         null,
@@ -236,7 +239,7 @@ fun ActivePlayerCard(
                                     "Tap to Play",
                                     style = MaterialTheme.typography.labelSmall,
                                     color = contentColor.copy(alpha = 0.6f),
-                                    modifier = Modifier.clickable { onSetTurn() }
+                                    modifier = Modifier.padding(top = 4.dp)
                                 )
                             }
                         }
@@ -277,10 +280,13 @@ fun ActivePlayerCard(
                     }
                 }
 
+                // Snappy animations (200ms)
                 androidx.compose.animation.AnimatedVisibility(
                     visible = isCurrentTurn || alwaysShowControls,
-                    enter = androidx.compose.animation.expandVertically() + androidx.compose.animation.fadeIn(),
-                    exit = androidx.compose.animation.shrinkVertically() + androidx.compose.animation.fadeOut()
+                    enter = androidx.compose.animation.expandVertically(animationSpec = tween(200)) + 
+                            androidx.compose.animation.fadeIn(animationSpec = tween(200)),
+                    exit = androidx.compose.animation.shrinkVertically(animationSpec = tween(200)) + 
+                           androidx.compose.animation.fadeOut(animationSpec = tween(200))
                 ) {
                     Column {
                         Spacer(Modifier.height(16.dp))
@@ -289,7 +295,6 @@ fun ActivePlayerCard(
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.spacedBy(12.dp)
                         ) {
-                            // Score Input Area (50% width)
                             Surface(
                                 modifier = Modifier
                                     .weight(1f)
@@ -366,12 +371,11 @@ fun ActivePlayerCard(
                                 }
                             }
 
-                            // Buttons Area (50% width)
                             Row(
                                 modifier = Modifier
                                     .weight(1f)
                                     .height(56.dp),
-                                horizontalArrangement = Arrangement.spacedBy(8.dp) // Tiny gap
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
                             ) {
                                 val isDark = isSystemInDarkTheme()
 
@@ -388,16 +392,10 @@ fun ActivePlayerCard(
                                     shape = RoundedCornerShape(12.dp),
                                     enabled = canEdit && scoreInput.isNotEmpty(),
                                     colors = IconButtonDefaults.filledTonalIconButtonColors(
-                                        containerColor = if (isDark) MaterialTheme.colorScheme.errorContainer else Color(
-                                            0xFFFFDAD4
-                                        ), // More red in light mode
+                                        containerColor = if (isDark) MaterialTheme.colorScheme.errorContainer else Color(0xFFFFDAD4),
                                         contentColor = MaterialTheme.colorScheme.onErrorContainer,
-                                        disabledContainerColor = MaterialTheme.colorScheme.onSurface.copy(
-                                            alpha = 0.12f
-                                        ),
-                                        disabledContentColor = MaterialTheme.colorScheme.onSurface.copy(
-                                            alpha = 0.38f
-                                        )
+                                        disabledContainerColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f),
+                                        disabledContentColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f)
                                     )
                                 ) {
                                     Icon(Icons.Outlined.Remove, "Subtract")
@@ -418,12 +416,8 @@ fun ActivePlayerCard(
                                     colors = IconButtonDefaults.filledIconButtonColors(
                                         containerColor = MaterialTheme.colorScheme.primary,
                                         contentColor = MaterialTheme.colorScheme.onPrimary,
-                                        disabledContainerColor = MaterialTheme.colorScheme.onSurface.copy(
-                                            alpha = 0.12f
-                                        ),
-                                        disabledContentColor = MaterialTheme.colorScheme.onSurface.copy(
-                                            alpha = 0.38f
-                                        )
+                                        disabledContainerColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f),
+                                        disabledContentColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f)
                                     )
                                 ) {
                                     Icon(Icons.Outlined.Add, "Add")
