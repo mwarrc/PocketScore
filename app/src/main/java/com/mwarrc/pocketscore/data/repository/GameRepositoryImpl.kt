@@ -202,8 +202,15 @@ class GameRepositoryImpl(private val context: Context) : GameRepository {
             }
         }
     }
-    private val internalBackupDir = File(context.filesDir, "backups").apply { if (!exists()) mkdirs() }
-    private val publicBackupDir = File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOCUMENTS), "PocketScore").apply { 
+    private val internalBackupDir: File by lazy {
+        // Use App-Specific External Storage (Android/data/pkg/files/backups)
+        // This is persistent but hidden from gallery/accidental deletion
+        val dir = context.getExternalFilesDir("backups") ?: File(context.filesDir, "backups")
+        if (!dir.exists()) dir.mkdirs()
+        dir
+    }
+    
+    private val publicBackupDir = File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOCUMENTS), "PocketScore Backups").apply { 
         try { if (!exists()) mkdirs() } catch (e: Exception) { /* Scoped storage might block this on 11+ */ }
     }
 
@@ -211,18 +218,9 @@ class GameRepositoryImpl(private val context: Context) : GameRepository {
         val share = getShareableData(null)
         val json = Json.encodeToString(share)
         
-        // 1. Save to Internal (Private)
+        // Save ONLY to Internal (Private/App-Specific) by default
         File(internalBackupDir, "$name.pscore").writeText(json)
         
-        // 2. Try to save to Public (Survives Uninstall)
-        try {
-            if (publicBackupDir.exists() || publicBackupDir.mkdirs()) {
-                File(publicBackupDir, "$name.pscore").writeText(json)
-            }
-        } catch (e: Exception) {
-            // Silently fail public backup if scoped storage blocks it (Android 11+)
-        }
-
         // Update settings with metadata for UI
         val sizeInKb = (json.length.toDouble() / 1024.0)
         val sizeStr = if (sizeInKb < 1024) String.format("%.1f KB", sizeInKb) else String.format("%.1f MB", sizeInKb / 1024.0)
@@ -232,6 +230,22 @@ class GameRepositoryImpl(private val context: Context) : GameRepository {
             lastLocalSnapshotTime = System.currentTimeMillis(),
             lastSnapshotSize = sizeStr
         ))
+    }
+
+    override suspend fun exportSnapshotToPublic(name: String): Boolean {
+        return try {
+            val sourceFile = File(internalBackupDir, "$name.pscore")
+            if (!sourceFile.exists()) return false
+            
+            if (!publicBackupDir.exists()) publicBackupDir.mkdirs()
+            
+            val destFile = File(publicBackupDir, "$name.pscore")
+            sourceFile.copyTo(destFile, overwrite = true)
+            true
+        } catch (e: Exception) {
+            e.printStackTrace()
+            false
+        }
     }
 
     override suspend fun getLocalSnapshots(): List<Pair<String, Long>> {
@@ -278,6 +292,8 @@ class GameRepositoryImpl(private val context: Context) : GameRepository {
     override suspend fun deleteSnapshot(name: String) {
         File(internalBackupDir, "$name.pscore").let { if (it.exists()) it.delete() }
         try {
+            // Optional: Also delete form public if it exists there, but usually we treat public as "user managed"
+            // However, for consistency, if the user says "delete", we should probably delete both versions if they have the same name.
             File(publicBackupDir, "$name.pscore").let { if (it.exists()) it.delete() }
         } catch (e: Exception) { }
     }

@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -20,7 +21,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.foundation.clickable
-import androidx.compose.material.icons.filled.AlternateEmail
+import androidx.compose.material.icons.filled.Email
 import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.Lock
@@ -58,6 +59,13 @@ import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
 import androidx.compose.runtime.*
 import androidx.compose.ui.draw.scale
+import androidx.compose.animation.core.*
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.BlendMode
+import androidx.compose.ui.draw.drawWithCache
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.ui.text.style.TextAlign
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
@@ -125,7 +133,7 @@ fun AboutScreen(
                                 if (showComingSoonFeatures) return@clickable // Already enabled
 
                                 logoClickCount++
-                                if (logoClickCount >= 6) {
+                                if (logoClickCount >= 8) {
                                     onUpdateSettings { it.copy(showComingSoonFeatures = true) }
                                     logoClickCount = 0
                                     scope.launch {
@@ -235,10 +243,21 @@ fun AboutScreen(
                     .padding(bottom = 32.dp),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
+                Text(
+                    text = "Chat on IG or simply leave a follow to show your support.",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f),
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.padding(horizontal = 48.dp).padding(bottom = 16.dp)
+                )
+
                 Row(
                     horizontalArrangement = Arrangement.spacedBy(20.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
+                    InstagramPromo(
+                        onClick = { uriHandler.openUri("https://instagram.com/mwarrc") }
+                    )
                     MinimalSocialButton(
                         iconRes = R.drawable.ic_brand_github,
                         contentDescription = "GitHub",
@@ -250,12 +269,7 @@ fun AboutScreen(
                         onClick = { uriHandler.openUri("https://twitter.com/mwarrc") }
                     )
                     MinimalSocialButton(
-                        iconRes = R.drawable.ic_brand_instagram,
-                        contentDescription = "Instagram",
-                        onClick = { uriHandler.openUri("https://instagram.com/mwarrc") }
-                    )
-                    MinimalSocialButton(
-                        iconVector = Icons.Default.AlternateEmail,
+                        iconVector = Icons.Default.Email,
                         contentDescription = "Email",
                         onClick = { uriHandler.openUri("mailto:mwarrc.dev@gmail.com") }
                     )
@@ -297,6 +311,8 @@ fun AboutScreen(
                 }
             }
         }
+
+
     }
 }
 
@@ -360,6 +376,99 @@ fun AboutInfoCard(
                 color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f),
                 lineHeight = 18.sp
             )
+        }
+    }
+}
+
+@Composable
+fun InstagramPromo(onClick: () -> Unit) {
+    val infiniteTransition = rememberInfiniteTransition(label = "ig_pulse")
+    val scale by infiniteTransition.animateFloat(
+        initialValue = 1f,
+        targetValue = 1.1f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(1200, easing = FastOutSlowInEasing),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "scale"
+    )
+
+    val brush = remember {
+        Brush.linearGradient(
+            colors = listOf(
+                Color(0xFF833AB4),
+                Color(0xFFC13584),
+                Color(0xFFE1306C),
+                Color(0xFFFD1D1D),
+                Color(0xFFF56040),
+                Color(0xFFF77737),
+                Color(0xFFFCAF45),
+                Color(0xFFFFDC80)
+            )
+        )
+    }
+
+    Box(contentAlignment = Alignment.Center) {
+        IconButton(
+            onClick = onClick,
+            modifier = Modifier.size(40.dp)
+        ) {
+            Icon(
+                painter = painterResource(id = R.drawable.ic_brand_instagram),
+                contentDescription = "Instagram",
+                modifier = Modifier
+                    .size(24.dp)
+                    .scale(scale)
+                    .graphicsLayer(alpha = 0.99f)
+                    .drawWithCache {
+                        onDrawWithContent {
+                            drawContent()
+                            drawRect(brush, blendMode = BlendMode.SrcIn)
+                        }
+                    }
+            )
+        }
+
+        // Thought-style Bubble
+        Box(
+            modifier = Modifier
+                .align(Alignment.TopEnd)
+                .offset(x = 12.dp, y = (-12).dp)
+        ) {
+            // Main Cloud
+            Surface(
+                color = MaterialTheme.colorScheme.primaryContainer,
+                shape = RoundedCornerShape(16.dp),
+                modifier = Modifier.scale(0.9f),
+                shadowElevation = 3.dp
+            ) {
+                Text(
+                    "Connect",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onPrimaryContainer,
+                    fontWeight = FontWeight.Black,
+                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
+                )
+            }
+            
+            // Thought trail
+            Surface(
+                color = MaterialTheme.colorScheme.primaryContainer,
+                shape = CircleShape,
+                modifier = Modifier
+                    .size(6.dp)
+                    .offset(x = 2.dp, y = 22.dp),
+                shadowElevation = 1.dp
+            ) {}
+            
+            Surface(
+                color = MaterialTheme.colorScheme.primaryContainer,
+                shape = CircleShape,
+                modifier = Modifier
+                    .size(4.dp)
+                    .offset(x = (-2).dp, y = 28.dp),
+                shadowElevation = 1.dp
+            ) {}
         }
     }
 }

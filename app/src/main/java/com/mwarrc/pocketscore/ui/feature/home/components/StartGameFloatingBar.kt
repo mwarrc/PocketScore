@@ -28,14 +28,22 @@ fun StartGameFloatingBar(
             onClick = onStartGame,
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 20.dp),
-            shape = RoundedCornerShape(14.dp),
-            contentPadding = PaddingValues(vertical = 14.dp),
-            elevation = ButtonDefaults.buttonElevation(defaultElevation = 0.dp)
+                .padding(horizontal = 24.dp)
+                .height(56.dp),
+            shape = RoundedCornerShape(16.dp),
+            contentPadding = PaddingValues(0.dp),
+            elevation = ButtonDefaults.buttonElevation(
+                defaultElevation = 4.dp,
+                pressedElevation = 8.dp
+            )
         ) {
-            Icon(Icons.Default.PlayArrow, contentDescription = null, modifier = Modifier.size(22.dp))
-            Spacer(Modifier.width(10.dp))
-            Text("Start Game", style = MaterialTheme.typography.titleSmall)
+            Icon(Icons.Default.PlayArrow, contentDescription = null, modifier = Modifier.size(24.dp))
+            Spacer(Modifier.width(12.dp))
+            Text(
+                "Start Game", 
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = androidx.compose.ui.text.font.FontWeight.ExtraBold
+            )
         }
     }
 }

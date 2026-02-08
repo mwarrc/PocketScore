@@ -16,11 +16,13 @@ import androidx.compose.material.icons.filled.Groups
 import androidx.compose.material.icons.filled.CloudSync
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material3.*
+import androidx.compose.material3.surfaceColorAtElevation
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.mwarrc.pocketscore.domain.model.AppSettings
 import com.mwarrc.pocketscore.ui.feature.home.components.*
 import kotlinx.coroutines.launch
@@ -110,20 +112,26 @@ fun HomeScreen(
                         horizontalArrangement = Arrangement.Center,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        TextButton(onClick = onNavigateToUpcoming) {
-                            Icon(Icons.Default.CloudSync, null, modifier = Modifier.size(16.dp), tint = MaterialTheme.colorScheme.primary)
+                        TextButton(
+                            onClick = onNavigateToUpcoming,
+                            colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.primary)
+                        ) {
+                            Icon(Icons.Default.CloudSync, null, modifier = Modifier.size(16.dp))
                             Spacer(Modifier.width(8.dp))
-                            Text("Sync", style = MaterialTheme.typography.labelSmall)
+                            Text("Sync", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold)
                         }
                         Text(
                             "•", 
                             modifier = Modifier.padding(horizontal = 4.dp),
-                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.3f)
+                            color = MaterialTheme.colorScheme.primary.copy(alpha = 0.5f)
                         )
-                        TextButton(onClick = onNavigateToRoadmap) {
-                            Icon(Icons.Default.Groups, null, modifier = Modifier.size(16.dp), tint = MaterialTheme.colorScheme.primary)
+                        TextButton(
+                            onClick = onNavigateToRoadmap,
+                            colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.primary)
+                        ) {
+                            Icon(Icons.Default.Groups, null, modifier = Modifier.size(16.dp))
                             Spacer(Modifier.width(8.dp))
-                            Text("Teams", style = MaterialTheme.typography.labelSmall)
+                            Text("Teams", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold)
                         }
                     }
                 }
@@ -131,61 +139,69 @@ fun HomeScreen(
             // Player Setup Section — styled title + record tip
             item {
                 Column(
-                    modifier = Modifier.padding(horizontal = 20.dp),
-                    verticalArrangement = Arrangement.spacedBy(6.dp)
+                    modifier = Modifier.padding(horizontal = 24.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
+                    /*Text(
+                        "Match Setup",
+                        style = MaterialTheme.typography.labelLarge,
+                        color = MaterialTheme.colorScheme.primary,
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.padding(start = 4.dp)
+                    )*/
                     Text(
-                        "Setup players",
-                        style = MaterialTheme.typography.titleLarge,
-                        fontWeight = FontWeight.Medium,
-                        color = MaterialTheme.colorScheme.onSurface
+                        "Assemble your roster for the game session.",
+                        style = MaterialTheme.typography.labelMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(start = 4.dp)
                     )
-                    Text(
-                        "Add at least 2 players to start.",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
+                    
                     if (settings.showIdentityTip) {
                         Surface(
-                            shape = RoundedCornerShape(12.dp),
-                            color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f),
-                            border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.1f)),
-                            modifier = Modifier.padding(top = 4.dp)
+                            shape = RoundedCornerShape(20.dp),
+                            color = MaterialTheme.colorScheme.surface,
+                            tonalElevation = 0.dp,
+                            border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.tertiary.copy(alpha = 0.5f)),
+                            modifier = Modifier.padding(top = 12.dp)
                         ) {
                             Box(modifier = Modifier.fillMaxWidth()) {
-                                Column(modifier = Modifier.padding(12.dp).padding(end = 32.dp)) {
-                                    Row(verticalAlignment = Alignment.CenterVertically) {
-                                        Icon(
-                                            Icons.Default.CloudSync, 
-                                            null, 
-                                            modifier = Modifier.size(16.dp), 
-                                            tint = MaterialTheme.colorScheme.primary
-                                        )
-                                        Spacer(Modifier.width(8.dp))
+                                Row(
+                                    modifier = Modifier.padding(16.dp).padding(end = 24.dp),
+                                    verticalAlignment = Alignment.Top,
+                                    horizontalArrangement = Arrangement.spacedBy(16.dp)
+                                ) {
+                                    Icon(
+                                        Icons.Default.CloudSync, 
+                                        null, 
+                                        modifier = Modifier.size(20.dp).padding(top = 2.dp), 
+                                        tint = MaterialTheme.colorScheme.tertiary
+                                    )
+                                    Column {
                                         Text(
-                                            "Identity Tip",
-                                            style = MaterialTheme.typography.labelMedium,
-                                            fontWeight = FontWeight.Bold,
-                                            color = MaterialTheme.colorScheme.primary
+                                            "Pro Tip",
+                                            style = MaterialTheme.typography.labelLarge,
+                                            fontWeight = FontWeight.ExtraBold,
+                                            color = MaterialTheme.colorScheme.tertiary
+                                        )
+                                        Spacer(Modifier.height(4.dp))
+                                        Text(
+                                            "Use your unique 'Pro Name' for consistent match history and accurate stats across all your devices!",
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                            lineHeight = 18.sp
                                         )
                                     }
-                                    Spacer(Modifier.height(4.dp))
-                                    Text(
-                                        "To keep your stats accurate across all devices and when sharing with friends, always use your unique 'Pro Name'. Consistency is key to a perfect match history!",
-                                        style = MaterialTheme.typography.bodySmall,
-                                        color = MaterialTheme.colorScheme.onSurface,
-                                        lineHeight = androidx.compose.ui.unit.TextUnit.Unspecified
-                                    )
                                 }
                                 IconButton(
                                     onClick = { onUpdateSettings { it.copy(showIdentityTip = false) } },
-                                    modifier = Modifier.align(Alignment.TopEnd).size(32.dp)
+                                    modifier = Modifier.align(Alignment.TopEnd).padding(4.dp)
                                 ) {
                                     Icon(
                                         Icons.Default.Close,
                                         contentDescription = "Dismiss Tip",
                                         modifier = Modifier.size(16.dp),
-                                        tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.6f)
+                                        tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
                                     )
                                 }
                             }
@@ -194,10 +210,10 @@ fun HomeScreen(
                 }
             }
 
-            // Saved Names Quick Select
+            // Active Roster Section
             if (settings.savedPlayerNames.isNotEmpty() && settings.showQuickSelectOnHome) {
                 item {
-                    QuickSelectRow(
+                    ActiveRosterSection(
                         savedPlayerNames = settings.savedPlayerNames,
                         currentNames = playerNames,
                         onSelectName = { name ->
@@ -205,18 +221,6 @@ fun HomeScreen(
                             val existingIndex = playerNames.indexOfFirst { it.trim().equals(normalizedName, ignoreCase = true) }
                             
                             playerNames = if (existingIndex != -1) {
-                                playerNames.toMutableList().apply { 
-                                    // If clearing a slot, just make it empty rather than removing the slot if we want to keep structure, 
-                                    // but original logic seemed to remove it? 
-                                    // Original logic: playerNames.filter { it != name }
-                                    // Actually, let's stick to the behavior: if present, remove it.
-                                    // But wait, removing from list changes size. 
-                                    // Let's implement: Remove if exists, Add if not.
-                                    // To remove, we filter out matching names.
-                                    val newList = filterIndexed { index, _ -> index != existingIndex }
-                                    // Ensure we have at least 2 slots? Original didn't seem to enforce strictly here but validation does.
-                                    // Let's just filter.
-                                }
                                 playerNames.filterNot { it.trim().equals(normalizedName, ignoreCase = true) }
                             } else {
                                 playerNames.toMutableList().apply {
@@ -229,7 +233,7 @@ fun HomeScreen(
                                 }
                             }
                         },
-                        modifier = Modifier.padding(horizontal = 20.dp)
+                        modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp)
                     )
                 }
             }
@@ -244,7 +248,7 @@ fun HomeScreen(
                     }
                     PlayerErrorBanner(
                         errorMessage = message,
-                        modifier = Modifier.padding(horizontal = 20.dp)
+                        modifier = Modifier.padding(horizontal = 24.dp)
                     )
                 }
             }
@@ -252,14 +256,13 @@ fun HomeScreen(
             // Player Name Inputs
             itemsIndexed(
                 items = playerNames,
-                key = { index, _ -> index } // Using index as key might cause issues if we remove items from middle, but for now unrelated to scroll.
-                // Ideally, we should have stable IDs, but index is standard for simple string lists.
+                key = { index, _ -> index } 
             ) { index, name ->
                 val trimmed = name.trim()
-                // Case-insensitive duplicate check
                 val isDuplicate = trimmedNames.count { it.equals(trimmed, ignoreCase = true) && it.isNotEmpty() } > 1
                 val isEmpty = trimmed.isEmpty()
                 val isContinuing = settings.savedPlayerNames.any { it.equals(trimmed, ignoreCase = true) }
+                val isNewPlayer = trimmed.isNotEmpty() && !isContinuing && !isDuplicate
                 val hasError = (isDuplicate || isEmpty) && hasStartedEditing
 
                 PlayerInputCard(
@@ -268,6 +271,7 @@ fun HomeScreen(
                     hasError = hasError,
                     isDuplicate = isDuplicate && !isEmpty,
                     isContinuing = isContinuing && !isEmpty,
+                    isNewPlayer = isNewPlayer,
                     allowRemove = playerNames.size > 2,
                     shouldFocus = index == autoFocusIndex,
                     onNameChange = { newName ->
@@ -276,14 +280,14 @@ fun HomeScreen(
                     onRemove = {
                         playerNames = playerNames.toMutableList().apply { removeAt(index) }
                     },
-                    modifier = Modifier.padding(horizontal = 20.dp)
+                    modifier = Modifier.padding(horizontal = 24.dp)
                 )
             }
 
-            // Add Player Button — M3 tonal button
+            // Add Player Button — Premium Surface
             if (playerNames.size < settings.maxPlayers) {
                 item {
-                    FilledTonalButton(
+                    Surface(
                         onClick = { 
                             if (playerNames.size < settings.maxPlayers) {
                                 autoFocusIndex = playerNames.size
@@ -295,13 +299,31 @@ fun HomeScreen(
                         },
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(horizontal = 20.dp),
+                            .padding(horizontal = 24.dp),
                         shape = RoundedCornerShape(16.dp),
-                        contentPadding = PaddingValues(vertical = 16.dp, horizontal = 24.dp)
+                        color = MaterialTheme.colorScheme.surface,
+                        tonalElevation = 0.dp,
+                        border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
                     ) {
-                        Icon(Icons.Default.Add, null, modifier = Modifier.size(20.dp))
-                        Spacer(Modifier.width(8.dp))
-                        Text("Add Player", style = MaterialTheme.typography.titleSmall)
+                        Row(
+                            modifier = Modifier.padding(vertical = 12.dp),
+                            horizontalArrangement = Arrangement.Center,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(
+                                Icons.Default.Add, 
+                                null, 
+                                modifier = Modifier.size(20.dp),
+                                tint = MaterialTheme.colorScheme.primary
+                            )
+                            Spacer(Modifier.width(12.dp))
+                            Text(
+                                "Add Another Player", 
+                                style = MaterialTheme.typography.labelLarge,
+                                fontWeight = FontWeight.ExtraBold,
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                        }
                     }
                 }
             }

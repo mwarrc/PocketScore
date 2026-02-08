@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "640491252296",
+    "project_id": "pscore-db",
+    "storage_bucket": "pscore-db.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:640491252296:android:9400be4fe9a7466831067d",
+        "android_client_info": {
+          "package_name": "com.mwarrc.pocketscore"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyB88c2kIr5cKYIiLAACwtpoZ-BA3HcOr4g"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

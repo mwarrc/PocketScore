@@ -134,25 +134,62 @@ fun MatchSplitTab(
                                 color = if (totalSessionAmount > 0) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurfaceVariant
                             )
                         }
-                        Icon(
-                            if (showQuickSettings) Icons.Default.ExpandLess else Icons.Default.Tune,
-                            null,
-                            tint = if (totalSessionAmount > 0) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
-                        )
+                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            if (!showQuickSettings) {
+                                Surface(
+                                    color = if (totalSessionAmount > 0) MaterialTheme.colorScheme.primary.copy(alpha = 0.1f) else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.05f),
+                                    shape = RoundedCornerShape(8.dp),
+                                    border = androidx.compose.foundation.BorderStroke(0.5.dp, (if (totalSessionAmount > 0) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant).copy(alpha = 0.2f))
+                                ) {
+                                    Text(
+                                        "${settings.currencySymbol}${settings.matchCost.toString().removeSuffix(".0")}/match",
+                                        style = MaterialTheme.typography.labelSmall,
+                                        fontWeight = FontWeight.Bold,
+                                        color = if (totalSessionAmount > 0) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                    )
+                                }
+                            }
+                            Icon(
+                                if (showQuickSettings) Icons.Default.ExpandLess else Icons.Default.Tune,
+                                null,
+                                tint = if (totalSessionAmount > 0) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
                     }
+                    var costText by remember { 
+                        mutableStateOf(if (settings.matchCost == 0.0) "" else settings.matchCost.toString().removeSuffix(".0")) 
+                    }
+
                     androidx.compose.animation.AnimatedVisibility(visible = showQuickSettings) {
                         Column(modifier = Modifier.padding(top = 16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                             HorizontalDivider(color = MaterialTheme.colorScheme.primary.copy(alpha = 0.1f))
                             
                             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                                 OutlinedTextField(
-                                    value = if (settings.matchCost == 0.0) "" else settings.matchCost.toString(),
-                                    onValueChange = { onUpdateSettings { s -> s.copy(matchCost = it.toDoubleOrNull() ?: 0.0) } },
+                                    value = costText,
+                                    onValueChange = { newValue ->
+                                        // Allow only numbers and one decimal point
+                                        if (newValue.isEmpty() || newValue.all { it.isDigit() || it == '.' }) {
+                                            if (newValue.count { it == '.' } <= 1) {
+                                                costText = newValue
+                                                val dValue = newValue.toDoubleOrNull()
+                                                if (dValue != null) {
+                                                    onUpdateSettings { s -> s.copy(matchCost = dValue) }
+                                                } else if (newValue.isEmpty()) {
+                                                    onUpdateSettings { s -> s.copy(matchCost = 0.0) }
+                                                }
+                                            }
+                                        }
+                                    },
                                     label = { Text("Cost per Match") },
                                     modifier = Modifier.weight(1f),
                                     prefix = { Text(settings.currencySymbol) },
-                                    keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = androidx.compose.ui.text.input.KeyboardType.Number),
-                                    shape = RoundedCornerShape(12.dp)
+                                    keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(
+                                        keyboardType = androidx.compose.ui.text.input.KeyboardType.Decimal
+                                    ),
+                                    shape = RoundedCornerShape(12.dp),
+                                    singleLine = true
                                 )
                                 OutlinedTextField(
                                     value = settings.currencySymbol,

@@ -52,6 +52,8 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import com.mwarrc.pocketscore.domain.model.Player
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
+
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
@@ -73,6 +75,8 @@ fun ActivePlayerCard(
 ) {
     val canEdit = !isStrictTurnMode || isCurrentTurn
     val focusRequester = remember { FocusRequester() }
+    val keyboardController = LocalSoftwareKeyboardController.current
+
 
     // Snappy auto-focus for system keyboard to prevent it from closing on player switch
     LaunchedEffect(isCurrentTurn, useCustomKeyboard) {
@@ -103,7 +107,10 @@ fun ActivePlayerCard(
             .fillMaxWidth()
             .clickable(enabled = (!isStrictTurnMode || isCurrentTurn)) {
                 onSetTurn?.invoke()
-                if (!useCustomKeyboard) focusRequester.requestFocus()
+                if (!useCustomKeyboard) {
+                    focusRequester.requestFocus()
+                    keyboardController?.show()
+                }
                 onFocus()
             },
         shape = RoundedCornerShape(16.dp),
@@ -300,9 +307,13 @@ fun ActivePlayerCard(
                                     .weight(1f)
                                     .height(56.dp)
                                     .clip(RoundedCornerShape(12.dp))
-                                    .clickable(enabled = canEdit && useCustomKeyboard) {
+                                    .clickable(enabled = canEdit) {
                                         onSetTurn?.invoke()
                                         onFocus()
+                                        if (!useCustomKeyboard) {
+                                            focusRequester.requestFocus()
+                                            keyboardController?.show()
+                                        }
                                     },
                                 color = MaterialTheme.colorScheme.surfaceContainerLow.copy(alpha = if (canEdit) 1f else 0.5f),
                                 border = BorderStroke(

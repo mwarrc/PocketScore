@@ -8,10 +8,10 @@
             <InsightsFilterSettings>
               <option name="connection">
                 <ConnectionSetting>
-                  <option name="appId" value="PLACEHOLDER" />
-                  <option name="mobileSdkAppId" value="" />
-                  <option name="projectId" value="" />
-                  <option name="projectNumber" value="" />
+                  <option name="appId" value="com.mwarrc.pocketscore" />
+                  <option name="mobileSdkAppId" value="1:640491252296:android:9400be4fe9a7466831067d" />
+                  <option name="projectId" value="pscore-db" />
+                  <option name="projectNumber" value="640491252296" />
                 </ConnectionSetting>
               </option>
               <option name="signal" value="SIGNAL_UNSPECIFIED" />

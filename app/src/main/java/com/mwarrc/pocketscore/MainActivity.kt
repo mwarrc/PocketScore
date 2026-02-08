@@ -42,6 +42,7 @@ import com.mwarrc.pocketscore.ui.feature.settings.BackupManagementScreen
 import com.mwarrc.pocketscore.ui.feature.home.HomeScreen
 import com.mwarrc.pocketscore.ui.feature.roadmap.RoadmapScreen
 import com.mwarrc.pocketscore.ui.feature.upcoming.UpcomingFeaturesScreen
+import com.mwarrc.pocketscore.ui.feature.feedback.FeedbackScreen
 import com.mwarrc.pocketscore.ui.feature.splash.SplashScreen
 import com.mwarrc.pocketscore.ui.feature.onboarding.OnboardingScreen
 import com.mwarrc.pocketscore.ui.theme.PocketScoreTheme
@@ -298,7 +299,13 @@ class MainActivity : ComponentActivity() {
                                         } else {
                                             requestStoragePermissions()
                                         }
-                                    }
+                                    },
+                                    onNavigateToFeedback = { navController.navigate("feedback") }
+                                )
+                            }
+                            composable("feedback") {
+                                FeedbackScreen(
+                                    onNavigateBack = { navController.popBackStack() }
                                 )
                             }
                             composable("backups") {
@@ -327,6 +334,9 @@ class MainActivity : ComponentActivity() {
                                                 this@MainActivity.shareData(shareData, fileName)
                                             }
                                         }
+                                    },
+                                    onExportSnapshot = { name ->
+                                        viewModel.exportSnapshot(name)
                                     },
                                     onTriggerCloudBackup = {
                                         viewModel.triggerCloudBackup()

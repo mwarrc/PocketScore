@@ -59,7 +59,7 @@ fun MatchInsightsTab(game: GameState) {
                     
                     if (visiblePlayers.size < analysis.scoreHistory.size) {
                         TextButton(onClick = { visiblePlayers = analysis.scoreHistory.keys.toSet() }) {
-                            Text("Reset Zoom", style = MaterialTheme.typography.labelSmall)
+                            Text("Reset", style = MaterialTheme.typography.labelSmall)
                         }
                     }
                 }

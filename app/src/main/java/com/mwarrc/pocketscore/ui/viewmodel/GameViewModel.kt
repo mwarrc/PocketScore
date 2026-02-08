@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.mwarrc.pocketscore.data.repository.GameRepository
 import com.mwarrc.pocketscore.domain.model.*
+import com.mwarrc.pocketscore.util.AnalyticsManager
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 
@@ -60,6 +61,7 @@ class GameViewModel(private val repository: GameRepository) : ViewModel() {
             deviceInfo = _state.value.settings.customDeviceName ?: android.os.Build.MODEL
         )
         updateGameState(newState)
+        AnalyticsManager.logGameStarted(newPlayers.size)
     }
 
     /**
@@ -81,6 +83,7 @@ class GameViewModel(private val repository: GameRepository) : ViewModel() {
                 repository.deleteGameFromHistory(game.id)
             }
             updateGameState(game.copy(isGameActive = true, lastUpdate = System.currentTimeMillis()))
+            AnalyticsManager.logGameStarted(game.players.size, isResume = true)
         }
     }
 
@@ -270,6 +273,12 @@ class GameViewModel(private val repository: GameRepository) : ViewModel() {
             if (currentGame.players.any { it.score != 0 }) {
                 repository.archiveCurrentGame(currentGame.copy(isFinalized = finalized))
             }
+            // Log game ended analytics
+            AnalyticsManager.logGameEnded(
+                playerCount = currentGame.players.size,
+                totalTurns = currentGame.globalEvents.count { it.type == GameEventType.SCORE },
+                isFinalized = finalized
+            )
             repository.clearGameState()
         }
     }
@@ -367,6 +376,10 @@ class GameViewModel(private val repository: GameRepository) : ViewModel() {
             repository.triggerCloudBackup()
             refreshSnapshots()
         }
+    }
+
+    suspend fun exportSnapshot(name: String): Boolean {
+        return repository.exportSnapshotToPublic(name)
     }
 
     private fun updateGameState(newState: GameState) {

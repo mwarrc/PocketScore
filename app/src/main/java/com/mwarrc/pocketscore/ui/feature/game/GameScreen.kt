@@ -127,7 +127,6 @@ fun GameScreen(
     var showCalculator by remember { mutableStateOf(false) }
     var showHelp by remember { mutableStateOf(false) }
     var showHistoryBadge by remember { mutableStateOf(false) }
-    var showTemporaryBanner by remember { mutableStateOf(false) }
     var scoreInput by remember { mutableStateOf("") }
     var showNumpad by remember { mutableStateOf(false) }
     var isNumpadPinned by remember { mutableStateOf(false) }
@@ -149,11 +148,6 @@ fun GameScreen(
         }
     }
 
-    LaunchedEffect(settings.strictTurnMode) {
-        showTemporaryBanner = true
-        delay(6000) // 6 seconds timeout for banner
-        showTemporaryBanner = false
-    }
 
     // Clear input when active player switches
     LaunchedEffect(currentPlayerId) {
@@ -518,6 +512,7 @@ fun GameScreen(
     if (showHistoryDialog) {
         GameHistoryDialog(
             events = globalEvents,
+            playerNames = players.map { it.name },
             onDismiss = { showHistoryDialog = false }
         )
     }
@@ -561,7 +556,7 @@ fun GameScreen(
                                 modifier = Modifier.size(18.dp)
                             )
                             Spacer(Modifier.width(4.dp))
-                            Text("End", style = MaterialTheme.typography.labelLarge)
+                            Text("End Game", style = MaterialTheme.typography.labelLarge)
                         }
                     }
                 },
@@ -581,7 +576,7 @@ fun GameScreen(
                                 modifier = Modifier.size(18.dp)
                             )
                             Spacer(Modifier.width(4.dp))
-                            Text("Undo", style = MaterialTheme.typography.labelLarge)
+                            Text("Undo Last", style = MaterialTheme.typography.labelLarge)
                         }
                     }
                 },
@@ -652,7 +647,7 @@ fun GameScreen(
             Column(modifier = Modifier.fillMaxSize()) {
                 // Mode Status Banners (Free Edit or Strict) with Timeout
                 AnimatedVisibility(
-                    visible = showTemporaryBanner && settings.showStrictModeBanner,
+                    visible = settings.showStrictModeBanner,
                     enter = fadeIn() + scaleIn(initialScale = 0.95f),
                     exit = fadeOut() + scaleOut(targetScale = 0.95f)
                 ) {

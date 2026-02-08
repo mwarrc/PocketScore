@@ -25,6 +25,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalHapticFeedback
 import com.mwarrc.pocketscore.domain.model.AppSettings
 import com.mwarrc.pocketscore.domain.model.KeyboardTheme
 import com.mwarrc.pocketscore.domain.model.KeyboardHeight
@@ -47,6 +49,7 @@ fun ScoreNumpad(
     var showSettings by remember { mutableStateOf(false) }
     val offsetY = remember { Animatable(0f) }
     val scope = rememberCoroutineScope()
+    val haptic = LocalHapticFeedback.current
     
     val isDark = when (settings.keyboardTheme) {
         KeyboardTheme.LIGHT -> false
@@ -208,6 +211,9 @@ fun ScoreNumpad(
                                     textSize = settings.keyboardTextSize,
                                     isDark = isDark,
                                     onClick = {
+                                        if (settings.hapticFeedbackEnabled) {
+                                            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                        }
                                         when (key) {
                                             "backspace" -> onBackspaceClick()
                                             else -> onNumberClick(key)

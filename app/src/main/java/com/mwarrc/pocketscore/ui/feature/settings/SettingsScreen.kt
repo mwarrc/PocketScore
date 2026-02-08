@@ -41,6 +41,7 @@ import androidx.compose.material.icons.filled.TouchApp
 import androidx.compose.material.icons.filled.ViewModule
 import androidx.compose.material.icons.outlined.GridView
 import androidx.compose.material.icons.outlined.ViewAgenda
+import androidx.compose.material.icons.filled.RateReview
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -92,7 +93,8 @@ fun SettingsScreen(
     onNavigateToAbout: () -> Unit,
     onExportBackup: () -> Unit,
     onImportBackup: () -> Unit,
-    onNavigateToBackups: () -> Unit
+    onNavigateToBackups: () -> Unit,
+    onNavigateToFeedback: () -> Unit
 ) {
     var showStrictModeInfo by remember { mutableStateOf(false) }
     var showEnforceDialog by remember { mutableStateOf(false) }
@@ -513,14 +515,14 @@ fun SettingsScreen(
             )
 
             SettingsItem(
-                title = "Export Backup",
+                title = "Share Game Records",
                 subtitle = "Share history and friends as a file",
                 icon = Icons.Default.IosShare,
                 onClick = onExportBackup
             )
 
             SettingsItem(
-                title = "Import Backup",
+                title = "Import Game Records",
                 subtitle = "Load data from a .pscore file",
                 icon = Icons.Default.FileDownload,
                 onClick = onImportBackup
@@ -557,15 +559,73 @@ fun SettingsScreen(
                             color = MaterialTheme.colorScheme.primary
                         )
                         Text(
-                            "Automatic daily snapshots and manual recovery points to keep your data safe.",
+                            if (settings.localSnapshotsEnabled) 
+                                "Active and protecting your data with daily snapshots." 
+                            else 
+                                "Turn on to enable automatic daily snapshots and manual recovery points to keep your data safe.",
                             style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                            color = if (settings.localSnapshotsEnabled) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
                 }
             }
 
             SettingsDivider(alpha = 0.5f)
+            
+            // FEEDBACK & SUPPORT
+            Text(
+                "Support",
+                style = MaterialTheme.typography.labelLarge,
+                color = MaterialTheme.colorScheme.primary,
+                fontWeight = FontWeight.Bold,
+                modifier = Modifier.padding(start = 4.dp)
+            )
+
+            Surface(
+                onClick = onNavigateToFeedback,
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(20.dp),
+                color = MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.2f),
+            ) {
+                Row(
+                    modifier = Modifier.padding(16.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(16.dp)
+                ) {
+                    Surface(
+                        modifier = Modifier.size(40.dp),
+                        shape = CircleShape,
+                        color = MaterialTheme.colorScheme.tertiary.copy(alpha = 0.1f)
+                    ) {
+                        Box(contentAlignment = Alignment.Center) {
+                            Icon(
+                                Icons.Default.RateReview,
+                                null,
+                                modifier = Modifier.size(22.dp),
+                                tint = MaterialTheme.colorScheme.tertiary
+                            )
+                        }
+                    }
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            "Feedback & Support",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold
+                        )
+                        Text(
+                            "Report bugs or suggest features",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                    Icon(
+                        Icons.Default.PlayArrow,
+                        null,
+                        modifier = Modifier.size(16.dp),
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
+                    )
+                }
+            }
 
             // ABOUT LINK - SEPARATED
             Surface(

@@ -13,7 +13,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Custom Score Numpad**: Integrated a minimal, high-performance in-app keyboard tailored for scoring.
   - Supports pinning for rapid data entry across players.
   - Gesture-based "swipe to dismiss" mechanics.
-  - Optional vibration feedback for tactile confirmation.
+  - **Tactile Feedback**: Integrated **Haptic Feedback** (subtle ticks) on key presses, synced with app-wide settings.
 
 
 #### Match Insights & Analytics
@@ -22,6 +22,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Dynamic vertical scaling (Auto-Zoom) based on the score range of visible players.
   - Added Y-axis labels and horizontal grid lines for professional data visualization.
   - Added a "Reset Zoom" shortcut button.
+  
+#### Feedback & Support (v1.1)
+- **Cloud-Powered Feedback**: Complete system overhaul using **Firebase Firestore** for real-time submission tracking.
+- **Extended Capacity**: Message limits increased to **10,000 characters** with a live counter and email validation.
+- **Keyboard-Aware Design**: Optimized scrolling and padding for a seamless support experience.
 - **Expanded Player Archetypes**:
   - Archetype library expanded from 6 to 12 unique categories (The Snake, The Closer, The Fireball, etc.).
   - Smarter, prioritized detection logic for more authentic player "personalities".
@@ -31,17 +36,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **Session Cost Calculator ("Settle")**: New utility to calculate match fees and player debts.
   - Supports "Winner Pays" and custom match cost splitting.
+  - **Live Cost Badge**: Displays the active "Cost per Match" in the header even when settings are collapsed for instant clarity.
   - Integrated into the Records screen for post-game settlement.
 - **Device Identity**: Set a custom device name (e.g., "Jacob's Phone") to verify the origin of shared `.pscore` files.
 
 #### UI/UX Polishing
 - **Finish & Resume flow**: New dialog options when ending a match to either "Archive" (Finalize) or "Resume Later" (Save progress).
 - **Expressive Iconography**: Integrated `Smartphone`, `Snake`, `Timer`, and `Payments` icons.
-- **Consistency**: Switched to `AutoMirrored` icons for all directional elements.
+- **Consistency**: Switched all legacy icons to **AutoMirrored** versions for better RTL support.
+- **Better Micro-copy**: Updated "Kick off Match" to **"Start Game"** and refined player record labels for better clarity.
 
 ### Fixed
 
-- **Code Health**: Cleaned up redundant imports and optimized data merging logic.
+- **Cost per Match Input**: Fixed a bug where entering decimal values was difficult due to state syncing conflicts.
+- **Feedback Accessibility**: Resolved an issue where the submit button was obscured by the system keyboard.
+- **Code Health**: Cleaned up redundant/duplicate imports and optimized data merging logic.
 
 ---
 

@@ -28,6 +28,7 @@ interface GameRepository {
     suspend fun restoreFromSnapshot(name: String)
     suspend fun getSnapshotContent(name: String): PocketScoreShare?
     suspend fun deleteSnapshot(name: String)
+    suspend fun exportSnapshotToPublic(name: String): Boolean
     suspend fun triggerDailyAutoSnapshot()
 
     suspend fun triggerCloudBackup()

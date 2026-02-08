@@ -1,21 +1,29 @@
 package com.mwarrc.pocketscore.ui.feature.home.components
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.History
+import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.*
+import androidx.compose.material3.surfaceColorAtElevation
+import com.mwarrc.pocketscore.ui.theme.getMaterialPlayerColor
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 
 @Composable
 fun PlayerInputCard(
@@ -24,6 +32,7 @@ fun PlayerInputCard(
     hasError: Boolean,
     isDuplicate: Boolean = false,
     isContinuing: Boolean = false,
+    isNewPlayer: Boolean = false,
     allowRemove: Boolean = false,
     shouldFocus: Boolean = false,
     onNameChange: (String) -> Unit,
@@ -38,95 +47,128 @@ fun PlayerInputCard(
         }
     }
 
-    Card(
-        modifier = modifier,
+    val accentColor = getMaterialPlayerColor(name)
+    val isDark = androidx.compose.foundation.isSystemInDarkTheme()
+
+    Surface(
+        modifier = modifier.fillMaxWidth(),
         shape = RoundedCornerShape(20.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = if (hasError) {
-                MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.4f)
-            } else {
-                MaterialTheme.colorScheme.surfaceVariant
-            },
-            contentColor = if (hasError) {
-                MaterialTheme.colorScheme.onErrorContainer
-            } else {
-                MaterialTheme.colorScheme.onSurfaceVariant
+        color = when {
+            hasError -> MaterialTheme.colorScheme.errorContainer
+            else -> MaterialTheme.colorScheme.surface
+        },
+        tonalElevation = 0.dp,
+        border = androidx.compose.foundation.BorderStroke(
+            width = 1.dp,
+            color = when {
+                hasError -> MaterialTheme.colorScheme.error
+                name.isNotEmpty() -> MaterialTheme.colorScheme.primary.copy(alpha = 0.5f)
+                else -> MaterialTheme.colorScheme.outlineVariant
             }
         )
     ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(16.dp),
+                .padding(12.dp),
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(16.dp)
+            horizontalArrangement = Arrangement.spacedBy(16.dp) // More spacing for avatar
         ) {
+            // Player Index Avatar - High Contrast
             Surface(
-                shape = RoundedCornerShape(14.dp),
-                color = MaterialTheme.colorScheme.primaryContainer,
-                modifier = Modifier.size(52.dp)
+                shape = CircleShape,
+                color = when {
+                    hasError -> MaterialTheme.colorScheme.error
+                    else -> MaterialTheme.colorScheme.primaryContainer
+                },
+                modifier = Modifier.size(40.dp)
             ) {
-                Box(contentAlignment = Alignment.Center, modifier = Modifier.fillMaxSize()) {
+                Box(contentAlignment = Alignment.Center) {
                     Text(
                         "${index + 1}",
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.primary
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = FontWeight.Black,
+                        color = when {
+                            hasError -> MaterialTheme.colorScheme.onError
+                            else -> MaterialTheme.colorScheme.onPrimaryContainer
+                        }
                     )
                 }
             }
 
-            OutlinedTextField(
-                value = name,
-                onValueChange = onNameChange,
-                modifier = Modifier
-                    .weight(1f)
-                    .focusRequester(focusRequester),
-                placeholder = { Text("Player ${index + 1}") },
-                singleLine = true,
-                isError = hasError,
-                supportingText = when {
-                    isDuplicate -> { { Text("Name already used", style = MaterialTheme.typography.bodySmall) } }
-                    isContinuing -> {
-                        {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Icon(Icons.Default.History, null, modifier = Modifier.size(14.dp), tint = MaterialTheme.colorScheme.primary)
-                                Spacer(Modifier.width(4.dp))
-                                Text("Continuing record", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.primary)
-                            }
+            // Input Field
+            Column(modifier = Modifier.weight(1f)) {
+                TextField(
+                    value = name,
+                    onValueChange = onNameChange,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .focusRequester(focusRequester),
+                    placeholder = { 
+                        Text(
+                            "Player Name", 
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
+                        ) 
+                    },
+                    singleLine = true,
+                    colors = TextFieldDefaults.colors(
+                        focusedContainerColor = Color.Transparent,
+                        unfocusedContainerColor = Color.Transparent,
+                        disabledContainerColor = Color.Transparent,
+                        errorContainerColor = Color.Transparent,
+                        focusedIndicatorColor = Color.Transparent,
+                        unfocusedIndicatorColor = Color.Transparent,
+                        errorIndicatorColor = Color.Transparent,
+                        cursorColor = MaterialTheme.colorScheme.primary
+                    ),
+                    textStyle = MaterialTheme.typography.bodyLarge.copy(
+                        fontWeight = FontWeight.Bold,
+                        letterSpacing = 0.2.sp
+                    ),
+                    isError = hasError
+                )
+                
+                // Detailed supporting text
+                if (hasError || isContinuing || isNewPlayer) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 2.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        val (icon, text, color) = when {
+                            isDuplicate -> Triple(Icons.Default.Close, "Already in match", MaterialTheme.colorScheme.error)
+                            hasError && name.isEmpty() -> Triple(Icons.Default.Close, "Name required", MaterialTheme.colorScheme.error)
+                            isContinuing -> Triple(Icons.Default.History, "Continuing Player's Record", MaterialTheme.colorScheme.primary)
+                            isNewPlayer -> Triple(Icons.Default.Star, "New Player", accentColor)
+                            else -> Triple(Icons.Default.History, "", MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                        
+                        if (text.isNotEmpty()) {
+                            Icon(icon, null, modifier = Modifier.size(12.dp), tint = color)
+                            Text(text, style = MaterialTheme.typography.labelSmall, color = color, fontWeight = FontWeight.ExtraBold)
                         }
                     }
-                    else -> null
-                },
-                trailingIcon = if (isContinuing) {
-                    {
-                        Icon(
-                            Icons.Default.CheckCircle,
-                            contentDescription = "Verified Player",
-                            tint = MaterialTheme.colorScheme.primary
-                        )
-                    }
-                } else null,
-                shape = RoundedCornerShape(16.dp),
-                colors = OutlinedTextFieldDefaults.colors(
-                    focusedContainerColor = MaterialTheme.colorScheme.surface,
-                    unfocusedContainerColor = MaterialTheme.colorScheme.surface,
-                    focusedBorderColor = if (isContinuing) MaterialTheme.colorScheme.primary else OutlinedTextFieldDefaults.colors().focusedIndicatorColor,
-                    unfocusedBorderColor = if (isContinuing) MaterialTheme.colorScheme.primary.copy(alpha = 0.5f) else OutlinedTextFieldDefaults.colors().unfocusedIndicatorColor
-                )
-            )
+                }
+            }
 
             if (allowRemove) {
                 IconButton(
                     onClick = onRemove,
-                    modifier = Modifier.size(48.dp)
+                    modifier = Modifier
+                        .clip(CircleShape)
+                        .background(MaterialTheme.colorScheme.error.copy(alpha = 0.1f))
+                        .size(36.dp)
                 ) {
                     Icon(
                         Icons.Default.Close,
                         "Remove",
-                        tint = MaterialTheme.colorScheme.error
+                        tint = MaterialTheme.colorScheme.error,
+                        modifier = Modifier.size(18.dp)
                     )
                 }
+            } else {
+                Spacer(Modifier.size(36.dp))
             }
         }
     }
