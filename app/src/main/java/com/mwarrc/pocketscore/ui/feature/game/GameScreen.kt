@@ -7,6 +7,7 @@ import androidx.compose.animation.scaleIn
 import androidx.compose.animation.scaleOut
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -34,10 +35,12 @@ import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Help
 import androidx.compose.material.icons.automirrored.filled.Undo
+import androidx.compose.material.icons.filled.Analytics
 import androidx.compose.material.icons.filled.Calculate
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Close
@@ -58,6 +61,7 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CenterAlignedTopAppBar
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -84,6 +88,7 @@ import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.mwarrc.pocketscore.domain.model.AppSettings
 import com.mwarrc.pocketscore.domain.model.GameEvent
 import com.mwarrc.pocketscore.domain.model.GameEventType
@@ -97,8 +102,18 @@ import com.mwarrc.pocketscore.ui.feature.game.components.PassivePlayerCard
 import com.mwarrc.pocketscore.ui.feature.game.components.QuickCalculatorSheet
 import com.mwarrc.pocketscore.ui.feature.game.components.QuickSettingsSheet
 import com.mwarrc.pocketscore.ui.feature.game.components.ScoreNumpad
+import com.mwarrc.pocketscore.ui.feature.game.components.ResetGameDialog
+import com.mwarrc.pocketscore.ui.feature.game.components.ExitConfirmationDialog
+import com.mwarrc.pocketscore.ui.feature.game.components.UndoConfirmationDialog
+import com.mwarrc.pocketscore.ui.feature.game.components.PoolProbabilitySheet
+import com.mwarrc.pocketscore.ui.feature.game.components.StrictModeBanner
+import com.mwarrc.pocketscore.ui.feature.game.components.GameScoreboard
 import androidx.activity.compose.BackHandler
+import androidx.compose.material.icons.filled.Analytics
+import androidx.compose.ui.text.input.TextFieldValue
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
+import androidx.compose.runtime.rememberCoroutineScope
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
@@ -117,6 +132,7 @@ fun GameScreen(
     onTogglePlayerActive: (String, Boolean) -> Unit,
     onSetCurrentPlayer: (String) -> Unit,
     onNextTurn: () -> Unit,
+    onRestart: (List<String>) -> Unit,
     onUpdateSettings: ((AppSettings) -> AppSettings) -> Unit
 ) {
     var showResetDialog by remember { mutableStateOf(false) }
@@ -125,12 +141,17 @@ fun GameScreen(
     var showManagePlayers by remember { mutableStateOf(false) }
     var showUndoConfirmation by remember { mutableStateOf(false) }
     var showCalculator by remember { mutableStateOf(false) }
+    var showPoolProbability by remember { mutableStateOf(false) }
+    var showQuickBallDialog by remember { mutableStateOf(false) }
+    var calculatorExpression by remember { mutableStateOf<TextFieldValue>(TextFieldValue("")) }
+    var ballsOnTable by remember { mutableStateOf((1..15).toSet()) }
     var showHelp by remember { mutableStateOf(false) }
     var showHistoryBadge by remember { mutableStateOf(false) }
     var scoreInput by remember { mutableStateOf("") }
     var showNumpad by remember { mutableStateOf(false) }
     var isNumpadPinned by remember { mutableStateOf(false) }
     var showExitConfirmation by remember { mutableStateOf(false) }
+    var showQuickRestart by remember { mutableStateOf(false) }
     var exitConfirmed by remember { mutableStateOf(false) }
     val haptic = LocalHapticFeedback.current
 
@@ -144,6 +165,7 @@ fun GameScreen(
         when {
             showNumpad && isNumpadPinned -> isNumpadPinned = false // Unpin first
             showNumpad -> showNumpad = false // Then dismiss
+            showPoolProbability -> showPoolProbability = false
             hasActiveGame && !exitConfirmed -> showExitConfirmation = true
         }
     }
@@ -183,8 +205,57 @@ fun GameScreen(
         }
     }
 
-    var localHeaderSelection by remember { mutableStateOf<String?>(null) }
+    // Hoisted State Calculations for Game Logic
+    val tableSum = remember(ballsOnTable) {
+        val ballValues = mapOf(1 to 16, 2 to 17, 3 to 3, 4 to 4, 5 to 5, 6 to 6, 7 to 7, 8 to 8, 9 to 9, 10 to 10, 11 to 11, 12 to 12, 13 to 13, 14 to 14, 15 to 15)
+        ballsOnTable.sumOf { ballValues[it] ?: 0 }
+    }
     
+    val leaderScore = remember(activePlayers, leaderId) {
+        activePlayers.find { it.id == leaderId }?.score ?: 0
+    }
+
+    // Auto-Skip Eliminated Players Logic
+    // Ensures that if the turn advances to an eliminated player, we skip them immediately.
+    LaunchedEffect(currentPlayerId, tableSum, leaderScore, settings.strictTurnMode, settings.allowEliminatedInput) {
+        val currentPlayer = activePlayers.find { it.id == currentPlayerId }
+        
+        if (currentPlayer != null && tableSum > 0) {
+            val potentialMax = currentPlayer.score + tableSum
+            val isEliminated = currentPlayer.id != leaderId && potentialMax < leaderScore
+            
+            // Only skip if strict mode is on OR if allowed eliminated input is off
+            val shouldSkip = isEliminated && (settings.strictTurnMode || !settings.allowEliminatedInput)
+            
+            if (shouldSkip) {
+                // Find next valid player
+                val currentIndex = activePlayers.indexOfFirst { it.id == currentPlayerId }
+                if (currentIndex != -1) {
+                    var nextIndex = (currentIndex + 1) % activePlayers.size
+                    var attempts = 0
+                    
+                    while (attempts < activePlayers.size) {
+                        val p = activePlayers[nextIndex]
+                        val pPotentialMax = p.score + tableSum
+                        val pIsEliminated = p.id != leaderId && pPotentialMax < leaderScore
+                        
+                        // Check if the potential next player should also be skipped
+                        val nextShouldSkip = pIsEliminated && (settings.strictTurnMode || !settings.allowEliminatedInput)
+                        
+                        if (!nextShouldSkip) {
+                            onSetCurrentPlayer(p.id)
+                            break
+                        }
+                        nextIndex = (nextIndex + 1) % activePlayers.size
+                        attempts++
+                    }
+                }
+            }
+        }
+    }
+    
+    var localHeaderSelection by remember { mutableStateOf<String?>(null) }
+
     val lazyListState = rememberLazyListState()
     val lazyGridState = rememberLazyGridState()
 
@@ -214,202 +285,54 @@ fun GameScreen(
         selected ?: current ?: activePlayers.firstOrNull()
     }
 
+    // Dialogs - Using modular components
     if (showResetDialog) {
-        AlertDialog(
-            onDismissRequest = { showResetDialog = false },
-            icon = {
-                Surface(
-                    shape = RoundedCornerShape(16.dp),
-                    color = MaterialTheme.colorScheme.primaryContainer,
-                    modifier = Modifier.size(56.dp)
-                ) {
-                    Box(contentAlignment = Alignment.Center) {
-                        Icon(
-                            Icons.Default.CheckCircle,
-                            null,
-                            modifier = Modifier.size(28.dp),
-                            tint = MaterialTheme.colorScheme.onPrimaryContainer
-                        )
-                    }
-                }
+        ResetGameDialog(
+            onDismiss = { showResetDialog = false },
+            onFinishAndArchive = {
+                onReset(true)
+                showResetDialog = false
             },
-            title = { 
-                Text(
-                    "End This Match?",
-                    style = MaterialTheme.typography.headlineSmall,
-                    fontWeight = androidx.compose.ui.text.font.FontWeight.Bold
-                )
+            onResumeLater = {
+                onReset(false)
+                showResetDialog = false
             },
-            text = {
-                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    Text(
-                        "Choose how you'd like to save this game:",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                    
-                    HorizontalDivider(
-                        modifier = Modifier.padding(vertical = 4.dp),
-                        color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f)
-                    )
-                    
-                    // Finish & Archive Option
-                    Surface(
-                        onClick = {
-                            onReset(true)
-                            showResetDialog = false
-                        },
-                        shape = RoundedCornerShape(16.dp),
-                        color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f),
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Row(
-                            modifier = Modifier.padding(16.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(12.dp)
-                        ) {
-                            Surface(
-                                shape = RoundedCornerShape(12.dp),
-                                color = MaterialTheme.colorScheme.primary,
-                                modifier = Modifier.size(40.dp)
-                            ) {
-                                Box(contentAlignment = Alignment.Center) {
-                                    Icon(
-                                        Icons.Default.Lock,
-                                        null,
-                                        modifier = Modifier.size(20.dp),
-                                        tint = MaterialTheme.colorScheme.onPrimary
-                                    )
-                                }
-                            }
-                            Column(modifier = Modifier.weight(1f)) {
-                                Text(
-                                    "Finish & Archive",
-                                    style = MaterialTheme.typography.titleMedium,
-                                    fontWeight = androidx.compose.ui.text.font.FontWeight.Bold,
-                                    color = MaterialTheme.colorScheme.onSurface
-                                )
-                                Text(
-                                    "Mark as complete and lock scores",
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                            }
-                        }
-                    }
-
-                    // Resume Later Option
-                    Surface(
-                        onClick = {
-                            onReset(false)
-                            showResetDialog = false
-                        },
-                        shape = RoundedCornerShape(16.dp),
-                        color = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.5f),
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Row(
-                            modifier = Modifier.padding(16.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(12.dp)
-                        ) {
-                            Surface(
-                                shape = RoundedCornerShape(12.dp),
-                                color = MaterialTheme.colorScheme.secondary,
-                                modifier = Modifier.size(40.dp)
-                            ) {
-                                Box(contentAlignment = Alignment.Center) {
-                                    Icon(
-                                        Icons.Default.History,
-                                        null,
-                                        modifier = Modifier.size(20.dp),
-                                        tint = MaterialTheme.colorScheme.onSecondary
-                                    )
-                                }
-                            }
-                            Column(modifier = Modifier.weight(1f)) {
-                                Text(
-                                    "Resume Later",
-                                    style = MaterialTheme.typography.titleMedium,
-                                    fontWeight = androidx.compose.ui.text.font.FontWeight.Bold,
-                                    color = MaterialTheme.colorScheme.onSurface
-                                )
-                                Text(
-                                    "Save progress and continue anytime",
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                            }
-                        }
-                    }
-                }
+            onRestartMatch = {
+                showResetDialog = false
+                showQuickRestart = true
             },
-            confirmButton = {},
-            dismissButton = {
-                TextButton(onClick = { showResetDialog = false }) { 
-                    Text("Cancel") 
-                }
-            },
-            shape = RoundedCornerShape(24.dp)
+            onModifyRoster = {
+                showResetDialog = false
+                showManagePlayers = true
+            }
         )
     }
 
-    // Exit confirmation dialog
+    if (showQuickRestart) {
+        com.mwarrc.pocketscore.ui.feature.game.components.QuickRestartDialog(
+            currentPlayers = players,
+            settings = settings,
+            onDismiss = { showQuickRestart = false },
+            onStartGame = { updatedPlayers ->
+                showQuickRestart = false
+                onRestart(updatedPlayers)
+            }
+        )
+    }
+
     if (showExitConfirmation) {
         val context = androidx.compose.ui.platform.LocalContext.current
-        AlertDialog(
-            onDismissRequest = { showExitConfirmation = false },
-            icon = { 
-                Icon(
-                    Icons.Default.Close,
-                    null,
-                    tint = MaterialTheme.colorScheme.primary
-                )
-            },
-            title = { 
-                Text(
-                    "Close App?",
-                    style = MaterialTheme.typography.headlineSmall,
-                    fontWeight = androidx.compose.ui.text.font.FontWeight.Bold
-                )
-            },
-            text = {
-                Text(
-                    "Your game progress will be saved and you can resume later.",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            },
-            confirmButton = {
-                Button(
-                    onClick = {
-                        showExitConfirmation = false
-                        exitConfirmed = true
-                        // Close the app
-                        (context as? android.app.Activity)?.finish()
-                    },
-                    shape = RoundedCornerShape(12.dp)
-                ) {
-                    Text("Close App")
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { showExitConfirmation = false }) { 
-                    Text("Stay") 
-                }
-            },
-            shape = RoundedCornerShape(24.dp)
+        ExitConfirmationDialog(
+            onDismiss = { showExitConfirmation = false },
+            onConfirm = {
+                showExitConfirmation = false
+                exitConfirmed = true
+                (context as? android.app.Activity)?.finish()
+            }
         )
     }
 
-    if (showQuickSettings) {
-        QuickSettingsSheet(
-            settings = settings,
-            onUpdateSettings = onUpdateSettings,
-            onDismiss = { showQuickSettings = false }
-        )
-    }
-
+    // State calculations - must be before dialogs that use them
     val lastScoreEvent = remember(globalEvents, canUndo) {
         if (canUndo) globalEvents.lastOrNull { it.type == GameEventType.SCORE || it.type == GameEventType.CORRECTION } else null
     }
@@ -432,80 +355,23 @@ fun GameScreen(
          .mapValues { it.value.lastOrNull()?.points }
     }
 
-    if (showUndoConfirmation && lastScoreEvent != null) {
-        val previousPlayerName = remember(lastScoreEvent.previousPlayerId, players) {
-            players.find { it.id == lastScoreEvent.previousPlayerId }?.name ?: "Unknown"
-        }
-
-        AlertDialog(
-            onDismissRequest = { showUndoConfirmation = false },
-            title = {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(
-                        Icons.AutoMirrored.Filled.Undo,
-                        null,
-                        tint = MaterialTheme.colorScheme.error
-                    )
-                    Spacer(Modifier.width(8.dp))
-                    Text("Confirm Undo")
-                }
-            },
-            text = {
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text("Are you sure you want to revert the last action?")
-                    Card(
-                        colors = CardDefaults.cardColors(
-                            containerColor = MaterialTheme.colorScheme.surfaceVariant
-                        ),
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Column(modifier = Modifier.padding(12.dp)) {
-                            Text(
-                                "ACTION TO REVERT:",
-                                style = MaterialTheme.typography.labelSmall,
-                                fontWeight = androidx.compose.ui.text.font.FontWeight.Bold
-                            )
-                            Text(
-                                "${lastScoreEvent.playerName} scored ${lastScoreEvent.points} points",
-                                style = MaterialTheme.typography.bodyMedium
-                            )
-
-                            HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
-
-                            Text(
-                                "NEW STATE:",
-                                style = MaterialTheme.typography.labelSmall,
-                                fontWeight = androidx.compose.ui.text.font.FontWeight.Bold
-                            )
-                            Text(
-                                "• Turn will go back to: $previousPlayerName",
-                                style = MaterialTheme.typography.bodySmall
-                            )
-                            Text(
-                                "• ${lastScoreEvent.playerName}'s score will decrease by ${lastScoreEvent.points}",
-                                style = MaterialTheme.typography.bodySmall
-                            )
-                        }
-                    }
-                    Text(
-                        "This is final. You can only undo the very last move.",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.error
-                    )
-                }
-            },
-            confirmButton = {
-                Button(
-                    onClick = {
-                        onGlobalUndo()
-                        showUndoConfirmation = false
-                    },
-                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
-                ) { Text("Revert Now") }
-            },
-            dismissButton = {
-                TextButton(onClick = { showUndoConfirmation = false }) { Text("Cancel") }
+    if (showUndoConfirmation) {
+        UndoConfirmationDialog(
+            lastScoreEvent = lastScoreEvent,
+            players = players,
+            onDismiss = { showUndoConfirmation = false },
+            onConfirm = {
+                onGlobalUndo()
+                showUndoConfirmation = false
             }
+        )
+    }
+
+    if (showQuickSettings) {
+        QuickSettingsSheet(
+            settings = settings,
+            onUpdateSettings = onUpdateSettings,
+            onDismiss = { showQuickSettings = false }
         )
     }
 
@@ -520,8 +386,31 @@ fun GameScreen(
     if (showCalculator) {
         QuickCalculatorSheet(
             settings = settings,
+            expression = calculatorExpression,
+            onExpressionChange = { calculatorExpression = it },
+            players = players,
+            onAddScore = onUpdateScore,
             onUpdateSettings = onUpdateSettings,
             onDismiss = { showCalculator = false }
+        )
+    }
+
+
+
+    if (showPoolProbability) {
+        PoolProbabilitySheet(
+            players = players,
+            ballsOnTable = ballsOnTable,
+            onBallsOnTableChange = { newBalls -> ballsOnTable = newBalls },
+            onDismiss = { showPoolProbability = false }
+        )
+    }
+
+    if (showQuickBallDialog) {
+        com.mwarrc.pocketscore.ui.feature.game.components.QuickBallSelectDialog(
+            ballsOnTable = ballsOnTable,
+            onBallsOnTableChange = { newBalls -> ballsOnTable = newBalls },
+            onDismiss = { showQuickBallDialog = false }
         )
     }
 
@@ -536,13 +425,39 @@ fun GameScreen(
         topBar = {
             CenterAlignedTopAppBar(
                 title = {
-                    Text(
-                        "Scoreboard",
-                        style = MaterialTheme.typography.headlineSmall,
-                        fontWeight = androidx.compose.ui.text.font.FontWeight.Bold,
-                        maxLines = 1,
-                        softWrap = false
-                    )
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.Center
+                    ) {
+                        Text(
+                            "Scoreboard",
+                            style = MaterialTheme.typography.titleLarge.copy(fontSize = 20.sp),
+                            fontWeight = androidx.compose.ui.text.font.FontWeight.Bold,
+                            maxLines = 1,
+                            softWrap = false
+                        )
+                        
+                        Spacer(Modifier.width(8.dp))
+                        
+                        // New Ball Shortcut moved here to be close to text
+                        Surface(
+                            onClick = { showQuickBallDialog = true },
+                            shape = CircleShape,
+                            color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.7f),
+                            modifier = Modifier.size(38.dp),
+                            tonalElevation = 2.dp,
+                            shadowElevation = 2.dp
+                        ) {
+                            Box(contentAlignment = Alignment.Center) {
+                                Icon(
+                                    Icons.Default.Analytics,
+                                    "Quick Balls",
+                                    tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                                    modifier = Modifier.size(24.dp)
+                                )
+                            }
+                        }
+                    }
                 },
                 navigationIcon = {
                     TextButton(
@@ -576,7 +491,7 @@ fun GameScreen(
                                 modifier = Modifier.size(18.dp)
                             )
                             Spacer(Modifier.width(4.dp))
-                            Text("Undo Last", style = MaterialTheme.typography.labelLarge)
+                            Text("Undo", style = MaterialTheme.typography.labelLarge)
                         }
                     }
                 },
@@ -623,6 +538,12 @@ fun GameScreen(
                             onClick = { showCalculator = true }
                         )
                         BottomNavItem(
+                            icon = Icons.Default.Analytics,
+                            label = "Balls",
+                            onClick = { showPoolProbability = true }
+                        )
+
+                        BottomNavItem(
                             icon = Icons.Outlined.Tune,
                             label = "Settings",
                             onClick = { showQuickSettings = true }
@@ -645,186 +566,49 @@ fun GameScreen(
 
         Box(modifier = contentModifier) {
             Column(modifier = Modifier.fillMaxSize()) {
-                // Mode Status Banners (Free Edit or Strict) with Timeout
-                AnimatedVisibility(
-                    visible = settings.showStrictModeBanner,
-                    enter = fadeIn() + scaleIn(initialScale = 0.95f),
-                    exit = fadeOut() + scaleOut(targetScale = 0.95f)
-                ) {
-                    if (settings.strictTurnMode) {
-                        // Strict Mode Banner
-                        Surface(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(horizontal = 16.dp, vertical = 8.dp),
-                            shape = RoundedCornerShape(12.dp),
-                            color = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.7f),
-                            tonalElevation = 0.dp
-                        ) {
-                            Row(
-                                modifier = Modifier.padding(12.dp, 8.dp),
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.Center
-                            ) {
-                                Icon(
-                                    Icons.Default.Lock,
-                                    null,
-                                    modifier = Modifier.size(16.dp),
-                                    tint = MaterialTheme.colorScheme.error
-                                )
-                                Spacer(Modifier.width(8.dp))
-                                Text(
-                                    "Strict Mode Active: Unlock in Settings",
-                                    style = MaterialTheme.typography.labelSmall,
-                                    fontWeight = androidx.compose.ui.text.font.FontWeight.Bold,
-                                    color = MaterialTheme.colorScheme.onErrorContainer
-                                )
-                            }
-                        }
-                    } else {
-                        // Free Edit Mode Banner
-                        Surface(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(horizontal = 16.dp, vertical = 8.dp),
-                            shape = RoundedCornerShape(12.dp),
-                            color = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.5f),
-                            tonalElevation = 0.dp
-                        ) {
-                            Row(
-                                modifier = Modifier.padding(12.dp, 8.dp),
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.Center
-                            ) {
-                                Icon(
-                                    Icons.Default.LockOpen,
-                                    null,
-                                    modifier = Modifier.size(16.dp),
-                                    tint = MaterialTheme.colorScheme.onSecondaryContainer
-                                )
-                                Spacer(Modifier.width(8.dp))
-                                Text(
-                                    "Free Edit Mode: Anyone can score",
-                                    style = MaterialTheme.typography.labelSmall,
-                                    color = MaterialTheme.colorScheme.onSecondaryContainer
-                                )
-                            }
-                        }
-                    }
-                }
-
+                // Mode Status Banners
+                StrictModeBanner(settings)
 
 
                 val listBottomPadding = when {
-                    showNumpad && settings.useCustomKeyboard -> 340.dp // Better estimate for custom numpad height
+                    showNumpad && settings.useCustomKeyboard -> 340.dp
                     isImeVisible -> 16.dp 
                     else -> 88.dp
                 }
 
-                if (settings.defaultLayout == ScoreboardLayout.GRID) {
-                    if (selectionForHeader != null) {
-                        Box(modifier = Modifier.padding(16.dp)) {
-                            ActivePlayerCard(
-                                player = selectionForHeader,
-                                isLeader = selectionForHeader.id == leaderId,
-                                isCurrentTurn = selectionForHeader.id == currentPlayerId,
-                                isStrictTurnMode = settings.strictTurnMode,
-                                lastPoints = if (selectionForHeader.id == mostRecentChange?.playerId) mostRecentChange.points else null,
-                                scoreInput = scoreInput,
-                                onScoreInputChange = { scoreInput = it },
-                                onFocus = { showNumpad = true },
-                                useCustomKeyboard = settings.useCustomKeyboard,
-                                onAdd = { pts ->
-                                    if (settings.hapticFeedbackEnabled) {
-                                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                                    }
-                                    onUpdateScore(selectionForHeader.id, pts)
-                                },
-                                onSubtract = { pts ->
-                                    if (settings.hapticFeedbackEnabled) {
-                                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                                    }
-                                    onUpdateScore(selectionForHeader.id, -pts)
-                                },
-                                alwaysShowControls = true
-                            )
+                val scope = rememberCoroutineScope()
+
+                GameScoreboard(
+                    players = players,
+                    currentPlayerId = currentPlayerId,
+                    settings = settings,
+                    leaderId = leaderId,
+                    playerLastChanges = playerLastChanges,
+                    scoreInput = scoreInput,
+                    onScoreInputChange = { scoreInput = it },
+                    onShowNumpad = { showNumpad = true },
+                    onUpdateScore = { pid, pts ->
+                        onUpdateScore(pid, pts)
+                        
+                        // Strict Mode Auto-Advance Fix:
+                        // Trigger next turn if strict mode is ON and system auto-next-turn is OFF.
+                        // We use a coroutine to ensure the score update settles first.
+                        // We check pts >= 0 to allow passing (0 pts) or scoring.
+                        if (pts >= 0 && settings.strictTurnMode && !settings.autoNextTurn) {
+                            scope.launch {
+                                delay(50) 
+                                onNextTurn()
+                            }
                         }
-
-                        HorizontalDivider(
-                            color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
-                        )
-                    }
-
-                    LazyVerticalGrid(
-                        columns = GridCells.Fixed(2),
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .weight(1f),
-                        state = lazyGridState,
-                        contentPadding = PaddingValues(start = 16.dp, top = 16.dp, end = 16.dp, bottom = listBottomPadding),
-                        horizontalArrangement = Arrangement.spacedBy(12.dp),
-                        verticalArrangement = Arrangement.spacedBy(12.dp)
-                    ) {
-                        items(activePlayers, key = { it.id }) { player ->
-                            val isLeader = player.id == leaderId
-                            val isSelected = player.id == selectionForHeader?.id
-                            val isActualTurn = player.id == currentPlayerId
-
-                             PassivePlayerCard(
-                                player = player,
-                                isLeader = isLeader,
-                                isCurrent = isSelected,
-                                isActualTurn = isActualTurn,
-                                lastPoints = playerLastChanges[player.id],
-                                onClick = {
-                                    localHeaderSelection = player.id
-                                    if (!settings.strictTurnMode) {
-                                        onSetCurrentPlayer(player.id)
-                                    }
-                                }
-                            )
-                        }
-                    }
-                } else {
-                    LazyColumn(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .weight(1f),
-                        state = lazyListState,
-                        contentPadding = PaddingValues(start = 16.dp, top = 16.dp, end = 16.dp, bottom = listBottomPadding),
-                        verticalArrangement = Arrangement.spacedBy(16.dp)
-                    ) {
-                        items(activePlayers, key = { it.id }) { player ->
-                            val isLeader = player.id == leaderId
-                            val isTurn = player.id == currentPlayerId
-
-                             ActivePlayerCard(
-                                player = player,
-                                isLeader = isLeader,
-                                isCurrentTurn = isTurn,
-                                isStrictTurnMode = settings.strictTurnMode,
-                                lastPoints = playerLastChanges[player.id],
-                                scoreInput = if (isTurn) scoreInput else "",
-                                onScoreInputChange = { if (isTurn) scoreInput = it },
-                                onFocus = { showNumpad = true },
-                                useCustomKeyboard = settings.useCustomKeyboard,
-                                onAdd = { pts ->
-                                    if (settings.hapticFeedbackEnabled) {
-                                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                                    }
-                                    onUpdateScore(player.id, pts)
-                                },
-                                onSubtract = { pts ->
-                                    if (settings.hapticFeedbackEnabled) {
-                                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                                    }
-                                    onUpdateScore(player.id, -pts)
-                                },
-                                onSetTurn = { onSetCurrentPlayer(player.id) }
-                            )
-                        }
-                    }
-                }
+                    },
+                    onSetCurrentPlayer = onSetCurrentPlayer,
+                    listBottomPadding = listBottomPadding,
+                    tableSum = tableSum,
+                    leaderScore = leaderScore,
+                    selectionForHeader = selectionForHeader,
+                    onHeaderSelection = { localHeaderSelection = it },
+                    modifier = Modifier.weight(1f)
+                )
             }
         }
 

@@ -202,13 +202,42 @@ fun QuickSettingsSheet(
                     enabled = !settings.enforceStrictMode,
                     checked = settings.strictTurnMode,
                     onCheckedChange = { enabled ->
-                        onUpdateSettings { it.copy(strictTurnMode = enabled) }
+                        onUpdateSettings { 
+                            var newSettings = it.copy(strictTurnMode = enabled)
+                            // Strict Mode requires Auto-Advance to be ON
+                            if (enabled) {
+                                newSettings = newSettings.copy(autoNextTurn = true)
+                            }
+                            newSettings
+                        }
                     },
                     colors = SwitchDefaults.colors(
                         checkedThumbColor = MaterialTheme.colorScheme.error,
                         checkedTrackColor = MaterialTheme.colorScheme.errorContainer,
                     )
                 )
+            }
+
+            if (!settings.strictTurnMode) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text("Allow Eliminated Input", style = MaterialTheme.typography.titleMedium)
+                        Text(
+                            "Eliminated players keep their turns",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                    Switch(
+                        checked = settings.allowEliminatedInput,
+                        onCheckedChange = { enabled ->
+                            onUpdateSettings { it.copy(allowEliminatedInput = enabled) }
+                        }
+                    )
+                }
             }
 
             Row(
@@ -244,12 +273,19 @@ fun QuickSettingsSheet(
                     )
                 }
                 Switch(
-                    checked = settings.autoNextTurn,
+                    // Lock this setting to ON if Strict Turn Mode is active
+                    enabled = !settings.strictTurnMode, 
+                    checked = settings.autoNextTurn || settings.strictTurnMode,
                     onCheckedChange = { enabled ->
                         onUpdateSettings { it.copy(autoNextTurn = enabled) }
                     }
                 )
             }
+ 
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
 
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -272,5 +308,5 @@ fun QuickSettingsSheet(
             }
         }
     }
-}
+}}
 

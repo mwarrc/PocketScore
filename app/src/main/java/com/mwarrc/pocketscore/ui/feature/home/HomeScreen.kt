@@ -30,6 +30,8 @@ import kotlinx.coroutines.launch
 @Composable
 fun HomeScreen(
     settings: AppSettings,
+    history: com.mwarrc.pocketscore.domain.model.GameHistory,
+    activePlayers: List<com.mwarrc.pocketscore.domain.model.Player> = emptyList(),
     hasActiveGame: Boolean = false,
     onStartGame: (List<String>) -> Unit,
     onResumeGame: () -> Unit,
@@ -88,6 +90,7 @@ fun HomeScreen(
             if (hasActiveGame) {
                 item {
                     QuickActionsCard(
+                        activePlayers = activePlayers,
                         onResumeGame = onResumeGame,
                         onNavigateToHistory = onNavigateToHistory,
                         onNavigateToSettings = onNavigateToSettings,
@@ -220,7 +223,7 @@ fun HomeScreen(
                             val normalizedName = name.trim()
                             val existingIndex = playerNames.indexOfFirst { it.trim().equals(normalizedName, ignoreCase = true) }
                             
-                            playerNames = if (existingIndex != -1) {
+                            val updatedNames = if (existingIndex != -1) {
                                 playerNames.filterNot { it.trim().equals(normalizedName, ignoreCase = true) }
                             } else {
                                 playerNames.toMutableList().apply {
@@ -232,7 +235,15 @@ fun HomeScreen(
                                     }
                                 }
                             }
+
+                            // Simply update the list in selection order
+                            playerNames = updatedNames
                         },
+                        autoSortOption = settings.rosterSortOption,
+                        onAutoSortOptionChange = { option ->
+                            onUpdateSettings { it.copy(rosterSortOption = option) }
+                        },
+                        history = history,
                         modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp)
                     )
                 }

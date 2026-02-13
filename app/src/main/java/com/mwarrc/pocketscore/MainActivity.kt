@@ -57,6 +57,8 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
         enableEdgeToEdge()
+        // Standard Firebase Analytics (will be augmented with Identity once state loads)
+        com.mwarrc.pocketscore.util.AnalyticsManager.initialize(this)
         
         val windowInsetsController = WindowCompat.getInsetsController(window, window.decorView)
         windowInsetsController.systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
@@ -148,6 +150,7 @@ class MainActivity : ComponentActivity() {
                 }
             }
 
+
             // Handle WakeLock based on game state
             LaunchedEffect(appState.gameState.isGameActive) {
                 if (appState.gameState.isGameActive) {
@@ -206,6 +209,8 @@ class MainActivity : ComponentActivity() {
                             composable("setup") {
                                 HomeScreen(
                                     settings = appState.settings,
+                                    history = appState.gameHistory,
+                                    activePlayers = appState.gameState.players,
                                     hasActiveGame = appState.gameState.isGameActive,
                                     onStartGame = { players -> viewModel.startNewGame(players) },
                                     onResumeGame = { navController.navigate("game") },
@@ -237,6 +242,7 @@ class MainActivity : ComponentActivity() {
                                     onTogglePlayerActive = { id, active -> viewModel.setPlayerActive(id, active) },
                                     onSetCurrentPlayer = { id -> viewModel.setCurrentPlayer(id) },
                                     onNextTurn = { viewModel.nextTurn() },
+                                    onRestart = { playerNames -> viewModel.startRestartMatch(playerNames) },
                                     onUpdateSettings = { update -> viewModel.updateSettings(update) }
                                 )
                             }
@@ -284,15 +290,6 @@ class MainActivity : ComponentActivity() {
                                     },
                                     onNavigateToHistory = { navController.navigate("history") },
                                     onNavigateToAbout = { navController.navigate("about") },
-                                    onExportBackup = {
-                                        scope.launch {
-                                            val share = viewModel.getShareData(null) // Full backup
-                                            shareData(share)
-                                        }
-                                    },
-                                    onImportBackup = {
-                                        filePickerLauncher.launch("*/*") // Custom extensions can be tricky, but we'll filter in util
-                                    },
                                     onNavigateToBackups = { 
                                         if (hasStoragePermission()) {
                                             navController.navigate("backups") 
@@ -334,9 +331,6 @@ class MainActivity : ComponentActivity() {
                                                 this@MainActivity.shareData(shareData, fileName)
                                             }
                                         }
-                                    },
-                                    onExportSnapshot = { name ->
-                                        viewModel.exportSnapshot(name)
                                     },
                                     onTriggerCloudBackup = {
                                         viewModel.triggerCloudBackup()

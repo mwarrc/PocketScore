@@ -22,6 +22,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.ui.draw.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Block
 import androidx.compose.material.icons.filled.EmojiEvents
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Star
@@ -62,6 +63,7 @@ fun ActivePlayerCard(
     isLeader: Boolean,
     isCurrentTurn: Boolean,
     isStrictTurnMode: Boolean,
+    allowEliminatedInput: Boolean = false,
     onAdd: (Int) -> Unit,
     onSubtract: (Int) -> Unit,
     onSetTurn: (() -> Unit)? = null,
@@ -71,11 +73,26 @@ fun ActivePlayerCard(
     useCustomKeyboard: Boolean = true,
     modifier: Modifier = Modifier,
     lastPoints: Int? = null,
-    alwaysShowControls: Boolean = false
+    alwaysShowControls: Boolean = false,
+    // Elimination detection parameters
+    leaderScore: Int = 0,
+    tableSum: Int = 0
 ) {
-    val canEdit = !isStrictTurnMode || isCurrentTurn
     val focusRequester = remember { FocusRequester() }
     val keyboardController = LocalSoftwareKeyboardController.current
+    
+    // Calculate if player is eliminated
+    val potentialMax = player.score + tableSum
+    val isEliminated = !isLeader && potentialMax < leaderScore && tableSum > 0
+    
+    // Logic for editing:
+    // 1. In Strict Mode: Must be current turn AND not eliminated.
+    // 2. In Non-Strict Mode: Everyone can edit, but eliminated players depend on allowEliminatedInput setting.
+    val canEdit = if (isStrictTurnMode) {
+        isCurrentTurn && !isEliminated
+    } else {
+        !isEliminated || allowEliminatedInput
+    }
 
 
     // Snappy auto-focus for system keyboard to prevent it from closing on player switch
@@ -86,18 +103,20 @@ fun ActivePlayerCard(
     }
 
     val containerColor = when {
+        isEliminated -> MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.2f)
         isCurrentTurn -> MaterialTheme.colorScheme.primaryContainer
-        isLeader -> MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.15f)
+        isLeader -> MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.6f) // Increased visibility
         else -> MaterialTheme.colorScheme.surface
     }
 
     val contentColor = when {
         isCurrentTurn -> MaterialTheme.colorScheme.onPrimaryContainer
-        isLeader -> MaterialTheme.colorScheme.onSurface 
+        isLeader -> MaterialTheme.colorScheme.onTertiaryContainer 
         else -> MaterialTheme.colorScheme.onSurface
     }
 
     val borderStroke = when {
+        isEliminated -> BorderStroke(1.dp, MaterialTheme.colorScheme.error.copy(alpha = 0.3f))
         isCurrentTurn -> BorderStroke(2.dp, MaterialTheme.colorScheme.primary)
         else -> BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
     }
@@ -105,7 +124,7 @@ fun ActivePlayerCard(
     Card(
         modifier = modifier
             .fillMaxWidth()
-            .clickable(enabled = (!isStrictTurnMode || isCurrentTurn)) {
+            .clickable(enabled = canEdit) {
                 onSetTurn?.invoke()
                 if (!useCustomKeyboard) {
                     focusRequester.requestFocus()
@@ -122,7 +141,27 @@ fun ActivePlayerCard(
         )
     ) {
         Box(modifier = Modifier.fillMaxWidth()) {
-            if (isLeader && !isCurrentTurn) {
+            // Eliminated overlay effect
+            if (isEliminated) {
+                Box(
+                    modifier = Modifier
+                        .matchParentSize()
+                        .alpha(0.5f)
+                )
+                
+                // Eliminated icon watermark
+                Icon(
+                    androidx.compose.material.icons.Icons.Default.Block,
+                    contentDescription = "Eliminated",
+                    modifier = Modifier
+                        .align(Alignment.Center)
+                        .size(80.dp)
+                        .alpha(0.1f),
+                    tint = MaterialTheme.colorScheme.error
+                )
+            }
+            
+            if (isLeader && !isCurrentTurn && !isEliminated) {
                 val starTint = MaterialTheme.colorScheme.tertiary
                 Box(modifier = Modifier.matchParentSize()) {
                     Icon(
@@ -179,20 +218,30 @@ fun ActivePlayerCard(
                     Column(modifier = Modifier.weight(1f)) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             if (isLeader) {
-                                Icon(
-                                    Icons.Default.EmojiEvents,
-                                    contentDescription = "Leader",
-                                    modifier = Modifier.size(22.dp),
-                                    tint = MaterialTheme.colorScheme.tertiary.copy(alpha = 0.9f)
-                                )
-                                Spacer(Modifier.width(6.dp))
-                                Text(
-                                    "In the lead",
-                                    style = MaterialTheme.typography.labelSmall,
-                                    fontWeight = FontWeight.Medium,
-                                    color = MaterialTheme.colorScheme.tertiary.copy(alpha = 0.9f)
-                                )
-                                Spacer(Modifier.width(8.dp))
+                                Surface(
+                                    color = MaterialTheme.colorScheme.tertiary,
+                                    shape = RoundedCornerShape(6.dp),
+                                    modifier = Modifier.padding(end = 8.dp)
+                                ) {
+                                    Row(
+                                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Icon(
+                                            Icons.Default.EmojiEvents,
+                                            contentDescription = "Leader",
+                                            modifier = Modifier.size(14.dp),
+                                            tint = MaterialTheme.colorScheme.onTertiary
+                                        )
+                                        Spacer(Modifier.width(4.dp))
+                                        Text(
+                                            "LEADER",
+                                            style = MaterialTheme.typography.labelSmall,
+                                            fontWeight = FontWeight.Bold,
+                                            color = MaterialTheme.colorScheme.onTertiary
+                                        )
+                                    }
+                                }
                             }
                             Text(
                                 player.name,
@@ -247,6 +296,27 @@ fun ActivePlayerCard(
                                     style = MaterialTheme.typography.labelSmall,
                                     color = contentColor.copy(alpha = 0.6f),
                                     modifier = Modifier.padding(top = 4.dp)
+                                )
+                            }
+                        }
+                        
+                        // Eliminated badge
+                        if (isEliminated) {
+                            Surface(
+                                color = MaterialTheme.colorScheme.error.copy(alpha = 0.2f),
+                                shape = RoundedCornerShape(4.dp),
+                                modifier = Modifier.padding(top = 4.dp)
+                            ) {
+                                Text(
+                                    " ELIMINATED ",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.error,
+                                    fontWeight = FontWeight.Black,
+                                    letterSpacing = 0.5.sp,
+                                    modifier = Modifier.padding(
+                                        horizontal = 4.dp,
+                                        vertical = 2.dp
+                                    )
                                 )
                             }
                         }

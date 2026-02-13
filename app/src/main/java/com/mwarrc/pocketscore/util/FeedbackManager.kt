@@ -22,7 +22,7 @@ data class UserFeedback(
 )
 
 object FeedbackManager {
-    private val firestore by lazy { FirebaseFirestore.getInstance() }
+    private val firestore by lazy { FirebaseProvider.getFirestore() }
 
     fun submitFeedback(
         type: FeedbackType,

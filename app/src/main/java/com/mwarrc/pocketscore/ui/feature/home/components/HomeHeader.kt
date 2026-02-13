@@ -52,7 +52,7 @@ fun HomeHeader(
                 color = MaterialTheme.colorScheme.onSurface
             )
             Text(
-                "Game Night Assistant",
+                "The Expressive Scoreboard",
                 style = MaterialTheme.typography.labelMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
                 fontWeight = FontWeight.Medium

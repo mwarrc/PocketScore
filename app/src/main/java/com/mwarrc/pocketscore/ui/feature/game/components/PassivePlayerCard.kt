@@ -18,6 +18,7 @@ import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.Color
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Block
 import androidx.compose.material.icons.filled.EmojiEvents
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Star
@@ -32,6 +33,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.mwarrc.pocketscore.domain.model.Player
 
 @Composable
@@ -42,11 +44,19 @@ fun PassivePlayerCard(
     isActualTurn: Boolean,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
-    lastPoints: Int? = null
+    lastPoints: Int? = null,
+    // Elimination detection parameters
+    leaderScore: Int = 0,
+    tableSum: Int = 0
 ) {
+    // Calculate if player is eliminated
+    val potentialMax = player.score + tableSum
+    val isEliminated = !isLeader && potentialMax < leaderScore && tableSum > 0
+    
     val containerColor = when {
+        isEliminated -> MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.2f)
         isActualTurn -> MaterialTheme.colorScheme.primaryContainer
-        isLeader -> MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.2f)
+        isLeader -> MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.6f) // Increased visibility
         isCurrent -> MaterialTheme.colorScheme.surfaceContainerHigh
         else -> MaterialTheme.colorScheme.surfaceContainerLow
     }
@@ -58,6 +68,7 @@ fun PassivePlayerCard(
     }
 
     val borderStroke = when {
+        isEliminated -> BorderStroke(1.dp, MaterialTheme.colorScheme.error.copy(alpha = 0.3f))
         isCurrent -> BorderStroke(2.dp, MaterialTheme.colorScheme.primary)
         else -> BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
     }
@@ -75,8 +86,28 @@ fun PassivePlayerCard(
         shape = RoundedCornerShape(16.dp)
     ) {
         Box(modifier = Modifier.fillMaxWidth().height(100.dp)) {
+            // Eliminated overlay effect
+            if (isEliminated) {
+                Box(
+                    modifier = Modifier
+                        .matchParentSize()
+                        .alpha(0.6f)
+                )
+                
+                // Eliminated icon
+                Icon(
+                    androidx.compose.material.icons.Icons.Default.Block,
+                    contentDescription = "Eliminated",
+                    modifier = Modifier
+                        .align(Alignment.Center)
+                        .size(48.dp)
+                        .alpha(0.15f),
+                    tint = MaterialTheme.colorScheme.error
+                )
+            }
+            
             // Last Points Indicator
-            if (lastPoints != null) {
+            if (lastPoints != null && !isEliminated) {
                 val pointsColor = when {
                     lastPoints > 0 -> Color(0xFF4CAF50) // Green
                     lastPoints < 0 -> MaterialTheme.colorScheme.error
@@ -186,25 +217,29 @@ fun PassivePlayerCard(
             }
 
             if (isLeader) {
-                Row(
-                    modifier = Modifier
-                        .align(Alignment.TopEnd)
-                        .padding(6.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                Surface(
+                    color = MaterialTheme.colorScheme.tertiary,
+                    contentColor = MaterialTheme.colorScheme.onTertiary,
+                    shape = RoundedCornerShape(bottomStart = 12.dp),
+                    modifier = Modifier.align(Alignment.TopEnd)
                 ) {
-                    Text(
-                        "Lead",
-                        style = MaterialTheme.typography.labelSmall,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.tertiary
-                    )
-                    Icon(
-                        Icons.Default.EmojiEvents,
-                        contentDescription = "Leader",
-                        modifier = Modifier.size(18.dp),
-                        tint = MaterialTheme.colorScheme.tertiary
-                    )
+                    Row(
+                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        Text(
+                            "LEADER",
+                            style = MaterialTheme.typography.labelSmall,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 10.sp
+                        )
+                        Icon(
+                            Icons.Default.EmojiEvents,
+                            contentDescription = "Leader",
+                            modifier = Modifier.size(14.dp)
+                        )
+                    }
                 }
             }
 
@@ -213,6 +248,7 @@ fun PassivePlayerCard(
                 modifier = Modifier
                     .fillMaxWidth()
                     .align(Alignment.Center)
+                    .alpha(if (isEliminated) 0.5f else 1f)
             ) {
                 Text(
                     player.name,
@@ -228,6 +264,18 @@ fun PassivePlayerCard(
                     fontWeight = FontWeight.Bold,
                     color = contentColor
                 )
+                
+                // Eliminated label
+                if (isEliminated) {
+                    Spacer(Modifier.height(2.dp))
+                    Text(
+                        "ELIMINATED",
+                        style = MaterialTheme.typography.labelSmall,
+                        fontWeight = FontWeight.Black,
+                        color = MaterialTheme.colorScheme.error,
+                        letterSpacing = 0.5.sp
+                    )
+                }
             }
         }
     }

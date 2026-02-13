@@ -8,6 +8,16 @@ enum class ScoreboardLayout {
 }
 
 @Serializable
+enum class RosterSortOption {
+    MANUAL,
+    ALPHABETICAL,
+    LOSERS_FIRST,
+    WINNERS_FIRST,
+    RANDOM,
+    MOST_PLAYED
+}
+
+@Serializable
 data class AppSettings(
     val hapticFeedbackEnabled: Boolean = true,
     val leaderSpotlightEnabled: Boolean = true,
@@ -19,7 +29,7 @@ data class AppSettings(
     val showHelpInNavBar: Boolean = false, // Toggle visibility of Help in the bottom nav
     val hasSeenOnboarding: Boolean = false, // Track if user has completed onboarding
     val showComingSoonFeatures: Boolean = false, // Toggle visibility of unimplemented features
-    val showStrictModeBanner: Boolean = true, // Display banner when strict mode is off
+    val showStrictModeBanner: Boolean = false, // Display banner when strict mode is off
     val autoScrollToActivePlayer: Boolean = true, // Auto-scroll to current player
     val autoNextTurn: Boolean = false, // Automatically advance turn after scoring
     val savedPlayerNames: List<String> = emptyList(), // Frequently used players (Active Roster)
@@ -39,7 +49,10 @@ data class AppSettings(
     val customDeviceName: String? = null, // Personalized name for this device (e.g., "Jacob's Phone")
     val keyboardTheme: KeyboardTheme = KeyboardTheme.AUTO, // Keyboard color theme
     val keyboardTextSize: Float = 24f, // Number text size (20-32sp)
-    val keyboardHeight: KeyboardHeight = KeyboardHeight.MEDIUM // Keyboard button height
+    val keyboardHeight: KeyboardHeight = KeyboardHeight.MEDIUM, // Keyboard button height
+    val allowEliminatedInput: Boolean = false, // If true, eliminated players aren't auto-skipped in non-strict mode
+    val rosterSortOption: RosterSortOption = RosterSortOption.MANUAL,
+    val analyticsId: String? = null // Unique ID for database analytics
 )
 
 @Serializable

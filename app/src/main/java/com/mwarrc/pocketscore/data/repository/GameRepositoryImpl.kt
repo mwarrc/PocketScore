@@ -218,8 +218,20 @@ class GameRepositoryImpl(private val context: Context) : GameRepository {
         val share = getShareableData(null)
         val json = Json.encodeToString(share)
         
-        // Save ONLY to Internal (Private/App-Specific) by default
+        // 1. Save to Internal (Private/App-Specific) - for quick access
         File(internalBackupDir, "$name.pscore").writeText(json)
+        
+        // 2. Save to Public (Documents/PocketScore Backups) - survivors of uninstalls
+        var publicSuccess = false
+        try {
+            if (!publicBackupDir.exists()) publicBackupDir.mkdirs()
+            if (publicBackupDir.exists() && publicBackupDir.canWrite()) {
+                File(publicBackupDir, "$name.pscore").writeText(json)
+                publicSuccess = true
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
         
         // Update settings with metadata for UI
         val sizeInKb = (json.length.toDouble() / 1024.0)

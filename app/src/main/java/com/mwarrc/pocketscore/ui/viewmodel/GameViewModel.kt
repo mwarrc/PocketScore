@@ -34,12 +34,29 @@ class GameViewModel(private val repository: GameRepository) : ViewModel() {
                 _state.value = newState
             }
         }
+        
+        // Robust Identity and Daily Logging
+        viewModelScope.launch {
+            val settings = repository.appSettings.first()
+            val finalId = if (settings.analyticsId == null) {
+                val newId = java.util.UUID.randomUUID().toString()
+                repository.updateSettings(settings.copy(analyticsId = newId))
+                com.mwarrc.pocketscore.util.CloudAnalyticsManager.logInstallation(newId)
+                newId
+            } else {
+                settings.analyticsId
+            }
+            // Guaranteed stable ID for session logging
+            com.mwarrc.pocketscore.util.AnalyticsManager.logAppOpen(finalId)
+        }
+
         refreshSnapshots()
         viewModelScope.launch {
             repository.triggerDailyAutoSnapshot()
             refreshSnapshots() // Refresh again if it created a new one
         }
     }
+
 
     fun refreshSnapshots() {
         viewModelScope.launch {
@@ -61,7 +78,7 @@ class GameViewModel(private val repository: GameRepository) : ViewModel() {
             deviceInfo = _state.value.settings.customDeviceName ?: android.os.Build.MODEL
         )
         updateGameState(newState)
-        AnalyticsManager.logGameStarted(newPlayers.size)
+        AnalyticsManager.logGameStarted(newPlayers.size, analyticsId = _state.value.settings.analyticsId)
     }
 
     /**
@@ -83,7 +100,7 @@ class GameViewModel(private val repository: GameRepository) : ViewModel() {
                 repository.deleteGameFromHistory(game.id)
             }
             updateGameState(game.copy(isGameActive = true, lastUpdate = System.currentTimeMillis()))
-            AnalyticsManager.logGameStarted(game.players.size, isResume = true)
+            AnalyticsManager.logGameStarted(game.players.size, isResume = true, analyticsId = _state.value.settings.analyticsId)
         }
     }
 
@@ -274,12 +291,44 @@ class GameViewModel(private val repository: GameRepository) : ViewModel() {
                 repository.archiveCurrentGame(currentGame.copy(isFinalized = finalized))
             }
             // Log game ended analytics
+            val winnerScore = currentGame.players.maxOfOrNull { it.score } ?: 0
             AnalyticsManager.logGameEnded(
                 playerCount = currentGame.players.size,
                 totalTurns = currentGame.globalEvents.count { it.type == GameEventType.SCORE },
-                isFinalized = finalized
+                isFinalized = finalized,
+                winnerScore = winnerScore,
+                durationMillis = System.currentTimeMillis() - currentGame.startTime,
+                analyticsId = _state.value.settings.analyticsId
             )
             repository.clearGameState()
+        }
+    }
+
+    /**
+     * Finishes current game and starts a new one with a custom roster.
+     */
+    fun startRestartMatch(playerNames: List<String>) {
+        viewModelScope.launch {
+            val currentGame = _state.value.gameState
+            
+            // 1. Archive current
+            if (currentGame.players.any { it.score > 0 }) {
+                repository.archiveCurrentGame(currentGame.copy(isFinalized = true))
+                
+                // Analytics
+                val winnerScore = currentGame.players.maxOfOrNull { it.score } ?: 0
+                AnalyticsManager.logGameEnded(
+                    playerCount = currentGame.players.size,
+                    totalTurns = currentGame.globalEvents.count { it.type == GameEventType.SCORE },
+                    isFinalized = true,
+                    winnerScore = winnerScore,
+                    durationMillis = System.currentTimeMillis() - currentGame.startTime,
+                    analyticsId = _state.value.settings.analyticsId
+                )
+            }
+            
+            // 2. Start new
+            startNewGame(playerNames)
         }
     }
 
@@ -288,7 +337,7 @@ class GameViewModel(private val repository: GameRepository) : ViewModel() {
      */
     fun updateSettings(update: (AppSettings) -> AppSettings) {
         viewModelScope.launch {
-            val currentSettings = _state.value.settings
+            val currentSettings = repository.appSettings.first()
             val newSettings = update(currentSettings)
 
             if (currentSettings.strictTurnMode != newSettings.strictTurnMode) {

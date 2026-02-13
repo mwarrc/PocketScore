@@ -32,7 +32,6 @@ fun BackupManagementScreen(
     onRestoreSnapshot: (String) -> Unit,
     onDeleteSnapshot: (String) -> Unit,
     onShareSnapshot: (String) -> Unit,
-    onExportSnapshot: suspend (String) -> Boolean,
     onTriggerCloudBackup: () -> Unit,
     onToggleLocalSnapshots: (Boolean) -> Unit,
     onRefresh: () -> Unit,
@@ -326,17 +325,7 @@ fun BackupManagementScreen(
                         }
                     },
                     onDelete = { snapshotToDelete = name },
-                    onShare = { onShareSnapshot(name) },
-                    onExport = { 
-                        scope.launch {
-                            val success = onExportSnapshot(name)
-                            if (success) {
-                                snackbarHostState.showSnackbar("Exported to Documents/PocketScore Backups")
-                            } else {
-                                snackbarHostState.showSnackbar("Export Failed")
-                            }
-                        }
-                    }
+                    onShare = { onShareSnapshot(name) }
                 )
             }
         }
@@ -349,8 +338,7 @@ fun SnapshotItem(
     date: String,
     onRestore: () -> Unit,
     onDelete: () -> Unit,
-    onShare: () -> Unit,
-    onExport: () -> Unit
+    onShare: () -> Unit
 ) {
     Column {
         Row(
@@ -399,14 +387,7 @@ fun SnapshotItem(
                         tint = MaterialTheme.colorScheme.primary
                     )
                 }
-                IconButton(onClick = onExport) {
-                    Icon(
-                        Icons.Default.SaveAlt,
-                        "Export to Documents",
-                        modifier = Modifier.size(20.dp),
-                        tint = MaterialTheme.colorScheme.secondary
-                    )
-                }
+
                 IconButton(onClick = onShare) {
                     Icon(
                         Icons.Default.Share,

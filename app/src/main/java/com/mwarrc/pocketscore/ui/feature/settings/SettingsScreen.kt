@@ -91,8 +91,6 @@ fun SettingsScreen(
     onNavigateToGame: () -> Unit,
     onNavigateToHistory: () -> Unit,
     onNavigateToAbout: () -> Unit,
-    onExportBackup: () -> Unit,
-    onImportBackup: () -> Unit,
     onNavigateToBackups: () -> Unit,
     onNavigateToFeedback: () -> Unit
 ) {
@@ -251,7 +249,7 @@ fun SettingsScreen(
                     confirmButton = {
                         Button(
                             onClick = {
-                                onUpdateSettings { it.copy(enforceStrictMode = true, strictTurnMode = true) }
+                                onUpdateSettings { it.copy(enforceStrictMode = true, strictTurnMode = true, autoNextTurn = true) }
                                 showEnforceDialog = false
                             },
                             colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
@@ -515,22 +513,8 @@ fun SettingsScreen(
             )
 
             SettingsItem(
-                title = "Share Game Records",
-                subtitle = "Share history and friends as a file",
-                icon = Icons.Default.IosShare,
-                onClick = onExportBackup
-            )
-
-            SettingsItem(
-                title = "Import Game Records",
-                subtitle = "Load data from a .pscore file",
-                icon = Icons.Default.FileDownload,
-                onClick = onImportBackup
-            )
-
-            SettingsItem(
                 title = "Backup Center",
-                subtitle = "Manage local snapshots and history",
+                subtitle = "Manage local snapshots, sharing and recovery",
                 icon = Icons.Default.Security,
                 onClick = onNavigateToBackups
             )

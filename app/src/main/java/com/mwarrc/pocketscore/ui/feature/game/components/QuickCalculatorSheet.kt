@@ -5,6 +5,7 @@ import androidx.compose.animation.expandVertically
 import androidx.compose.animation.shrinkVertically
 
 import android.content.ClipData
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -29,6 +30,7 @@ import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Remove
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.BottomSheetDefaults
 import androidx.compose.ui.focus.onFocusChanged
@@ -42,6 +44,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
@@ -49,6 +52,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -58,6 +62,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.ClipEntry
 import androidx.compose.ui.platform.LocalClipboard
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
@@ -66,68 +73,43 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.launch
 
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
+import com.mwarrc.pocketscore.domain.model.Player
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun QuickCalculatorSheet(
     settings: AppSettings,
+    expression: TextFieldValue,
+    onExpressionChange: (TextFieldValue) -> Unit,
+    players: List<Player>,
+    onAddScore: (String, Int) -> Unit,
     onUpdateSettings: ((AppSettings) -> AppSettings) -> Unit,
     onDismiss: () -> Unit
 ) {
-    var result by remember { mutableStateOf("0") }
-    var expression by remember { mutableStateOf(TextFieldValue("")) }
+    val result = remember(expression) { evaluate(expression.text) }
     var showNumpad by remember { mutableStateOf(false) }
 
     val clipboard = LocalClipboard.current
+    val keyboardController = LocalSoftwareKeyboardController.current
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
+    val focusRequester = remember { FocusRequester() }
 
-    fun evaluate(expr: String): String {
-        if (expr.isBlank()) return "0"
-        return try {
-            val cleanExpr = expr.replace(" ", "")
-            if (cleanExpr.isEmpty()) return "0"
-
-            val regex = "(?=[+\\-*/])|(?<=[+\\-*/])".toRegex()
-            val tokens = cleanExpr.split(regex).filter { it.isNotBlank() }.toMutableList()
-
-            if (tokens.firstOrNull() == "-") {
-                val firstNum = tokens.getOrNull(1)
-                if (firstNum != null) {
-                    tokens[0] = "-$firstNum"
-                    tokens.removeAt(1)
-                }
-            }
-
-            var i = 0
-            while (i < tokens.size) {
-                if (tokens[i] == "*" || tokens[i] == "/") {
-                    val left = tokens[i - 1].toDouble()
-                    val right = tokens[i + 1].toDouble()
-                    val res = if (tokens[i] == "*") left * right else left / right
-                    tokens[i - 1] = res.toString()
-                    tokens.removeAt(i)
-                    tokens.removeAt(i)
-                    i--
-                }
-                i++
-            }
-
-            var total = tokens[0].toDouble()
-            i = 1
-            while (i < tokens.size) {
-                val op = tokens[i]
-                val nextVal = tokens[i + 1].toDouble()
-                total = if (op == "+") total + nextVal else total - nextVal
-                i += 2
-            }
-
-            if (total % 1 == 0.0) total.toLong().toString() else "%.2f".format(total)
-        } catch (_: Exception) {
-            "..."
+    // Auto-focus and open keyboard on launch
+    LaunchedEffect(Unit) {
+        focusRequester.requestFocus()
+        if (settings.useCustomKeyboard) {
+            showNumpad = true
+        } else {
+            keyboardController?.show()
         }
     }
 
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+
+    val activePlayers = remember(players) { players.filter { it.isActive } }
 
     ModalBottomSheet(
         onDismissRequest = onDismiss,
@@ -147,8 +129,7 @@ fun QuickCalculatorSheet(
                     .fillMaxWidth()
                     .weight(1f, fill = false)
                     .verticalScroll(rememberScrollState())
-                    .padding(horizontal = 16.dp)
-                    .padding(bottom = 16.dp),
+                    .padding(horizontal = 16.dp),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
                 Text(
@@ -157,7 +138,7 @@ fun QuickCalculatorSheet(
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
 
-                Spacer(Modifier.height(24.dp))
+                Spacer(Modifier.height(16.dp))
 
                 Surface(
                     modifier = Modifier
@@ -182,19 +163,15 @@ fun QuickCalculatorSheet(
                     color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
                 ) {
                     Column(
-                        modifier = Modifier.padding(24.dp),
+                        modifier = Modifier.padding(20.dp),
                         horizontalAlignment = Alignment.CenterHorizontally
                     ) {
                         Text(
                             text = result,
-                            style = MaterialTheme.typography.displayLarge,
+                            style = MaterialTheme.typography.displayMedium,
                             fontWeight = FontWeight.Black,
                             textAlign = TextAlign.Center,
-                            color = if (result == "...") {
-                                MaterialTheme.colorScheme.error
-                            } else {
-                                MaterialTheme.colorScheme.primary
-                            }
+                            color = MaterialTheme.colorScheme.primary
                         )
                         if (expression.text.isNotEmpty()) {
                             Text(
@@ -206,31 +183,26 @@ fun QuickCalculatorSheet(
                     }
                 }
 
-                Spacer(Modifier.height(24.dp))
+                Spacer(Modifier.height(16.dp))
 
                 val visualExpression = expression.text
-                    .replace("*", " × ")
-                    .replace("/", " ÷ ")
+                    .replace("*", "×")
+                    .replace("/", "÷")
 
                 OutlinedTextField(
                     value = expression.copy(text = visualExpression),
                     onValueChange = { newValue ->
-                        // Reverse the visual mapping to get the raw expression for logic
                         val rawText = newValue.text
-                            .replace(" × ", "*")
                             .replace("×", "*")
-                            .replace(" ÷ ", "/")
                             .replace("÷", "/")
                         
-                        if (rawText.all { it.isDigit() || "+-*/. ".contains(it) }) {
-                            // Update the actual expression with raw symbols
-                            expression = newValue.copy(text = rawText)
-                            val evalResult = evaluate(rawText)
-                            if (evalResult != "...") result = evalResult
+                        if (rawText.all { it.isDigit() || "+-*/. ()".contains(it) }) {
+                            onExpressionChange(newValue.copy(text = rawText))
                         }
                     },
                     modifier = Modifier
                         .fillMaxWidth()
+                        .focusRequester(focusRequester)
                         .onFocusChanged { 
                             if (it.isFocused && settings.useCustomKeyboard) {
                                 showNumpad = true
@@ -238,7 +210,7 @@ fun QuickCalculatorSheet(
                         },
                     placeholder = { 
                         Text(
-                            "Enter numbers or sum (12 + 4)...", 
+                            "Enter sum (12 + 4)...", 
                             style = MaterialTheme.typography.bodyMedium.copy(
                                 color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
                             )
@@ -250,26 +222,21 @@ fun QuickCalculatorSheet(
                     shape = RoundedCornerShape(16.dp),
                     trailingIcon = {
                         if (expression.text.isNotEmpty()) {
-                            IconButton(
-                                onClick = {
-                                    expression = TextFieldValue("")
-                                    result = "0"
-                                }
-                            ) {
-                                Icon(Icons.Default.Clear, "Clear expression")
+                            IconButton(onClick = { onExpressionChange(TextFieldValue("")) }) {
+                                Icon(Icons.Default.Clear, "Clear")
                             }
                         }
                     },
                     textStyle = MaterialTheme.typography.titleLarge
                 )
 
-                Spacer(Modifier.height(16.dp))
+                Spacer(Modifier.height(12.dp))
 
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    listOf("+", "-", "*", "/").forEach { op ->
+                    listOf("+", "-", "*", "/", "(", ")").forEach { op ->
                         FilledTonalButton(
                             onClick = {
                                 val text = expression.text
@@ -278,72 +245,121 @@ fun QuickCalculatorSheet(
                                 val after = text.substring(selection.end)
                                 val newText = "$before$op$after"
                                 val newCursorPos = selection.start + op.length
-                                expression = TextFieldValue(
+                                onExpressionChange(TextFieldValue(
                                     text = newText,
                                     selection = TextRange(newCursorPos)
-                                )
-                                val evalResult = evaluate(newText)
-                                if (evalResult != "...") result = evalResult
+                                ))
                             },
                             modifier = Modifier.weight(1f),
                             shape = RoundedCornerShape(12.dp),
                             contentPadding = PaddingValues(0.dp)
                         ) {
                             when(op) {
-                                "+" -> Icon(Icons.Default.Add, contentDescription = "Add")
-                                "-" -> Icon(Icons.Default.Remove, contentDescription = "Subtract")
+                                "+" -> Icon(Icons.Default.Add, "Add")
+                                "-" -> Icon(Icons.Default.Remove, "Subtract")
                                 "*" -> Text("×", style = MaterialTheme.typography.titleLarge)
                                 "/" -> Text("÷", style = MaterialTheme.typography.titleLarge)
+                                else -> Text(op, style = MaterialTheme.typography.titleLarge)
                             }
                         }
                     }
                 }
+            }
 
-                Spacer(Modifier.height(24.dp))
-
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+            // Quick Score Ribbon (Insertion only)
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 12.dp)
+            ) {
+                Text(
+                    "Insert Player Score into Formula",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)
+                )
+                LazyRow(
+                    contentPadding = PaddingValues(horizontal = 16.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    Button(
-                        onClick = {
-                            expression = TextFieldValue("")
-                            result = "0"
-                        },
-                        modifier = Modifier.weight(1f),
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = MaterialTheme.colorScheme.errorContainer,
-                            contentColor = MaterialTheme.colorScheme.onErrorContainer
-                        ),
-                        shape = RoundedCornerShape(12.dp)
-                    ) {
-                        Icon(Icons.Default.Refresh, null)
-                        Spacer(Modifier.width(8.dp))
-                        Text("Reset")
-                    }
+                    items(activePlayers.withIndex().toList()) { (index, player) ->
+                        val playerColors = listOf(
+                            MaterialTheme.colorScheme.primaryContainer to MaterialTheme.colorScheme.onPrimaryContainer,
+                            MaterialTheme.colorScheme.secondaryContainer to MaterialTheme.colorScheme.onSecondaryContainer,
+                            MaterialTheme.colorScheme.tertiaryContainer to MaterialTheme.colorScheme.onTertiaryContainer,
+                            MaterialTheme.colorScheme.surfaceVariant to MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        val (containerColor, contentColor) = playerColors[index % playerColors.size]
 
-                    Button(
-                        onClick = onDismiss,
-                        modifier = Modifier.weight(1f),
-                        shape = RoundedCornerShape(12.dp)
-                    ) {
-                        Icon(Icons.Default.Close, null)
-                        Spacer(Modifier.width(8.dp))
-                        Text("Close")
+                        Surface(
+                            onClick = {
+                                val currentText = expression.text
+                                val toAppend = "(${player.score})"
+                                val newText = when {
+                                    currentText.isEmpty() -> toAppend
+                                    "+-*/(".contains(currentText.last()) -> currentText + toAppend
+                                    else -> "$currentText+$toAppend"
+                                }
+                                onExpressionChange(TextFieldValue(newText, TextRange(newText.length)))
+                            },
+                            shape = RoundedCornerShape(12.dp),
+                            color = containerColor,
+                            contentColor = contentColor
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    player.name,
+                                    style = MaterialTheme.typography.labelLarge,
+                                    fontWeight = FontWeight.Bold
+                                )
+                                Spacer(Modifier.width(4.dp))
+                                Text(
+                                    "(${player.score})",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = contentColor.copy(alpha = 0.6f)
+                                )
+                            }
+                        }
                     }
                 }
             }
 
-            Box(modifier = Modifier.fillMaxWidth()) {
-                SnackbarHost(
-                    hostState = snackbarHostState,
-                    modifier = Modifier
-                        .align(Alignment.BottomCenter)
-                        .padding(bottom = 16.dp)
-                )
+            // Action Buttons
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 8.dp),
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                OutlinedButton(
+                    onClick = { onExpressionChange(TextFieldValue("")) },
+                    modifier = Modifier.weight(1f),
+                    shape = RoundedCornerShape(12.dp),
+                    colors = ButtonDefaults.outlinedButtonColors(
+                        contentColor = MaterialTheme.colorScheme.error
+                    ),
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.error.copy(alpha = 0.5f))
+                ) {
+                    Icon(Icons.Default.Refresh, null)
+                    Spacer(Modifier.width(8.dp))
+                    Text("Reset All")
+                }
+
+                Button(
+                    onClick = onDismiss,
+                    modifier = Modifier.weight(1f),
+                    shape = RoundedCornerShape(12.dp)
+                ) {
+                    Icon(Icons.Default.Close, null)
+                    Spacer(Modifier.width(8.dp))
+                    Text("Close")
+                }
             }
 
-            // Custom Numpad at the bottom of the Column
+            // Custom Numpad
             AnimatedVisibility(
                 visible = showNumpad && settings.useCustomKeyboard,
                 enter = expandVertically(),
@@ -357,12 +373,10 @@ fun QuickCalculatorSheet(
                         val after = text.substring(selection.end)
                         val newText = "$before$char$after"
                         val newCursorPos = selection.start + char.length
-                        expression = TextFieldValue(
+                        onExpressionChange(TextFieldValue(
                             text = newText,
                             selection = TextRange(newCursorPos)
-                        )
-                        val evalResult = evaluate(newText)
-                        if (evalResult != "...") result = evalResult
+                        ))
                     },
                     onBackspaceClick = {
                         val text = expression.text
@@ -380,12 +394,10 @@ fun QuickCalculatorSheet(
                             } else {
                                 selection.start
                             }
-                            expression = TextFieldValue(
+                            onExpressionChange(TextFieldValue(
                                 text = newText,
                                 selection = TextRange(newCursorPos)
-                            )
-                            val evalResult = evaluate(newText)
-                            if (evalResult != "...") result = evalResult
+                            ))
                         }
                     },
                     onDismiss = { showNumpad = false },
@@ -396,6 +408,64 @@ fun QuickCalculatorSheet(
                 )
             }
         }
+    }
+}
+
+private fun evaluate(expr: String): String {
+    if (expr.isBlank()) return "0"
+    return try {
+        var processed = expr.replace(" ", "")
+        
+        // Handle parenthesis recursively
+        val parenRegex = "\\(([^()]+)\\)".toRegex()
+        while (processed.contains("(")) {
+            val match = parenRegex.find(processed) ?: break
+            val innerVal = evaluate(match.groupValues[1])
+            if (innerVal == "...") return "..."
+            processed = processed.replaceRange(match.range, innerVal)
+        }
+
+        if (processed.isEmpty()) return "0"
+
+        val regex = "(?=[+\\-*/])|(?<=[+\\-*/])".toRegex()
+        val tokens = processed.split(regex).filter { it.isNotBlank() }.toMutableList()
+
+        // Handle leading negative
+        if (tokens.firstOrNull() == "-") {
+            val next = tokens.getOrNull(1) ?: return "0"
+            tokens[0] = "-$next"
+            tokens.removeAt(1)
+        }
+
+        // MD: Multiplication and Division
+        var i = 0
+        while (i < tokens.size) {
+            if (tokens[i] == "*" || tokens[i] == "/") {
+                val left = tokens.getOrNull(i - 1)?.toDoubleOrNull() ?: 0.0
+                val right = tokens.getOrNull(i + 1)?.toDoubleOrNull() ?: 0.0
+                val res = if (tokens[i] == "*") left * right else left / right
+                tokens[i - 1] = res.toString()
+                tokens.removeAt(i)
+                tokens.removeAt(i)
+                i--
+            }
+            i++
+        }
+
+        // AS: Addition and Subtraction
+        if (tokens.isEmpty()) return "0"
+        var total = tokens[0].toDoubleOrNull() ?: 0.0
+        i = 1
+        while (i < tokens.size) {
+            val op = tokens[i]
+            val nextVal = tokens.getOrNull(i + 1)?.toDoubleOrNull() ?: 0.0
+            total = if (op == "+") total + nextVal else total - nextVal
+            i += 2
+        }
+
+        if (total % 1 == 0.0) total.toLong().toString() else "%.2f".format(total)
+    } catch (_: Exception) {
+        "..."
     }
 }
 
