@@ -86,8 +86,72 @@ class GameViewModel(private val repository: GameRepository) : ViewModel() {
      */
     fun setCurrentPlayer(playerId: String) {
         val currentState = _state.value.gameState
-        updateGameState(currentState.copy(currentPlayerId = playerId))
+        val settings = _state.value.settings
+        
+        // If pool management is enabled, ensure we don't switch TO an eliminated player if skipped
+        val nextId = if (settings.poolBallManagementEnabled) {
+            findNextValidPlayer(currentState.copy(currentPlayerId = playerId), settings)
+        } else {
+            playerId
+        }
+        
+        updateGameState(currentState.copy(currentPlayerId = nextId))
     }
+
+    /**
+     * Updates the balls remaining on the table and checks for turn skips.
+     */
+    fun updateBallsOnTable(balls: Set<Int>) {
+        val currentState = _state.value.gameState
+        val settings = _state.value.settings
+        
+        val updatedState = currentState.copy(ballsOnTable = balls)
+        val nextId = findNextValidPlayer(updatedState, settings)
+        
+        updateGameState(updatedState.copy(currentPlayerId = nextId))
+    }
+
+    private fun findNextValidPlayer(state: GameState, settings: AppSettings): String? {
+        val activePlayers = state.players.filter { it.isActive }
+        if (activePlayers.isEmpty()) return state.currentPlayerId
+        
+        val currentPlayerId = state.currentPlayerId ?: return activePlayers.firstOrNull()?.id
+        if (!settings.poolBallManagementEnabled) return currentPlayerId
+        
+        val ballValues = mapOf(1 to 16, 2 to 17, 3 to 3, 4 to 4, 5 to 5, 6 to 6, 7 to 7, 8 to 8, 9 to 9, 10 to 10, 11 to 11, 12 to 12, 13 to 13, 14 to 14, 15 to 15)
+        val tableSum = state.ballsOnTable.sumOf { ballValues[it] ?: 0 }
+        val leaderScore = activePlayers.maxOfOrNull { it.score } ?: 0
+        val actualLeaders = if (leaderScore > 0) activePlayers.filter { it.score == leaderScore }.map { it.id }.toSet() else emptySet()
+
+        fun isEliminated(player: Player): Boolean {
+            if (tableSum <= 0) return false
+            val potentialMax = player.score + tableSum
+            return !actualLeaders.contains(player.id) && potentialMax < leaderScore
+        }
+
+        val currentPlayer = activePlayers.find { it.id == currentPlayerId }
+        val shouldSkipCurrent = currentPlayer != null && isEliminated(currentPlayer) && 
+            (settings.strictTurnMode || !settings.allowEliminatedInput)
+            
+        if (!shouldSkipCurrent) return currentPlayerId
+        
+        // Find next valid
+        val currentIndex = activePlayers.indexOfFirst { it.id == currentPlayerId }
+        if (currentIndex == -1) return activePlayers.firstOrNull()?.id
+        
+        var nextIndex = (currentIndex + 1) % activePlayers.size
+        var attempts = 0
+        while (attempts < activePlayers.size) {
+            val p = activePlayers[nextIndex]
+            if (!(isEliminated(p) && (settings.strictTurnMode || !settings.allowEliminatedInput))) {
+                return p.id
+            }
+            nextIndex = (nextIndex + 1) % activePlayers.size
+            attempts++
+        }
+        return currentPlayerId
+    }
+
 
     /**
      * Resumes a previously saved game.
@@ -110,6 +174,17 @@ class GameViewModel(private val repository: GameRepository) : ViewModel() {
     fun deleteGameFromHistory(gameId: String) {
         viewModelScope.launch {
             repository.deleteGameFromHistory(gameId)
+        }
+    }
+
+    /**
+     * Toggles the archived status of a specific game.
+     */
+    fun toggleArchiveGame(gameId: String) {
+        viewModelScope.launch {
+            val history = _state.value.gameHistory
+            val game = history.pastGames.find { it.id == gameId } ?: return@launch
+            repository.updateGameInHistory(game.copy(isArchived = !game.isArchived))
         }
     }
 
@@ -284,11 +359,11 @@ class GameViewModel(private val repository: GameRepository) : ViewModel() {
      * Resets the current game.
      * Archives the game to history if any player has a non-zero score.
      */
-    fun resetGame(finalized: Boolean = true) {
+    fun resetGame(finalized: Boolean = true, forceSave: Boolean = false) {
         viewModelScope.launch {
             val currentGame = _state.value.gameState
             if (currentGame.players.any { it.score != 0 }) {
-                repository.archiveCurrentGame(currentGame.copy(isFinalized = finalized))
+                repository.archiveCurrentGame(currentGame.copy(isFinalized = finalized), saveOverride = forceSave)
             }
             // Log game ended analytics
             val winnerScore = currentGame.players.maxOfOrNull { it.score } ?: 0
@@ -307,13 +382,13 @@ class GameViewModel(private val repository: GameRepository) : ViewModel() {
     /**
      * Finishes current game and starts a new one with a custom roster.
      */
-    fun startRestartMatch(playerNames: List<String>) {
+    fun startRestartMatch(playerNames: List<String>, forceSave: Boolean = false) {
         viewModelScope.launch {
             val currentGame = _state.value.gameState
             
             // 1. Archive current
             if (currentGame.players.any { it.score > 0 }) {
-                repository.archiveCurrentGame(currentGame.copy(isFinalized = true))
+                repository.archiveCurrentGame(currentGame.copy(isFinalized = true), saveOverride = forceSave)
                 
                 // Analytics
                 val winnerScore = currentGame.players.maxOfOrNull { it.score } ?: 0

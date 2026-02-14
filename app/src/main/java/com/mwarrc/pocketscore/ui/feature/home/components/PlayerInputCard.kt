@@ -53,15 +53,13 @@ fun PlayerInputCard(
     Surface(
         modifier = modifier.fillMaxWidth(),
         shape = RoundedCornerShape(20.dp),
-        color = when {
-            hasError -> MaterialTheme.colorScheme.errorContainer
-            else -> MaterialTheme.colorScheme.surface
-        },
+        color = MaterialTheme.colorScheme.surface,
         tonalElevation = 0.dp,
         border = androidx.compose.foundation.BorderStroke(
             width = 1.dp,
             color = when {
-                hasError -> MaterialTheme.colorScheme.error
+                isDuplicate -> MaterialTheme.colorScheme.error.copy(alpha = 0.7f)
+                hasError -> MaterialTheme.colorScheme.primary.copy(alpha = 0.3f)
                 name.isNotEmpty() -> MaterialTheme.colorScheme.primary.copy(alpha = 0.5f)
                 else -> MaterialTheme.colorScheme.outlineVariant
             }
@@ -89,7 +87,8 @@ fun PlayerInputCard(
                         style = MaterialTheme.typography.titleSmall,
                         fontWeight = FontWeight.Black,
                         color = when {
-                            hasError -> MaterialTheme.colorScheme.onError
+                            isDuplicate -> MaterialTheme.colorScheme.error
+                            hasError -> MaterialTheme.colorScheme.primary
                             else -> MaterialTheme.colorScheme.onPrimaryContainer
                         }
                     )
@@ -137,9 +136,9 @@ fun PlayerInputCard(
                         horizontalArrangement = Arrangement.spacedBy(4.dp)
                     ) {
                         val (icon, text, color) = when {
-                            isDuplicate -> Triple(Icons.Default.Close, "Already in match", MaterialTheme.colorScheme.error)
-                            hasError && name.isEmpty() -> Triple(Icons.Default.Close, "Name required", MaterialTheme.colorScheme.error)
-                            isContinuing -> Triple(Icons.Default.History, "Continuing Player's Record", MaterialTheme.colorScheme.primary)
+                            isDuplicate -> Triple(Icons.Default.Close, "Duplicate: ${name.trim()}", MaterialTheme.colorScheme.error)
+                            hasError && name.isEmpty() -> Triple(Icons.Default.Close, "Empty Slot", MaterialTheme.colorScheme.primary.copy(alpha = 0.6f))
+                            isContinuing -> Triple(Icons.Default.History, "Continuing Record", MaterialTheme.colorScheme.primary)
                             isNewPlayer -> Triple(Icons.Default.Star, "New Player", accentColor)
                             else -> Triple(Icons.Default.History, "", MaterialTheme.colorScheme.onSurfaceVariant)
                         }

@@ -20,6 +20,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Block
 import androidx.compose.material.icons.filled.EmojiEvents
+import androidx.compose.material.icons.filled.Group
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.Card
@@ -40,6 +41,9 @@ import com.mwarrc.pocketscore.domain.model.Player
 fun PassivePlayerCard(
     player: Player,
     isLeader: Boolean,
+    isTie: Boolean = false,
+    isLoser: Boolean = false,
+    isLoserTie: Boolean = false,
     isCurrent: Boolean,
     isActualTurn: Boolean,
     onClick: () -> Unit,
@@ -47,16 +51,18 @@ fun PassivePlayerCard(
     lastPoints: Int? = null,
     // Elimination detection parameters
     leaderScore: Int = 0,
-    tableSum: Int = 0
+    tableSum: Int = 0,
+    poolBallManagementEnabled: Boolean = true
 ) {
-    // Calculate if player is eliminated
+    // Calculate if player is eliminated - Only if pool management is enabled
     val potentialMax = player.score + tableSum
-    val isEliminated = !isLeader && potentialMax < leaderScore && tableSum > 0
+    val isEliminated = poolBallManagementEnabled && !isLeader && potentialMax < leaderScore && tableSum > 0
     
     val containerColor = when {
         isEliminated -> MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.2f)
         isActualTurn -> MaterialTheme.colorScheme.primaryContainer
         isLeader -> MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.6f) // Increased visibility
+        isLoser -> MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f)
         isCurrent -> MaterialTheme.colorScheme.surfaceContainerHigh
         else -> MaterialTheme.colorScheme.surfaceContainerLow
     }
@@ -64,6 +70,7 @@ fun PassivePlayerCard(
     val contentColor = when {
         isActualTurn -> MaterialTheme.colorScheme.onPrimaryContainer
         isLeader -> MaterialTheme.colorScheme.onTertiaryContainer
+        isLoser -> MaterialTheme.colorScheme.onSurfaceVariant
         else -> MaterialTheme.colorScheme.onSurface
     }
 
@@ -216,10 +223,24 @@ fun PassivePlayerCard(
                 )
             }
 
-            if (isLeader) {
+            if (isLeader || isLoser) {
+                val badgeColor = if (isLeader) MaterialTheme.colorScheme.tertiary else MaterialTheme.colorScheme.surfaceVariant
+                val onBadgeColor = if (isLeader) MaterialTheme.colorScheme.onTertiary else MaterialTheme.colorScheme.onSurfaceVariant
+                val label = when {
+                    isLeader && isTie -> "TIED"
+                    isLeader -> "LEADER"
+                    isLoser && isLoserTie -> "TIED"
+                    else -> "LOSER"
+                }
+                val icon = when {
+                    isLeader && isTie -> Icons.Default.Group
+                    isLeader -> Icons.Default.EmojiEvents
+                    else -> null // No icon for loser to make it look "less premium"
+                }
+
                 Surface(
-                    color = MaterialTheme.colorScheme.tertiary,
-                    contentColor = MaterialTheme.colorScheme.onTertiary,
+                    color = badgeColor,
+                    contentColor = onBadgeColor,
                     shape = RoundedCornerShape(bottomStart = 12.dp),
                     modifier = Modifier.align(Alignment.TopEnd)
                 ) {
@@ -229,16 +250,18 @@ fun PassivePlayerCard(
                         horizontalArrangement = Arrangement.spacedBy(4.dp)
                     ) {
                         Text(
-                            "LEADER",
+                            label,
                             style = MaterialTheme.typography.labelSmall,
                             fontWeight = FontWeight.Bold,
                             fontSize = 10.sp
                         )
-                        Icon(
-                            Icons.Default.EmojiEvents,
-                            contentDescription = "Leader",
-                            modifier = Modifier.size(14.dp)
-                        )
+                        if (icon != null) {
+                            Icon(
+                                icon,
+                                contentDescription = label,
+                                modifier = Modifier.size(14.dp)
+                            )
+                        }
                     }
                 }
             }

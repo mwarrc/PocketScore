@@ -35,7 +35,10 @@ fun GameScoreboard(
     players: List<Player>,
     currentPlayerId: String?,
     settings: AppSettings,
-    leaderId: String?,
+    leaderIds: Set<String>,
+    isTie: Boolean,
+    loserIds: Set<String>,
+    isLoserTie: Boolean,
     playerLastChanges: Map<String, Int?>,
     scoreInput: String,
     onScoreInputChange: (String) -> Unit,
@@ -58,7 +61,10 @@ fun GameScoreboard(
             activePlayers = activePlayers,
             currentPlayerId = currentPlayerId,
             settings = settings,
-            leaderId = leaderId,
+            leaderIds = leaderIds,
+            isTie = isTie,
+            loserIds = loserIds,
+            isLoserTie = isLoserTie,
             playerLastChanges = playerLastChanges,
             scoreInput = scoreInput,
             onScoreInputChange = onScoreInputChange,
@@ -78,7 +84,10 @@ fun GameScoreboard(
             activePlayers = activePlayers,
             currentPlayerId = currentPlayerId,
             settings = settings,
-            leaderId = leaderId,
+            leaderIds = leaderIds,
+            isTie = isTie,
+            loserIds = loserIds,
+            isLoserTie = isLoserTie,
             playerLastChanges = playerLastChanges,
             scoreInput = scoreInput,
             onScoreInputChange = onScoreInputChange,
@@ -102,7 +111,10 @@ private fun GridScoreboard(
     activePlayers: List<Player>,
     currentPlayerId: String?,
     settings: AppSettings,
-    leaderId: String?,
+    leaderIds: Set<String>,
+    isTie: Boolean,
+    loserIds: Set<String>,
+    isLoserTie: Boolean,
     playerLastChanges: Map<String, Int?>,
     scoreInput: String,
     onScoreInputChange: (String) -> Unit,
@@ -134,7 +146,10 @@ private fun GridScoreboard(
             Box(modifier = Modifier.padding(16.dp)) {
                 ActivePlayerCard(
                     player = selectionForHeader,
-                    isLeader = selectionForHeader.id == leaderId,
+                    isLeader = leaderIds.contains(selectionForHeader.id),
+                    isTie = isTie,
+                    isLoser = loserIds.contains(selectionForHeader.id),
+                    isLoserTie = isLoserTie,
                     isCurrentTurn = selectionForHeader.id == currentPlayerId,
                     isStrictTurnMode = settings.strictTurnMode,
                     allowEliminatedInput = settings.allowEliminatedInput,
@@ -145,15 +160,16 @@ private fun GridScoreboard(
                     useCustomKeyboard = settings.useCustomKeyboard,
                     leaderScore = leaderScore,
                     tableSum = tableSum,
+                    poolBallManagementEnabled = settings.poolBallManagementEnabled,
                     onAdd = { pts ->
                         if (settings.hapticFeedbackEnabled) {
-                            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                            haptic.performHapticFeedback(androidx.compose.ui.hapticfeedback.HapticFeedbackType.LongPress)
                         }
                         onUpdateScore(selectionForHeader.id, pts)
                     },
                     onSubtract = { pts ->
                         if (settings.hapticFeedbackEnabled) {
-                            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                            haptic.performHapticFeedback(androidx.compose.ui.hapticfeedback.HapticFeedbackType.LongPress)
                         }
                         onUpdateScore(selectionForHeader.id, -pts)
                     },
@@ -178,18 +194,23 @@ private fun GridScoreboard(
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             items(activePlayers, key = { it.id }) { player ->
-                val isLeader = player.id == leaderId
+                val isLeader = leaderIds.contains(player.id)
+                val isLoser = loserIds.contains(player.id)
                 val isSelected = player.id == selectionForHeader?.id
                 val isActualTurn = player.id == currentPlayerId
 
                 PassivePlayerCard(
                     player = player,
                     isLeader = isLeader,
+                    isTie = isTie,
+                    isLoser = isLoser,
+                    isLoserTie = isLoserTie,
                     isCurrent = isSelected,
                     isActualTurn = isActualTurn,
                     lastPoints = playerLastChanges[player.id],
                     leaderScore = leaderScore,
                     tableSum = tableSum,
+                    poolBallManagementEnabled = settings.poolBallManagementEnabled,
                     onClick = {
                         onHeaderSelection(player.id)
                         if (!settings.strictTurnMode) {
@@ -210,7 +231,10 @@ private fun ListScoreboard(
     activePlayers: List<Player>,
     currentPlayerId: String?,
     settings: AppSettings,
-    leaderId: String?,
+    leaderIds: Set<String>,
+    isTie: Boolean,
+    loserIds: Set<String>,
+    isLoserTie: Boolean,
     playerLastChanges: Map<String, Int?>,
     scoreInput: String,
     onScoreInputChange: (String) -> Unit,
@@ -241,12 +265,16 @@ private fun ListScoreboard(
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
         items(activePlayers, key = { it.id }) { player ->
-            val isLeader = player.id == leaderId
+            val isLeader = leaderIds.contains(player.id)
+            val isLoser = loserIds.contains(player.id)
             val isTurn = player.id == currentPlayerId
 
             ActivePlayerCard(
                 player = player,
                 isLeader = isLeader,
+                isTie = isTie,
+                isLoser = isLoser,
+                isLoserTie = isLoserTie,
                 isCurrentTurn = isTurn,
                 isStrictTurnMode = settings.strictTurnMode,
                 allowEliminatedInput = settings.allowEliminatedInput,
@@ -257,15 +285,16 @@ private fun ListScoreboard(
                 useCustomKeyboard = settings.useCustomKeyboard,
                 leaderScore = leaderScore,
                 tableSum = tableSum,
+                poolBallManagementEnabled = settings.poolBallManagementEnabled,
                 onAdd = { pts ->
                     if (settings.hapticFeedbackEnabled) {
-                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                        haptic.performHapticFeedback(androidx.compose.ui.hapticfeedback.HapticFeedbackType.LongPress)
                     }
                     onUpdateScore(player.id, pts)
                 },
                 onSubtract = { pts ->
                     if (settings.hapticFeedbackEnabled) {
-                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                        haptic.performHapticFeedback(androidx.compose.ui.hapticfeedback.HapticFeedbackType.LongPress)
                     }
                     onUpdateScore(player.id, -pts)
                 },

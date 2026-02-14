@@ -54,22 +54,16 @@ import androidx.compose.material.icons.filled.LockOpen
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.outlined.Group
 import androidx.compose.material.icons.outlined.Tune
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.CenterAlignedTopAppBar
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
-import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBarDefaults
@@ -108,6 +102,10 @@ import com.mwarrc.pocketscore.ui.feature.game.components.UndoConfirmationDialog
 import com.mwarrc.pocketscore.ui.feature.game.components.PoolProbabilitySheet
 import com.mwarrc.pocketscore.ui.feature.game.components.StrictModeBanner
 import com.mwarrc.pocketscore.ui.feature.game.components.GameScoreboard
+import com.mwarrc.pocketscore.ui.feature.game.components.ManagePlayersSheet
+import com.mwarrc.pocketscore.ui.feature.game.components.GameTopBar
+import com.mwarrc.pocketscore.ui.feature.game.components.GameBottomBar
+import com.mwarrc.pocketscore.ui.feature.game.components.NumpadOverlay
 import androidx.activity.compose.BackHandler
 import androidx.compose.material.icons.filled.Analytics
 import androidx.compose.ui.text.input.TextFieldValue
@@ -125,15 +123,17 @@ fun GameScreen(
     canUndo: Boolean,
     onUpdateScore: (String, Int) -> Unit,
     onGlobalUndo: () -> Unit,
-    onReset: (Boolean) -> Unit,
+    onReset: (Boolean, Boolean) -> Unit,
     onToggleLayout: () -> Unit,
     onNavigateToSettings: () -> Unit,
     onNavigateToHistory: () -> Unit,
     onTogglePlayerActive: (String, Boolean) -> Unit,
     onSetCurrentPlayer: (String) -> Unit,
     onNextTurn: () -> Unit,
-    onRestart: (List<String>) -> Unit,
-    onUpdateSettings: ((AppSettings) -> AppSettings) -> Unit
+    onRestart: (List<String>, Boolean) -> Unit,
+    onUpdateSettings: ((AppSettings) -> AppSettings) -> Unit,
+    ballsOnTable: Set<Int>,
+    onUpdateBallsOnTable: (Set<Int>) -> Unit
 ) {
     var showResetDialog by remember { mutableStateOf(false) }
     var showQuickSettings by remember { mutableStateOf(false) }
@@ -144,7 +144,6 @@ fun GameScreen(
     var showPoolProbability by remember { mutableStateOf(false) }
     var showQuickBallDialog by remember { mutableStateOf(false) }
     var calculatorExpression by remember { mutableStateOf<TextFieldValue>(TextFieldValue("")) }
-    var ballsOnTable by remember { mutableStateOf((1..15).toSet()) }
     var showHelp by remember { mutableStateOf(false) }
     var showHistoryBadge by remember { mutableStateOf(false) }
     var scoreInput by remember { mutableStateOf("") }
@@ -153,6 +152,10 @@ fun GameScreen(
     var showExitConfirmation by remember { mutableStateOf(false) }
     var showQuickRestart by remember { mutableStateOf(false) }
     var exitConfirmed by remember { mutableStateOf(false) }
+    
+    // Store override decision from ResetDialog to play it forward to QuickRestart
+    var tempForceSave by remember { mutableStateOf(false) }
+    
     val haptic = LocalHapticFeedback.current
 
     // Check if there's an active game (any player has a score)
@@ -168,12 +171,6 @@ fun GameScreen(
             showPoolProbability -> showPoolProbability = false
             hasActiveGame && !exitConfirmed -> showExitConfirmation = true
         }
-    }
-
-
-    // Clear input when active player switches
-    LaunchedEffect(currentPlayerId) {
-        scoreInput = ""
     }
 
     val isImeVisible = WindowInsets.isImeVisible
@@ -197,65 +194,36 @@ fun GameScreen(
     }
 
     val activePlayers = remember(players) { players.filter { it.isActive } }
-    val leaderId = remember(activePlayers, settings.leaderSpotlightEnabled) {
+    val leaderIds = remember(activePlayers, settings.leaderSpotlightEnabled) {
         if (settings.leaderSpotlightEnabled && activePlayers.size > 1) {
-            activePlayers.maxByOrNull { it.score }?.id
+            val maxScore = activePlayers.maxOfOrNull { it.score } ?: 0
+            if (maxScore > 0) {
+                activePlayers.filter { it.score == maxScore }.map { it.id }.toSet()
+            } else emptySet()
         } else {
-            null
+            emptySet()
         }
     }
+    val isTie = leaderIds.size > 1
 
-    // Hoisted State Calculations for Game Logic
-    val tableSum = remember(ballsOnTable) {
-        val ballValues = mapOf(1 to 16, 2 to 17, 3 to 3, 4 to 4, 5 to 5, 6 to 6, 7 to 7, 8 to 8, 9 to 9, 10 to 10, 11 to 11, 12 to 12, 13 to 13, 14 to 14, 15 to 15)
-        ballsOnTable.sumOf { ballValues[it] ?: 0 }
-    }
-    
-    val leaderScore = remember(activePlayers, leaderId) {
-        activePlayers.find { it.id == leaderId }?.score ?: 0
+    val leaderScore = remember(activePlayers) {
+        activePlayers.maxOfOrNull { it.score } ?: 0
     }
 
-    // Auto-Skip Eliminated Players Logic
-    // Ensures that if the turn advances to an eliminated player, we skip them immediately.
-    LaunchedEffect(currentPlayerId, tableSum, leaderScore, settings.strictTurnMode, settings.allowEliminatedInput) {
-        val currentPlayer = activePlayers.find { it.id == currentPlayerId }
-        
-        if (currentPlayer != null && tableSum > 0) {
-            val potentialMax = currentPlayer.score + tableSum
-            val isEliminated = currentPlayer.id != leaderId && potentialMax < leaderScore
-            
-            // Only skip if strict mode is on OR if allowed eliminated input is off
-            val shouldSkip = isEliminated && (settings.strictTurnMode || !settings.allowEliminatedInput)
-            
-            if (shouldSkip) {
-                // Find next valid player
-                val currentIndex = activePlayers.indexOfFirst { it.id == currentPlayerId }
-                if (currentIndex != -1) {
-                    var nextIndex = (currentIndex + 1) % activePlayers.size
-                    var attempts = 0
-                    
-                    while (attempts < activePlayers.size) {
-                        val p = activePlayers[nextIndex]
-                        val pPotentialMax = p.score + tableSum
-                        val pIsEliminated = p.id != leaderId && pPotentialMax < leaderScore
-                        
-                        // Check if the potential next player should also be skipped
-                        val nextShouldSkip = pIsEliminated && (settings.strictTurnMode || !settings.allowEliminatedInput)
-                        
-                        if (!nextShouldSkip) {
-                            onSetCurrentPlayer(p.id)
-                            break
-                        }
-                        nextIndex = (nextIndex + 1) % activePlayers.size
-                        attempts++
-                    }
-                }
-            }
+    val loserIds = remember(activePlayers, settings.loserSpotlightEnabled, leaderScore) {
+        if (settings.loserSpotlightEnabled && activePlayers.size > 1) {
+            val minScore = activePlayers.minOfOrNull { it.score } ?: 0
+            // Only show loser if there's a difference and they aren't also the leader (0-0 start)
+            if (minScore < leaderScore) {
+                activePlayers.filter { it.score == minScore }.map { it.id }.toSet()
+            } else emptySet()
+        } else {
+            emptySet()
         }
     }
-    
+    val isLoserTie = loserIds.size > 1
+
     var localHeaderSelection by remember { mutableStateOf<String?>(null) }
-
     val lazyListState = rememberLazyListState()
     val lazyGridState = rememberLazyGridState()
 
@@ -266,7 +234,6 @@ fun GameScreen(
                 if (settings.defaultLayout == ScoreboardLayout.GRID) {
                     lazyGridState.animateScrollToItem(index)
                 } else {
-                    // Offset -150px gives "breathing room" so it doesn't snap harshly to the very top
                     lazyListState.animateScrollToItem(index, scrollOffset = -150)
                 }
             }
@@ -276,7 +243,6 @@ fun GameScreen(
     LaunchedEffect(currentPlayerId) {
         localHeaderSelection = null
         scoreInput = ""
-        // Numpad now stays open across player switches for faster scoring.
     }
 
     val selectionForHeader = remember(localHeaderSelection, currentPlayerId, activePlayers) {
@@ -288,16 +254,18 @@ fun GameScreen(
     // Dialogs - Using modular components
     if (showResetDialog) {
         ResetGameDialog(
+            settings = settings,
             onDismiss = { showResetDialog = false },
-            onFinishAndArchive = {
-                onReset(true)
+            onFinishAndArchive = { override ->
+                onReset(true, override)
                 showResetDialog = false
             },
             onResumeLater = {
-                onReset(false)
+                onReset(false, false)
                 showResetDialog = false
             },
-            onRestartMatch = {
+            onRestartMatch = { override ->
+                tempForceSave = override
                 showResetDialog = false
                 showQuickRestart = true
             },
@@ -315,7 +283,7 @@ fun GameScreen(
             onDismiss = { showQuickRestart = false },
             onStartGame = { updatedPlayers ->
                 showQuickRestart = false
-                onRestart(updatedPlayers)
+                onRestart(updatedPlayers, tempForceSave)
             }
         )
     }
@@ -333,6 +301,12 @@ fun GameScreen(
     }
 
     // State calculations - must be before dialogs that use them
+    // State calculations for Game Logic
+    val tableSum = remember(ballsOnTable) {
+        val ballValues = mapOf(1 to 16, 2 to 17, 3 to 3, 4 to 4, 5 to 5, 6 to 6, 7 to 7, 8 to 8, 9 to 9, 10 to 10, 11 to 11, 12 to 12, 13 to 13, 14 to 14, 15 to 15)
+        ballsOnTable.sumOf { ballValues[it] ?: 0 }
+    }
+
     val lastScoreEvent = remember(globalEvents, canUndo) {
         if (canUndo) globalEvents.lastOrNull { it.type == GameEventType.SCORE || it.type == GameEventType.CORRECTION } else null
     }
@@ -395,13 +369,11 @@ fun GameScreen(
         )
     }
 
-
-
     if (showPoolProbability) {
         PoolProbabilitySheet(
             players = players,
             ballsOnTable = ballsOnTable,
-            onBallsOnTableChange = { newBalls -> ballsOnTable = newBalls },
+            onBallsOnTableChange = onUpdateBallsOnTable,
             onDismiss = { showPoolProbability = false }
         )
     }
@@ -409,7 +381,7 @@ fun GameScreen(
     if (showQuickBallDialog) {
         com.mwarrc.pocketscore.ui.feature.game.components.QuickBallSelectDialog(
             ballsOnTable = ballsOnTable,
-            onBallsOnTableChange = { newBalls -> ballsOnTable = newBalls },
+            onBallsOnTableChange = onUpdateBallsOnTable,
             onDismiss = { showQuickBallDialog = false }
         )
     }
@@ -419,142 +391,32 @@ fun GameScreen(
     }
 
     Box(modifier = Modifier.fillMaxSize()) {
+
         Scaffold(
         modifier = Modifier.fillMaxSize(),
         containerColor = MaterialTheme.colorScheme.background,
         topBar = {
-            CenterAlignedTopAppBar(
-                title = {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.Center
-                    ) {
-                        Text(
-                            "Scoreboard",
-                            style = MaterialTheme.typography.titleLarge.copy(fontSize = 20.sp),
-                            fontWeight = androidx.compose.ui.text.font.FontWeight.Bold,
-                            maxLines = 1,
-                            softWrap = false
-                        )
-                        
-                        Spacer(Modifier.width(8.dp))
-                        
-                        // New Ball Shortcut moved here to be close to text
-                        Surface(
-                            onClick = { showQuickBallDialog = true },
-                            shape = CircleShape,
-                            color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.7f),
-                            modifier = Modifier.size(38.dp),
-                            tonalElevation = 2.dp,
-                            shadowElevation = 2.dp
-                        ) {
-                            Box(contentAlignment = Alignment.Center) {
-                                Icon(
-                                    Icons.Default.Analytics,
-                                    "Quick Balls",
-                                    tint = MaterialTheme.colorScheme.onPrimaryContainer,
-                                    modifier = Modifier.size(24.dp)
-                                )
-                            }
-                        }
-                    }
-                },
-                navigationIcon = {
-                    TextButton(
-                        onClick = { showResetDialog = true },
-                        colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error)
-                    ) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(
-                                Icons.Default.Close,
-                                "End Session",
-                                modifier = Modifier.size(18.dp)
-                            )
-                            Spacer(Modifier.width(4.dp))
-                            Text("End Game", style = MaterialTheme.typography.labelLarge)
-                        }
-                    }
-                },
-                actions = {
-                    TextButton(
-                        onClick = { showUndoConfirmation = true },
-                        enabled = canUndo,
-                        colors = ButtonDefaults.textButtonColors(
-                            contentColor = MaterialTheme.colorScheme.primary,
-                            disabledContentColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f)
-                        )
-                    ) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(
-                                Icons.AutoMirrored.Filled.Undo,
-                                "Undo Last",
-                                modifier = Modifier.size(18.dp)
-                            )
-                            Spacer(Modifier.width(4.dp))
-                            Text("Undo", style = MaterialTheme.typography.labelLarge)
-                        }
-                    }
-                },
-                windowInsets = WindowInsets(top = 32.dp),
-                colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.background
-                )
+            GameTopBar(
+                settings = settings,
+                tableSum = tableSum,
+                canUndo = canUndo,
+                onEndSession = { showResetDialog = true },
+                onUndo = { showUndoConfirmation = true },
+                onQuickBalls = { showQuickBallDialog = true }
             )
         },
         bottomBar = {
             if (!showNumpad) {
-                Surface(
-                    modifier = Modifier
-                        .padding(16.dp)
-                        .navigationBarsPadding(),
-                    shape = RoundedCornerShape(24.dp),
-                    color = MaterialTheme.colorScheme.surfaceColorAtElevation(3.dp),
-                    tonalElevation = 3.dp,
-                    shadowElevation = 8.dp
-                ) {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(vertical = 8.dp, horizontal = 16.dp),
-                        horizontalArrangement = Arrangement.SpaceAround,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        if (settings.showHelpInNavBar) {
-                            BottomNavItem(
-                                icon = Icons.AutoMirrored.Filled.Help,
-                                label = "Help",
-                                onClick = { showHelp = true }
-                            )
-                        }
-                        BottomNavItem(
-                            icon = Icons.Default.History,
-                            label = "History",
-                            hasBadge = showHistoryBadge,
-                            onClick = { showHistoryDialog = true }
-                        )
-                        BottomNavItem(
-                            icon = Icons.Default.Calculate,
-                            label = "Math",
-                            onClick = { showCalculator = true }
-                        )
-                        BottomNavItem(
-                            icon = Icons.Default.Analytics,
-                            label = "Balls",
-                            onClick = { showPoolProbability = true }
-                        )
-
-                        BottomNavItem(
-                            icon = Icons.Outlined.Tune,
-                            label = "Settings",
-                            onClick = { showQuickSettings = true }
-                        )
-                        BottomNavItem(
-                            icon = Icons.Outlined.Group,
-                            label = "Players",
-                            onClick = { showManagePlayers = true }
-                        )
-                    }
-                }
+                GameBottomBar(
+                    settings = settings,
+                    showHistoryBadge = showHistoryBadge,
+                    onShowHelp = { showHelp = true },
+                    onShowHistory = { showHistoryDialog = true },
+                    onShowCalculator = { showCalculator = true },
+                    onShowPoolProbability = { showPoolProbability = true },
+                    onShowQuickSettings = { showQuickSettings = true },
+                    onShowManagePlayers = { showManagePlayers = true }
+                )
             }
         }
     ) { padding ->
@@ -582,7 +444,10 @@ fun GameScreen(
                     players = players,
                     currentPlayerId = currentPlayerId,
                     settings = settings,
-                    leaderId = leaderId,
+                    leaderIds = leaderIds,
+                    isTie = isTie,
+                    loserIds = loserIds,
+                    isLoserTie = isLoserTie,
                     playerLastChanges = playerLastChanges,
                     scoreInput = scoreInput,
                     onScoreInputChange = { scoreInput = it },
@@ -612,179 +477,29 @@ fun GameScreen(
             }
         }
 
-        // Custom Numpad Overlay (Non-blocking system keyboard style)
-        if (settings.useCustomKeyboard) {
-            Box(
-                modifier = Modifier.fillMaxSize(),
-                contentAlignment = Alignment.BottomCenter
-            ) {
-                androidx.compose.animation.AnimatedVisibility(
-                    visible = showNumpad,
-                    enter = androidx.compose.animation.slideInVertically(initialOffsetY = { it }),
-                    exit = androidx.compose.animation.slideOutVertically(targetOffsetY = { it })
-                ) {
-                    ScoreNumpad(
-                        onNumberClick = { num ->
-                            if (scoreInput.length < 5) scoreInput += num
-                        },
-                        onBackspaceClick = {
-                            if (scoreInput.isNotEmpty()) scoreInput = scoreInput.dropLast(1)
-                        },
-                        onDismiss = { 
-                            if (!isNumpadPinned) {
-                                showNumpad = false
-                            }
-                        },
-                        isPinned = isNumpadPinned,
-                        onTogglePin = { isNumpadPinned = !isNumpadPinned },
-                        settings = settings,
-                        onUpdateSettings = onUpdateSettings
-                    )
-                }
-            }
-        }
+        // Custom Numpad Overlay
+        NumpadOverlay(
+            visible = showNumpad,
+            scoreInput = scoreInput,
+            onScoreInputChange = { scoreInput = it },
+            isPinned = isNumpadPinned,
+            onTogglePin = { isNumpadPinned = !isNumpadPinned },
+            onDismiss = { if (!isNumpadPinned) showNumpad = false },
+            settings = settings,
+            onUpdateSettings = onUpdateSettings
+        )
     }
     }
 
 
 
     if (showManagePlayers) {
-        val currentTurnPlayer = players.find { it.id == currentPlayerId }
-        ModalBottomSheet(onDismissRequest = { showManagePlayers = false }) {
-            Column(
-                modifier = Modifier
-                    .padding(16.dp)
-                    .fillMaxWidth()
-                    .navigationBarsPadding()
-            ) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(
-                        "Manage Players",
-                        style = MaterialTheme.typography.titleLarge,
-                        fontWeight = androidx.compose.ui.text.font.FontWeight.Bold
-                    )
-                    if (settings.strictTurnMode) {
-                        Surface(
-                            color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f),
-                            shape = RoundedCornerShape(8.dp)
-                        ) {
-                            Row(
-                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Icon(
-                                    Icons.Default.Lock,
-                                    null,
-                                    modifier = Modifier.size(14.dp),
-                                    tint = MaterialTheme.colorScheme.primary
-                                )
-                                Spacer(Modifier.width(4.dp))
-                                Text(
-                                    "Strict Mode: Fixed Roster",
-                                    style = MaterialTheme.typography.labelSmall,
-                                    color = MaterialTheme.colorScheme.primary,
-                                    fontWeight = androidx.compose.ui.text.font.FontWeight.Bold
-                                )
-                            }
-                        }
-                    }
-                }
-
-                if (settings.strictTurnMode) {
-                    Spacer(Modifier.height(12.dp))
-                    Surface(
-                        color = MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.3f),
-                        shape = RoundedCornerShape(12.dp),
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Row(
-                            modifier = Modifier.padding(12.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Icon(
-                                Icons.Default.Lightbulb,
-                                null,
-                                tint = MaterialTheme.colorScheme.tertiary,
-                                modifier = Modifier.size(20.dp)
-                            )
-                            Spacer(Modifier.width(12.dp))
-                            Text(
-                                "Tip: In Strict Mode, you can add players back, but you cannot disable them. Record a zero to pass a turn instead.",
-                                style = MaterialTheme.typography.labelMedium,
-                                color = MaterialTheme.colorScheme.onTertiaryContainer
-                            )
-                        }
-                    }
-                } else if (currentTurnPlayer != null) {
-                    Spacer(Modifier.height(8.dp))
-                    Text(
-                        text = "Current Turn: ${currentTurnPlayer.name}",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        fontWeight = androidx.compose.ui.text.font.FontWeight.Medium
-                    )
-                }
-
-                Spacer(Modifier.height(24.dp))
-
-                players.forEach { player ->
-                    val isCurrentTurnPlayer = player.id == currentPlayerId
-                    val canToggle = !settings.strictTurnMode || !player.isActive
-
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(vertical = 8.dp)
-                            .alpha(if (canToggle) 1f else 0.6f),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text(
-                                player.name,
-                                style = MaterialTheme.typography.bodyLarge,
-                                fontWeight = if (isCurrentTurnPlayer) {
-                                    androidx.compose.ui.text.font.FontWeight.Bold
-                                } else {
-                                    androidx.compose.ui.text.font.FontWeight.Normal
-                                }
-                            )
-                            if (isCurrentTurnPlayer) {
-                                Text(
-                                    "Is Playing Now",
-                                    style = MaterialTheme.typography.labelSmall,
-                                    color = MaterialTheme.colorScheme.primary
-                                )
-                            }
-                        }
-
-                        val currentActiveCount = players.count { it.isActive }
-                        Switch(
-                            checked = player.isActive,
-                            onCheckedChange = { onTogglePlayerActive(player.id, it) },
-                            enabled = canToggle && (player.isActive && currentActiveCount > 2 || !player.isActive)
-                        )
-                    }
-                }
-                Spacer(Modifier.height(24.dp))
-                Button(
-                    onClick = { showManagePlayers = false },
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = MaterialTheme.colorScheme.secondaryContainer,
-                        contentColor = MaterialTheme.colorScheme.onSecondaryContainer
-                    )
-                ) {
-                    Icon(Icons.Default.Close, null)
-                    Spacer(Modifier.width(8.dp))
-                    Text("Close Menu")
-                }
-            }
-        }
+        ManagePlayersSheet(
+            players = players,
+            currentPlayerId = currentPlayerId,
+            settings = settings,
+            onTogglePlayerActive = onTogglePlayerActive,
+            onDismiss = { showManagePlayers = false }
+        )
     }
 }
-
-

@@ -19,26 +19,26 @@ fun PlayerErrorBanner(
     Surface(
         modifier = modifier.fillMaxWidth(),
         shape = RoundedCornerShape(16.dp),
-        color = MaterialTheme.colorScheme.errorContainer,
-        tonalElevation = 2.dp,
-        shadowElevation = 0.dp
+        color = MaterialTheme.colorScheme.surface,
+        tonalElevation = 0.dp,
+        border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.2f))
     ) {
         Row(
-            modifier = Modifier.padding(16.dp),
+            modifier = Modifier.padding(12.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             Icon(
                 Icons.Default.Warning,
                 contentDescription = null,
-                tint = MaterialTheme.colorScheme.onErrorContainer,
-                modifier = Modifier.size(22.dp)
+                tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.6f),
+                modifier = Modifier.size(18.dp)
             )
             Text(
                 errorMessage,
-                style = MaterialTheme.typography.bodyMedium,
-                fontWeight = FontWeight.Medium,
-                color = MaterialTheme.colorScheme.onErrorContainer
+                style = MaterialTheme.typography.labelLarge,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.primary.copy(alpha = 0.8f)
             )
         }
     }

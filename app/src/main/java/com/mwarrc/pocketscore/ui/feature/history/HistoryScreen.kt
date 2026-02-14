@@ -12,6 +12,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.material3.TabRowDefaults.tabIndicatorOffset
+import kotlinx.coroutines.launch
 import androidx.compose.foundation.background
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.Alignment
@@ -24,6 +25,8 @@ import com.mwarrc.pocketscore.ui.feature.history.components.FriendsTab
 import com.mwarrc.pocketscore.ui.feature.history.components.GameHistoryTab
 import com.mwarrc.pocketscore.ui.feature.history.components.LeaderboardTab
 import com.mwarrc.pocketscore.ui.feature.history.components.MatchSplitTab
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.material.icons.filled.Leaderboard
 import androidx.compose.material.icons.filled.Payments
 
@@ -36,24 +39,66 @@ fun HistoryScreen(
     onNavigateToSettings: () -> Unit,
     onResumeGame: (GameState, Boolean) -> Unit,
     onDeleteGame: (String) -> Unit,
+    onArchiveGame: (String) -> Unit,
     onShareGame: (String) -> Unit,
     onRename: (String, String) -> Unit,
     onViewDetails: (String) -> Unit,
     onUpdateSettings: ((AppSettings) -> AppSettings) -> Unit
 ) {
-    var selectedTabIndex by remember { mutableIntStateOf(0) }
-    
-    val navigationState = remember(settings.matchSplitEnabled) {
-        val titles = mutableListOf("Matches", "Leaderboard", "Pool")
-        val icons = mutableListOf(Icons.Default.History, Icons.Default.Leaderboard, Icons.Default.Group)
+    val scope = rememberCoroutineScope()
+
+    // Define the tab structure clearly
+    data class HistoryTabItem(val title: String, val icon: androidx.compose.ui.graphics.vector.ImageVector, val content: @Composable () -> Unit)
+
+    val activeTabs = remember(settings, history) {
+        val list = mutableListOf<HistoryTabItem>()
         
+        // Tab 0: Matches
+        list.add(HistoryTabItem("Matches", Icons.Default.History) {
+            GameHistoryTab(
+                history = history,
+                onNavigateToGame = onNavigateToGame,
+                onResumeGame = onResumeGame,
+                onDeleteGame = onDeleteGame,
+                onArchiveGame = onArchiveGame,
+                onShareGame = onShareGame,
+                onViewDetails = onViewDetails
+            )
+        })
+
+        // Tab 1: Settle (Conditional)
         if (settings.matchSplitEnabled) {
-            titles.add(1, "Settle")
-            icons.add(1, Icons.Default.Payments)
+            list.add(HistoryTabItem("Settle", Icons.Default.Payments) {
+                MatchSplitTab(
+                    history = history,
+                    settings = settings,
+                    onUpdateSettings = onUpdateSettings
+                )
+            })
         }
-        titles to icons
+
+        // Tab 2: Leaderboard
+        list.add(HistoryTabItem("Ranks", Icons.Default.Leaderboard) {
+            LeaderboardTab(
+                history = history,
+                settings = settings
+            )
+        })
+
+        // Tab 3: Pool
+        list.add(HistoryTabItem("Pool", Icons.Default.Group) {
+            FriendsTab(
+                settings = settings,
+                history = history,
+                onUpdateSettings = onUpdateSettings,
+                onRename = onRename
+            )
+        })
+        
+        list
     }
-    val (titles, icons) = navigationState
+
+    val pagerState = rememberPagerState(pageCount = { activeTabs.size })
 
     Scaffold(
         modifier = Modifier
@@ -75,63 +120,67 @@ fun HistoryScreen(
                             Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back")
                         }
                     },
-                    windowInsets = WindowInsets(top = 0.dp) // Handled by statusBarsPadding below if needed, or just let scaffold handle it
+                    windowInsets = WindowInsets(top = 0.dp)
                 )
                 
                 // Elegant Pill-Style Tabs
                 val indicator = @Composable { tabPositions: List<TabPosition> ->
-                    if (selectedTabIndex < tabPositions.size) {
+                    if (pagerState.currentPage < tabPositions.size) {
                         Box(
                             modifier = Modifier
-                                .tabIndicatorOffset(tabPositions[selectedTabIndex])
-                                .height(54.dp) // More spacious height
-                                .padding(horizontal = 4.dp, vertical = 8.dp) // Nicer pill floating effect
+                                .tabIndicatorOffset(tabPositions[pagerState.currentPage])
+                                .height(54.dp)
+                                .padding(horizontal = 4.dp, vertical = 8.dp)
                                 .background(
                                     color = MaterialTheme.colorScheme.secondaryContainer,
                                     shape = RoundedCornerShape(24.dp)
                                 )
-                                .zIndex(-1f) // Place behind content
+                                .zIndex(-1f)
                         )
                     }
                 }
 
                 ScrollableTabRow(
-                    selectedTabIndex = selectedTabIndex,
+                    selectedTabIndex = pagerState.currentPage,
                     containerColor = MaterialTheme.colorScheme.surface,
                     contentColor = MaterialTheme.colorScheme.onSurface,
                     edgePadding = 16.dp,
                     divider = {},
                     indicator = indicator
                 ) {
-                    titles.forEachIndexed { index, title ->
-                        val selected = selectedTabIndex == index
+                    activeTabs.forEachIndexed { index, tab ->
+                        val selected = pagerState.currentPage == index
                         Tab(
                             selected = selected,
-                            onClick = { selectedTabIndex = index },
+                            onClick = { 
+                                scope.launch {
+                                    pagerState.animateScrollToPage(index)
+                                }
+                            },
                             modifier = Modifier
-                                .padding(horizontal = 4.dp, vertical = 8.dp)
+                                .padding(horizontal = 2.dp, vertical = 8.dp)
                                 .clip(RoundedCornerShape(24.dp))
                         ) {
                             Box(
                                 modifier = Modifier
-                                    .fillMaxWidth()
                                     .height(38.dp)
-                                    .padding(horizontal = 12.dp),
+                                    .padding(horizontal = 8.dp),
                                 contentAlignment = Alignment.Center
                             ) {
                                 Row(verticalAlignment = Alignment.CenterVertically) {
                                     Icon(
-                                        icons[index],
+                                        tab.icon,
                                         null,
-                                        modifier = Modifier.size(20.dp),
+                                        modifier = Modifier.size(18.dp),
                                         tint = if (selected) MaterialTheme.colorScheme.onSecondaryContainer else MaterialTheme.colorScheme.onSurfaceVariant
                                     )
-                                    Spacer(Modifier.width(10.dp))
+                                    Spacer(Modifier.width(6.dp))
                                     Text(
-                                        title,
-                                        style = MaterialTheme.typography.labelLarge,
+                                        tab.title,
+                                        style = MaterialTheme.typography.labelMedium,
                                         fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium,
-                                        color = if (selected) MaterialTheme.colorScheme.onSecondaryContainer else MaterialTheme.colorScheme.onSurfaceVariant
+                                        color = if (selected) MaterialTheme.colorScheme.onSecondaryContainer else MaterialTheme.colorScheme.onSurfaceVariant,
+                                        maxLines = 1
                                     )
                                 }
                             }
@@ -141,45 +190,14 @@ fun HistoryScreen(
             }
         }
     ) { padding ->
-        Column(modifier = Modifier.padding(padding)) {
-            val contentTab = if (settings.matchSplitEnabled) {
-                val currentTitle = titles[selectedTabIndex]
-                when (currentTitle) {
-                    "Matches" -> 0
-                    "Settle" -> 3
-                    "Leaderboard" -> 1
-                    "Pool" -> 2
-                    else -> 0
-                }
-            } else {
-                selectedTabIndex
-            }
-
-            when (contentTab) {
-                0 -> GameHistoryTab(
-                    history = history,
-                    onNavigateToGame = onNavigateToGame,
-                    onResumeGame = onResumeGame,
-                    onDeleteGame = onDeleteGame,
-                    onShareGame = onShareGame,
-                    onViewDetails = onViewDetails
-                )
-                1 -> LeaderboardTab(
-                    history = history,
-                    settings = settings
-                )
-                2 -> FriendsTab(
-                    settings = settings,
-                    history = history,
-                    onUpdateSettings = onUpdateSettings,
-                    onRename = onRename
-                )
-                3 -> MatchSplitTab(
-                    history = history,
-                    settings = settings,
-                    onUpdateSettings = onUpdateSettings
-                )
-            }
+        HorizontalPager(
+            state = pagerState,
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(padding),
+            beyondViewportPageCount = 1
+        ) { page ->
+            activeTabs[page].content()
         }
     }
 }

@@ -30,27 +30,32 @@ class GameRepositoryImpl(private val context: Context) : GameRepository {
     private val gameHistoryKey = stringPreferencesKey("game_history")
     private val appSettingsKey = stringPreferencesKey("app_settings")
 
+    private val json = Json {
+        ignoreUnknownKeys = true
+        coerceInputValues = true
+    }
+
     override val gameState: Flow<GameState> = context.dataStore.data.map { preferences ->
         preferences[gameStateKey]?.let {
-            try { Json.decodeFromString<GameState>(it) } catch (e: Exception) { GameState() }
+            try { json.decodeFromString<GameState>(it) } catch (e: Exception) { GameState() }
         } ?: GameState()
     }
 
     override val gameHistory: Flow<GameHistory> = context.dataStore.data.map { preferences ->
         preferences[gameHistoryKey]?.let {
-            try { Json.decodeFromString<GameHistory>(it) } catch (e: Exception) { GameHistory() }
+            try { json.decodeFromString<GameHistory>(it) } catch (e: Exception) { GameHistory() }
         } ?: GameHistory()
     }
 
     override val appSettings: Flow<AppSettings> = context.dataStore.data.map { preferences ->
         preferences[appSettingsKey]?.let {
-            try { Json.decodeFromString<AppSettings>(it) } catch (e: Exception) { AppSettings() }
+            try { json.decodeFromString<AppSettings>(it) } catch (e: Exception) { AppSettings() }
         } ?: AppSettings()
     }
 
     override suspend fun saveGameState(gameState: GameState) {
         context.dataStore.edit { preferences ->
-            preferences[gameStateKey] = Json.encodeToString(gameState)
+            preferences[gameStateKey] = json.encodeToString(gameState)
         }
     }
 
@@ -60,13 +65,20 @@ class GameRepositoryImpl(private val context: Context) : GameRepository {
         }
     }
 
-    override suspend fun archiveCurrentGame(gameState: GameState) {
+    override suspend fun archiveCurrentGame(gameState: GameState, saveOverride: Boolean) {
         val currentHistory = gameHistory.first()
         val currentSettings = appSettings.first()
         
-        val updatedHistory = currentHistory.copy(
-            pastGames = (listOf(gameState.copy(endTime = System.currentTimeMillis())) + currentHistory.pastGames).take(50)
-        )
+        // Incognito Check: Should we save this game record?
+        // Override forces save even if Incognito would normally block it
+        // We ALWAYS save non-finalized games (Resume Later) to prevent data loss
+        val shouldSaveRecord = saveOverride || !gameState.isFinalized || (if (currentSettings.isIncognitoMode) currentSettings.incognitoSaveRecords else true)
+        
+        val updatedHistory = if (shouldSaveRecord) {
+            currentHistory.copy(
+                pastGames = (listOf(gameState.copy(endTime = System.currentTimeMillis())) + currentHistory.pastGames).take(50)
+            )
+        } else currentHistory
         
         val newGamesPlayedCount = currentSettings.gamesPlayedCount + 1
         val updatedSettings = currentSettings.copy(
@@ -75,8 +87,10 @@ class GameRepositoryImpl(private val context: Context) : GameRepository {
         )
         
         context.dataStore.edit { preferences ->
-            preferences[gameHistoryKey] = Json.encodeToString(updatedHistory)
-            preferences[appSettingsKey] = Json.encodeToString(updatedSettings)
+            if (shouldSaveRecord) {
+                preferences[gameHistoryKey] = json.encodeToString(updatedHistory)
+            }
+            preferences[appSettingsKey] = json.encodeToString(updatedSettings)
         }
     }
 
@@ -86,13 +100,25 @@ class GameRepositoryImpl(private val context: Context) : GameRepository {
             pastGames = currentHistory.pastGames.filter { it.id != gameId }
         )
         context.dataStore.edit { preferences ->
-            preferences[gameHistoryKey] = Json.encodeToString(updatedHistory)
+            preferences[gameHistoryKey] = json.encodeToString(updatedHistory)
+        }
+    }
+
+    override suspend fun updateGameInHistory(game: GameState) {
+        val currentHistory = gameHistory.first()
+        val updatedHistory = currentHistory.copy(
+            pastGames = currentHistory.pastGames.map { 
+                if (it.id == game.id) game else it
+            }
+        )
+        context.dataStore.edit { preferences ->
+            preferences[gameHistoryKey] = json.encodeToString(updatedHistory)
         }
     }
 
     override suspend fun updateSettings(settings: AppSettings) {
         context.dataStore.edit { preferences ->
-            preferences[appSettingsKey] = Json.encodeToString(settings)
+            preferences[appSettingsKey] = json.encodeToString(settings)
         }
     }
 
@@ -153,8 +179,8 @@ class GameRepositoryImpl(private val context: Context) : GameRepository {
         )
 
         context.dataStore.edit { preferences ->
-            preferences[gameHistoryKey] = Json.encodeToString(updatedHistory)
-            preferences[appSettingsKey] = Json.encodeToString(updatedSettings)
+            preferences[gameHistoryKey] = json.encodeToString(updatedHistory)
+            preferences[appSettingsKey] = json.encodeToString(updatedSettings)
         }
     }
 
@@ -195,10 +221,10 @@ class GameRepositoryImpl(private val context: Context) : GameRepository {
         } else currentGameState
 
         context.dataStore.edit { preferences ->
-            preferences[appSettingsKey] = Json.encodeToString(currentSettings.copy(savedPlayerNames = updatedSavedNames))
-            preferences[gameHistoryKey] = Json.encodeToString(currentHistory.copy(pastGames = updatedPastGames))
+            preferences[appSettingsKey] = json.encodeToString(currentSettings.copy(savedPlayerNames = updatedSavedNames))
+            preferences[gameHistoryKey] = json.encodeToString(currentHistory.copy(pastGames = updatedPastGames))
             if (currentGameState.isGameActive) {
-                preferences[gameStateKey] = Json.encodeToString(updatedActiveGameState)
+                preferences[gameStateKey] = json.encodeToString(updatedActiveGameState)
             }
         }
     }

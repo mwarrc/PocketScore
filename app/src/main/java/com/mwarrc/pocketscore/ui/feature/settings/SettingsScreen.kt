@@ -19,6 +19,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Analytics
 import androidx.compose.material.icons.filled.EmojiEvents
 import androidx.compose.material.icons.filled.Extension
 import androidx.compose.material.icons.filled.Group
@@ -87,12 +88,16 @@ import com.mwarrc.pocketscore.ui.feature.settings.components.StrictModeInfoDialo
 @Composable
 fun SettingsScreen(
     settings: AppSettings,
+    hasStoragePermission: Boolean,
+    onRequestStoragePermission: () -> Unit,
     onUpdateSettings: ((AppSettings) -> AppSettings) -> Unit,
     onNavigateToGame: () -> Unit,
     onNavigateToHistory: () -> Unit,
     onNavigateToAbout: () -> Unit,
     onNavigateToBackups: () -> Unit,
-    onNavigateToFeedback: () -> Unit
+    onNavigateToFeedback: () -> Unit,
+    onExportRecords: () -> Unit,
+    onImportRecords: () -> Unit
 ) {
     var showStrictModeInfo by remember { mutableStateOf(false) }
     var showEnforceDialog by remember { mutableStateOf(false) }
@@ -147,6 +152,61 @@ fun SettingsScreen(
                 .padding(20.dp),
             verticalArrangement = Arrangement.spacedBy(24.dp)
         ) {
+            // Backup Permission Banner
+            androidx.compose.animation.AnimatedVisibility(
+                visible = !hasStoragePermission,
+                enter = androidx.compose.animation.expandVertically() + androidx.compose.animation.fadeIn(),
+                exit = androidx.compose.animation.shrinkVertically() + androidx.compose.animation.fadeOut()
+            ) {
+                Surface(
+                    onClick = onRequestStoragePermission,
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(20.dp),
+                    color = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.9f),
+                    border = androidx.compose.foundation.BorderStroke(2.dp, MaterialTheme.colorScheme.error.copy(alpha = 0.5f)),
+                    shadowElevation = 8.dp
+                ) {
+                    Row(
+                        modifier = Modifier.padding(16.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(16.dp)
+                    ) {
+                        Surface(
+                            shape = CircleShape,
+                            color = MaterialTheme.colorScheme.error,
+                            modifier = Modifier.size(48.dp)
+                        ) {
+                            Box(contentAlignment = Alignment.Center) {
+                                Icon(
+                                    Icons.Default.Security,
+                                    null,
+                                    modifier = Modifier.size(24.dp),
+                                    tint = MaterialTheme.colorScheme.onError
+                                )
+                            }
+                        }
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                "Auto-Backups Disabled",
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.ExtraBold,
+                                color = MaterialTheme.colorScheme.onErrorContainer
+                            )
+                            Text(
+                                "Grant file access to enable local recovery points and protection.",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onErrorContainer.copy(alpha = 0.8f)
+                            )
+                        }
+                        Icon(
+                            Icons.Default.PlayArrow,
+                            null,
+                            modifier = Modifier.size(16.dp),
+                            tint = MaterialTheme.colorScheme.onErrorContainer.copy(alpha = 0.6f)
+                        )
+                    }
+                }
+            }
             // GAMEPLAY SETTINGS
             Text(
                 "Gameplay",
@@ -184,6 +244,20 @@ fun SettingsScreen(
                 }
             )
 
+            SettingsItem(
+                title = "Loser Spotlight",
+                subtitle = "Highlight player with lowest points",
+                icon = Icons.Default.Palette,
+                trailing = {
+                    Switch(
+                        checked = settings.loserSpotlightEnabled,
+                        onCheckedChange = { enabled ->
+                            onUpdateSettings { it.copy(loserSpotlightEnabled = enabled) }
+                        }
+                    )
+                }
+            )
+
 /*
             SettingsItem(
                 title = "Custom Numpad",
@@ -209,6 +283,20 @@ fun SettingsScreen(
                         checked = settings.showQuickSelectOnHome,
                         onCheckedChange = { enabled ->
                             onUpdateSettings { it.copy(showQuickSelectOnHome = enabled) }
+                        }
+                    )
+                }
+            )
+
+            SettingsItem(
+                title = "Pool Ball Management",
+                subtitle = "Enable insights & elimination for billiards",
+                icon = Icons.Default.Analytics,
+                trailing = {
+                    Switch(
+                        checked = settings.poolBallManagementEnabled,
+                        onCheckedChange = { enabled ->
+                            onUpdateSettings { it.copy(poolBallManagementEnabled = enabled) }
                         }
                     )
                 }
@@ -244,7 +332,7 @@ fun SettingsScreen(
                     icon = { Icon(Icons.Default.Security, null, tint = MaterialTheme.colorScheme.error) },
                     title = { Text("Enforce Strict Mode?") },
                     text = {
-                        Text("When this is enabled, 'Strict Turn Mode' will be forced ON and cannot be turned off during a game session. Only disable this if you trust all players.")
+                        Text("When this is enabled, 'Strict Turn Mode'  will be forced ON and cannot be turned off during a game session. This feature only allows single score inputs per players round. Not recommended for casual games.")
                     },
                     confirmButton = {
                         Button(
@@ -281,8 +369,9 @@ fun SettingsScreen(
 
 
 
-            SettingsDivider(alpha = 0.5f)
 
+            SettingsDivider(alpha = 0.5f)
+            
             // UTILITIES
             Text(
                 "Utilities",
@@ -290,6 +379,11 @@ fun SettingsScreen(
                 color = MaterialTheme.colorScheme.primary,
                 fontWeight = FontWeight.Bold,
                 modifier = Modifier.padding(start = 4.dp)
+            )
+
+            com.mwarrc.pocketscore.ui.feature.home.components.PrivacySettingsCard(
+                settings = settings,
+                onUpdateSettings = onUpdateSettings
             )
 
             SettingsItem(
@@ -519,36 +613,78 @@ fun SettingsScreen(
                 onClick = onNavigateToBackups
             )
 
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                Surface(
+                    onClick = onExportRecords,
+                    modifier = Modifier.weight(1f),
+                    shape = RoundedCornerShape(16.dp),
+                    color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.2f))
+                ) {
+                    Row(
+                        modifier = Modifier.padding(12.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.Center
+                    ) {
+                        Icon(Icons.Default.IosShare, null, modifier = Modifier.size(18.dp), tint = MaterialTheme.colorScheme.primary)
+                        Spacer(Modifier.width(10.dp))
+                        Text("Export All", style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+                    }
+                }
+
+                Surface(
+                    onClick = onImportRecords,
+                    modifier = Modifier.weight(1f),
+                    shape = RoundedCornerShape(16.dp),
+                    color = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.3f),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.secondary.copy(alpha = 0.2f))
+                ) {
+                    Row(
+                        modifier = Modifier.padding(12.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.Center
+                    ) {
+                        Icon(Icons.Default.FileDownload, null, modifier = Modifier.size(18.dp), tint = MaterialTheme.colorScheme.secondary)
+                        Spacer(Modifier.width(10.dp))
+                        Text("Import File", style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.secondary)
+                    }
+                }
+            }
+
             Surface(
-                color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.2f),
-                shape = RoundedCornerShape(12.dp),
+                color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.15f),
+                shape = RoundedCornerShape(16.dp),
                 modifier = Modifier.fillMaxWidth().padding(top = 4.dp)
             ) {
                 Row(
-                    modifier = Modifier.padding(12.dp),
+                    modifier = Modifier.padding(16.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Icon(
-                        Icons.Default.Security,
+                        Icons.Default.CloudDone,
                         null,
                         tint = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.size(20.dp)
+                        modifier = Modifier.size(24.dp)
                     )
-                    Spacer(Modifier.width(12.dp))
+                    Spacer(Modifier.width(16.dp))
                     Column {
                         Text(
                             "Safe Snapshot System",
-                            style = MaterialTheme.typography.labelMedium,
-                            fontWeight = FontWeight.Bold,
+                            style = MaterialTheme.typography.titleSmall,
+                            fontWeight = FontWeight.Black,
                             color = MaterialTheme.colorScheme.primary
                         )
+                        Spacer(Modifier.height(2.dp))
                         Text(
                             if (settings.localSnapshotsEnabled) 
                                 "Active and protecting your data with daily snapshots." 
                             else 
-                                "Turn on to enable automatic daily snapshots and manual recovery points to keep your data safe.",
+                                "Turn on to enable automatic daily snapshots and manual recovery points.",
                             style = MaterialTheme.typography.bodySmall,
-                            color = if (settings.localSnapshotsEnabled) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
                 }

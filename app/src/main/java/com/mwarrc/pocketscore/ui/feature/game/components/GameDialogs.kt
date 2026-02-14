@@ -12,14 +12,19 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.animateContentSize
+import androidx.compose.foundation.background
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.automirrored.filled.Undo
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.Lock
+import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -47,11 +52,19 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material.icons.automirrored.filled.Sort
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import com.mwarrc.pocketscore.ui.theme.getMaterialPlayerColor
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.PersonAdd
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.AssistChipDefaults
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.MenuDefaults
+import androidx.compose.material.icons.filled.ArrowDropDown
+import androidx.compose.material.icons.filled.EmojiEvents
+import androidx.compose.material.icons.filled.Shuffle
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.foundation.layout.FlowRow
@@ -67,33 +80,38 @@ import androidx.compose.material3.surfaceColorAtElevation
  */
 @Composable
 fun ResetGameDialog(
+    settings: AppSettings,
     onDismiss: () -> Unit,
-    onFinishAndArchive: () -> Unit,
-    onRestartMatch: () -> Unit,
+    onFinishAndArchive: (Boolean) -> Unit,
+    onRestartMatch: (Boolean) -> Unit,
     onResumeLater: () -> Unit,
     onModifyRoster: () -> Unit
 ) {
+    // Only relevant if Incognito is ON and automatic saving is OFF
+    val isIncognitoRestricted = settings.isIncognitoMode && !settings.incognitoSaveRecords
+    var overrideIncognito by remember { mutableStateOf(false) }
+
     AlertDialog(
         onDismissRequest = onDismiss,
         icon = {
             Surface(
                 shape = RoundedCornerShape(16.dp),
-                color = MaterialTheme.colorScheme.primaryContainer,
+                color = if (isIncognitoRestricted) MaterialTheme.colorScheme.tertiaryContainer else MaterialTheme.colorScheme.primaryContainer,
                 modifier = Modifier.size(56.dp)
             ) {
                 Box(contentAlignment = Alignment.Center) {
                     Icon(
-                        Icons.Default.CheckCircle,
+                        if (isIncognitoRestricted) Icons.Default.VisibilityOff else Icons.Default.CheckCircle,
                         null,
                         modifier = Modifier.size(28.dp),
-                        tint = MaterialTheme.colorScheme.onPrimaryContainer
+                        tint = if (isIncognitoRestricted) MaterialTheme.colorScheme.onTertiaryContainer else MaterialTheme.colorScheme.onPrimaryContainer
                     )
                 }
             }
         },
         title = {
             Text(
-                "End This Match?",
+                if (isIncognitoRestricted) "End Incognito Session?" else "End This Match?",
                 style = MaterialTheme.typography.headlineSmall,
                 fontWeight = FontWeight.Bold
             )
@@ -101,16 +119,50 @@ fun ResetGameDialog(
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 Text(
-                    "This match is over. What's the next move?",
+                    if (isIncognitoRestricted) 
+                        "This session will not be saved to history unless you choose to override." 
+                    else 
+                        "This match is over. What's the next move?",
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
+
+                if (isIncognitoRestricted) {
+                    Surface(
+                        onClick = { overrideIncognito = !overrideIncognito },
+                        shape = RoundedCornerShape(12.dp),
+                        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                        border = BorderStroke(1.dp, if (overrideIncognito) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant)
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.padding(12.dp).fillMaxWidth()
+                        ) {
+                            Checkbox(
+                                checked = overrideIncognito,
+                                onCheckedChange = { overrideIncognito = it }
+                            )
+                            Spacer(Modifier.width(8.dp))
+                            Column {
+                                Text(
+                                    "Save to History",
+                                    style = MaterialTheme.typography.labelLarge,
+                                    fontWeight = FontWeight.Bold
+                                )
+                                Text(
+                                    "Override Incognito for this match",
+                                    style = MaterialTheme.typography.labelSmall
+                                )
+                            }
+                        }
+                    }
+                }
 
                 Spacer(Modifier.height(8.dp))
 
                 // Finish & Archive (PRIMARY ACTION)
                 Surface(
-                    onClick = onFinishAndArchive,
+                    onClick = { onFinishAndArchive(overrideIncognito) },
                     shape = RoundedCornerShape(20.dp),
                     color = MaterialTheme.colorScheme.primaryContainer,
                     shadowElevation = 2.dp,
@@ -128,7 +180,7 @@ fun ResetGameDialog(
                         ) {
                             Box(contentAlignment = Alignment.Center) {
                                 Icon(
-                                    Icons.Default.Lock,
+                                    if (isIncognitoRestricted && !overrideIncognito) Icons.Default.Close else Icons.Default.Lock,
                                     null,
                                     modifier = Modifier.size(24.dp),
                                     tint = MaterialTheme.colorScheme.onPrimary
@@ -137,13 +189,13 @@ fun ResetGameDialog(
                         }
                         Column(modifier = Modifier.weight(1f)) {
                             Text(
-                                "Finish & Archive",
+                                if (isIncognitoRestricted && !overrideIncognito) "End Session" else "Finish & Archive",
                                 style = MaterialTheme.typography.titleMedium,
                                 fontWeight = FontWeight.ExtraBold,
                                 color = MaterialTheme.colorScheme.onPrimaryContainer
                             )
                             Text(
-                                "Lock scores and return home",
+                                if (isIncognitoRestricted && !overrideIncognito) "Close without saving" else "Lock scores and return home",
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f)
                             )
@@ -153,7 +205,7 @@ fun ResetGameDialog(
 
                 // Save & Play Again (Secondary Action)
                 Surface(
-                    onClick = onRestartMatch,
+                    onClick = { onRestartMatch(overrideIncognito) },
                     shape = RoundedCornerShape(20.dp),
                     color = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.6f),
                     border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)),
@@ -180,7 +232,7 @@ fun ResetGameDialog(
                         }
                         Column(modifier = Modifier.weight(1f)) {
                             Text(
-                                "Save & Play Again",
+                                if (isIncognitoRestricted && !overrideIncognito) "Restart Session" else "Save & Play Again",
                                 style = MaterialTheme.typography.titleSmall,
                                 fontWeight = FontWeight.Bold,
                                 color = MaterialTheme.colorScheme.onSecondaryContainer
@@ -365,10 +417,27 @@ fun QuickRestartDialog(
     onDismiss: () -> Unit,
     onStartGame: (List<String>) -> Unit
 ) {
-    // Initial sort based on settings
-    val initialPlayers = remember(currentPlayers, settings.rosterSortOption) {
-        when (settings.rosterSortOption) {
-            RosterSortOption.ALPHABETICAL -> currentPlayers.sortedBy { it.name }
+    var selectedNames by remember { 
+        mutableStateOf(currentPlayers.filter { it.isActive }.map { it.name }.toSet()) 
+    }
+    var searchInput by remember { mutableStateOf("") }
+    
+    val otherSavedNames = remember(settings.savedPlayerNames, currentPlayers) {
+        settings.savedPlayerNames.filter { name -> 
+            currentPlayers.none { it.name.trim().equals(name.trim(), ignoreCase = true) } 
+        }
+    }
+
+    val filteredSavedNames = remember(searchInput, otherSavedNames) {
+        if (searchInput.isBlank()) otherSavedNames
+        else otherSavedNames.filter { it.contains(searchInput, ignoreCase = true) }
+    }
+    
+    var sortOption by remember { mutableStateOf(RosterSortOption.LOSERS_FIRST) }
+    var showSortMenu by remember { mutableStateOf(false) }
+    
+    val sortedCurrentMatchPlayers = remember(currentPlayers, sortOption) {
+        when (sortOption) {
             RosterSortOption.LOSERS_FIRST -> currentPlayers.sortedBy { it.score }
             RosterSortOption.WINNERS_FIRST -> currentPlayers.sortedByDescending { it.score }
             RosterSortOption.RANDOM -> currentPlayers.shuffled()
@@ -376,15 +445,14 @@ fun QuickRestartDialog(
         }
     }
 
-    var displayPlayers by remember { mutableStateOf(initialPlayers) }
-    var selectedPlayerNames by remember { mutableStateOf(currentPlayers.filter { it.isActive }.map { it.name }.toSet()) }
-    var extraPlayerNames by remember { mutableStateOf(listOf<String>()) }
-    var nextPlayerInput by remember { mutableStateOf("") }
-    
     val scrollState = rememberScrollState()
 
     AlertDialog(
         onDismissRequest = onDismiss,
+        properties = androidx.compose.ui.window.DialogProperties(usePlatformDefaultWidth = false),
+        modifier = Modifier
+            .fillMaxWidth(0.95f)
+            .padding(vertical = 24.dp),
         title = {
             Column(modifier = Modifier.fillMaxWidth()) {
                 Row(
@@ -394,28 +462,30 @@ fun QuickRestartDialog(
                 ) {
                     Column(modifier = Modifier.weight(1f)) {
                         Text(
-                            "Next Round",
-                            style = MaterialTheme.typography.headlineSmall,
-                            fontWeight = FontWeight.ExtraBold
+                            "Next Session",
+                            style = MaterialTheme.typography.headlineMedium,
+                            fontWeight = FontWeight.Black,
+                            letterSpacing = (-0.5).sp
                         )
                         Text(
-                            "Prepare your match roster",
-                            style = MaterialTheme.typography.labelMedium,
-                            color = MaterialTheme.colorScheme.primary
+                            "Select players for the next round",
+                            style = MaterialTheme.typography.labelLarge,
+                            color = MaterialTheme.colorScheme.primary,
+                            fontWeight = FontWeight.Bold
                         )
                     }
                     
                     Surface(
-                        color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f),
+                        color = MaterialTheme.colorScheme.primary.copy(alpha = 0.1f),
                         shape = CircleShape,
-                        modifier = Modifier.size(48.dp)
+                        modifier = Modifier.size(52.dp)
                     ) {
                         Box(contentAlignment = Alignment.Center) {
                             Icon(
                                 Icons.Default.Refresh, 
                                 null, 
                                 tint = MaterialTheme.colorScheme.primary,
-                                modifier = Modifier.size(24.dp)
+                                modifier = Modifier.size(28.dp)
                             )
                         }
                     }
@@ -427,180 +497,394 @@ fun QuickRestartDialog(
                 modifier = Modifier
                     .fillMaxWidth()
                     .verticalScroll(scrollState),
-                verticalArrangement = Arrangement.spacedBy(20.dp)
+                verticalArrangement = Arrangement.spacedBy(24.dp)
             ) {
-                // Roster Section
-                Column {
-                    Row(
-                        modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text(
-                            "ACTIVE PLAYERS",
-                            style = MaterialTheme.typography.labelLarge,
-                            fontWeight = FontWeight.Black,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                        
-                        TextButton(
-                            onClick = {
-                                // Manual override to sort by score (loser first)
-                                displayPlayers = displayPlayers.sortedBy { it.score }
-                            },
-                            contentPadding = PaddingValues(horizontal = 8.dp),
-                            modifier = Modifier.height(32.dp)
-                        ) {
-                            Icon(Icons.AutoMirrored.Filled.Sort, null, modifier = Modifier.size(16.dp))
-                            Spacer(Modifier.width(4.dp))
-                            Text("Loser First", style = MaterialTheme.typography.labelSmall)
-                        }
-                    }
-
-                    Surface(
-                        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.1f),
-                        shape = RoundedCornerShape(24.dp),
-                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
-                    ) {
-                        Column(modifier = Modifier.padding(8.dp)) {
-                            displayPlayers.forEachIndexed { index, player ->
-                                val isSelected = player.name in selectedPlayerNames
-                                val isLast = index == displayPlayers.lastIndex
-                                
-                                PlayerRosterItem(
-                                    player = player,
-                                    isSelected = isSelected,
-                                    onToggle = {
-                                        selectedPlayerNames = if (isSelected) {
-                                            selectedPlayerNames - player.name
-                                        } else {
-                                            selectedPlayerNames + player.name
-                                        }
-                                    }
+                // Search & Quick Add
+                OutlinedTextField(
+                    value = searchInput,
+                    onValueChange = { searchInput = it },
+                    placeholder = { Text("Search or add guest...") },
+                    modifier = Modifier.fillMaxWidth(),
+                    singleLine = true,
+                    shape = RoundedCornerShape(20.dp),
+                    colors = androidx.compose.material3.TextFieldDefaults.colors(
+                        focusedContainerColor = MaterialTheme.colorScheme.surface,
+                        unfocusedContainerColor = MaterialTheme.colorScheme.surface,
+                        focusedIndicatorColor = MaterialTheme.colorScheme.primary,
+                        unfocusedIndicatorColor = MaterialTheme.colorScheme.outlineVariant
+                    ),
+                    leadingIcon = { 
+                        Icon(
+                            Icons.Default.PersonAdd, 
+                            null, 
+                            modifier = Modifier.size(22.dp),
+                            tint = MaterialTheme.colorScheme.primary
+                        ) 
+                    },
+                    trailingIcon = {
+                        if (searchInput.isNotBlank() && !selectedNames.contains(searchInput.trim())) {
+                            IconButton(
+                                onClick = {
+                                    selectedNames = selectedNames + searchInput.trim()
+                                    searchInput = ""
+                                },
+                                modifier = Modifier
+                                    .padding(end = 4.dp)
+                                    .background(MaterialTheme.colorScheme.primary, CircleShape)
+                                    .size(32.dp)
+                            ) {
+                                Icon(
+                                    Icons.Default.Add, 
+                                    null, 
+                                    modifier = Modifier.size(18.dp),
+                                    tint = MaterialTheme.colorScheme.onPrimary
                                 )
-                                
-                                if (!isLast) {
-                                    HorizontalDivider(
-                                        modifier = Modifier.padding(horizontal = 48.dp),
-                                        thickness = 0.5.dp,
-                                        color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f)
-                                    )
-                                }
                             }
                         }
                     }
-                }
+                )
 
-                // Add Extra Players Section
-                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                // Selection Summary / Ribbon Cards Group 1: Recent Match
+                Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
                     Row(
                         modifier = Modifier.fillMaxWidth(),
-                        verticalAlignment = Alignment.CenterVertically
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
+                        Icon(
+                            Icons.Default.CheckCircle, 
+                            null, 
+                            modifier = Modifier.size(16.dp),
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
                         Text(
-                            "ADD GUESTS",
+                            "RECENT MATCH",
                             style = MaterialTheme.typography.labelLarge,
                             fontWeight = FontWeight.Black,
-                            color = MaterialTheme.colorScheme.primary
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            letterSpacing = 1.sp
                         )
+                        
+                        // Dropdown Sort Menu
+                        Spacer(Modifier.width(8.dp))
+                        Box {
+                            FilterChip(
+                                selected = true,
+                                onClick = { showSortMenu = true },
+                                label = { 
+                                    Text(
+                                        when (sortOption) {
+                                            RosterSortOption.LOSERS_FIRST -> "Losers Start"
+                                            RosterSortOption.WINNERS_FIRST -> "Winners Start"
+                                            RosterSortOption.RANDOM -> "Random"
+                                            else -> "Default"
+                                        }, 
+                                        style = MaterialTheme.typography.labelSmall,
+                                        fontWeight = FontWeight.Black
+                                    ) 
+                                },
+                                trailingIcon = {
+                                    Icon(Icons.Default.ArrowDropDown, null, modifier = Modifier.size(16.dp))
+                                },
+                                shape = CircleShape,
+                                colors = FilterChipDefaults.filterChipColors(
+                                    containerColor = MaterialTheme.colorScheme.primaryContainer,
+                                    labelColor = MaterialTheme.colorScheme.primary,
+                                    selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
+                                    selectedLabelColor = MaterialTheme.colorScheme.primary
+                                ),
+                                border = FilterChipDefaults.filterChipBorder(
+                                    enabled = true,
+                                    selected = true,
+                                    borderColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.5f)
+                                ),
+                                modifier = Modifier.height(30.dp)
+                            )
+
+                            DropdownMenu(
+                                expanded = showSortMenu,
+                                onDismissRequest = { showSortMenu = false },
+                                shape = RoundedCornerShape(16.dp),
+                                modifier = Modifier.background(MaterialTheme.colorScheme.surface)
+                            ) {
+                                SortMenuItem(
+                                    text = "Losers Start",
+                                    icon = Icons.Default.History,
+                                    selected = sortOption == RosterSortOption.LOSERS_FIRST,
+                                    onClick = {
+                                        sortOption = RosterSortOption.LOSERS_FIRST
+                                        showSortMenu = false
+                                    }
+                                )
+                                SortMenuItem(
+                                    text = "Winners Start",
+                                    icon = Icons.Default.EmojiEvents,
+                                    selected = sortOption == RosterSortOption.WINNERS_FIRST,
+                                    onClick = {
+                                        sortOption = RosterSortOption.WINNERS_FIRST
+                                        showSortMenu = false
+                                    }
+                                )
+                                SortMenuItem(
+                                    text = "Random Shuffle",
+                                    icon = Icons.Default.Shuffle,
+                                    selected = sortOption == RosterSortOption.RANDOM,
+                                    onClick = {
+                                        sortOption = RosterSortOption.RANDOM
+                                        showSortMenu = false
+                                    }
+                                )
+                            }
+                        }
+
                         Spacer(Modifier.weight(1f))
-                        if (extraPlayerNames.isNotEmpty()) {
-                             Text(
-                                "${extraPlayerNames.size} extra",
+                        val activeMatchCount = sortedCurrentMatchPlayers.count { it.name in selectedNames }
+                        if (activeMatchCount > 0) {
+                            Text(
+                                "$activeMatchCount selected",
                                 style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.secondary
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.primary
                             )
                         }
                     }
 
-                    if (extraPlayerNames.isNotEmpty()) {
+                    FlowRow(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(10.dp),
+                        verticalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        sortedCurrentMatchPlayers.forEach { player ->
+                            RosterRibbonCard(
+                                name = player.name,
+                                score = player.score,
+                                isSelected = player.name in selectedNames,
+                                onClick = {
+                                    selectedNames = if (player.name in selectedNames) {
+                                        selectedNames - player.name
+                                    } else {
+                                        selectedNames + player.name
+                                    }
+                                }
+                            )
+                        }
+                    }
+                }
+
+                // Ribbon Cards Group 2: Saved Library
+                if (filteredSavedNames.isNotEmpty() || selectedNames.any { name -> currentPlayers.none { it.name == name } }) {
+                    Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Icon(
+                                Icons.Default.History, 
+                                null, 
+                                modifier = Modifier.size(16.dp),
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            Text(
+                                "SAVED LIBRARY",
+                                style = MaterialTheme.typography.labelLarge,
+                                fontWeight = FontWeight.Black,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                letterSpacing = 1.sp
+                            )
+                        }
+
                         FlowRow(
                             modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(8.dp),
-                            verticalArrangement = Arrangement.spacedBy(8.dp)
+                            horizontalArrangement = Arrangement.spacedBy(10.dp),
+                            verticalArrangement = Arrangement.spacedBy(10.dp)
                         ) {
-                            extraPlayerNames.forEach { name ->
-                                AssistChip(
-                                    onClick = { extraPlayerNames = extraPlayerNames - name },
-                                    label = { Text(name) },
-                                    trailingIcon = { Icon(Icons.Default.Close, null, Modifier.size(14.dp)) },
-                                    shape = RoundedCornerShape(12.dp),
-                                    colors = AssistChipDefaults.assistChipColors(
-                                        containerColor = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.6f),
-                                        labelColor = MaterialTheme.colorScheme.onSecondaryContainer
-                                    ),
-                                    border = null
+                            // First show names that were added as guests or selected from saved
+                            val extraSelections = selectedNames.filter { name -> currentPlayers.none { it.name == name } }
+                            extraSelections.forEach { name ->
+                                RosterRibbonCard(
+                                    name = name,
+                                    isSelected = true,
+                                    onClick = { selectedNames = selectedNames - name }
+                                )
+                            }
+                            
+                            // Then show other saved names that are not selected
+                            filteredSavedNames.filter { it !in selectedNames }.forEach { name ->
+                                RosterRibbonCard(
+                                    name = name,
+                                    isSelected = false,
+                                    onClick = { selectedNames = selectedNames + name }
                                 )
                             }
                         }
                     }
-
-                    OutlinedTextField(
-                        value = nextPlayerInput,
-                        onValueChange = { nextPlayerInput = it },
-                        placeholder = { Text("Search or add player...") },
-                        modifier = Modifier.fillMaxWidth(),
-                        singleLine = true,
-                        shape = RoundedCornerShape(20.dp),
-                        leadingIcon = { 
-                            Icon(
-                                Icons.Default.PersonAdd, 
-                                null, 
-                                modifier = Modifier.size(20.dp),
-                                tint = MaterialTheme.colorScheme.primary
-                            ) 
-                        },
-                        trailingIcon = {
-                            if (nextPlayerInput.isNotBlank()) {
-                                IconButton(
-                                    onClick = {
-                                        if (!extraPlayerNames.contains(nextPlayerInput.trim())) {
-                                            extraPlayerNames = extraPlayerNames + nextPlayerInput.trim()
-                                        }
-                                        nextPlayerInput = ""
-                                    }
-                                ) {
-                                    Icon(Icons.Default.Add, null)
-                                }
-                            }
-                        }
-                    )
                 }
                 
-                Spacer(Modifier.height(16.dp))
+                Spacer(Modifier.height(8.dp))
             }
         },
         confirmButton = {
             Button(
                 onClick = {
-                    val finalRoster = displayPlayers
-                        .filter { it.name in selectedPlayerNames }
-                        .map { it.name } + extraPlayerNames
-                    if (finalRoster.isNotEmpty()) {
+                    if (selectedNames.size >= 2) {
+                        // Preserve order: first match players in their relative order, then extras
+                        val finalRoster = (currentPlayers.map { it.name } + selectedNames.toList())
+                            .distinct()
+                            .filter { it in selectedNames }
+                            
                         onStartGame(finalRoster)
                     }
                 },
-                enabled = selectedPlayerNames.isNotEmpty() || extraPlayerNames.isNotEmpty(),
+                enabled = selectedNames.size >= 2,
                 shape = RoundedCornerShape(20.dp),
-                modifier = Modifier.fillMaxWidth().height(56.dp),
-                contentPadding = PaddingValues(0.dp)
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(60.dp),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = MaterialTheme.colorScheme.primary,
+                    disabledContainerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)
+                ),
+                elevation = ButtonDefaults.buttonElevation(defaultElevation = 0.6.dp)
             ) {
-                Icon(Icons.Default.CheckCircle, null, modifier = Modifier.size(18.dp))
-                Spacer(Modifier.width(8.dp))
-                Text("Archive & Start Round", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.ExtraBold)
+                Icon(Icons.Default.CheckCircle, null, modifier = Modifier.size(20.dp))
+                Spacer(Modifier.width(12.dp))
+                Text(
+                    "Archive & Start New Round", 
+                    style = MaterialTheme.typography.titleMedium, 
+                    fontWeight = FontWeight.ExtraBold
+                )
             }
         },
         dismissButton = {
-            TextButton(
-                onClick = onDismiss,
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Text("Cancel", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Box(modifier = Modifier.padding(top = 8.dp)) {
+                TextButton(
+                    onClick = onDismiss,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text(
+                        "Cancel", 
+                        style = MaterialTheme.typography.labelLarge,
+                        fontWeight = FontWeight.Bold, 
+                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
+                    )
+                }
             }
         },
         shape = RoundedCornerShape(32.dp),
         containerColor = MaterialTheme.colorScheme.surface
     )
+}
+
+/**
+ * Shared menu item for sort selections
+ */
+@Composable
+private fun SortMenuItem(
+    text: String,
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    selected: Boolean,
+    onClick: () -> Unit
+) {
+    DropdownMenuItem(
+        text = { 
+            Text(
+                text, 
+                style = MaterialTheme.typography.labelLarge,
+                fontWeight = if (selected) FontWeight.ExtraBold else FontWeight.Medium
+            ) 
+        },
+        leadingIcon = { 
+            Icon(
+                icon, 
+                null, 
+                modifier = Modifier.size(20.dp),
+                tint = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
+            ) 
+        },
+        trailingIcon = {
+            if (selected) {
+                Icon(
+                    Icons.Default.Check,
+                    null,
+                    modifier = Modifier.size(16.dp),
+                    tint = MaterialTheme.colorScheme.primary
+                )
+            }
+        },
+        onClick = onClick,
+        colors = MenuDefaults.itemColors(
+            textColor = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
+        )
+    )
+}
+
+/**
+ * Premium Ribbon-style card for roster selection
+ */
+@Composable
+private fun RosterRibbonCard(
+    name: String,
+    isSelected: Boolean,
+    onClick: () -> Unit,
+    score: Int? = null
+) {
+    val backgroundColor by animateColorAsState(
+        targetValue = if (isSelected) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceColorAtElevation(1.dp),
+        label = "color"
+    )
+    val borderColor = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
+    
+    Surface(
+        onClick = onClick,
+        shape = RoundedCornerShape(16.dp),
+        color = backgroundColor,
+        border = BorderStroke(if (isSelected) 2.dp else 1.dp, borderColor),
+        modifier = Modifier.animateContentSize()
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            // Player Initial / Selection Icon
+            Surface(
+                modifier = Modifier.size(24.dp),
+                shape = CircleShape,
+                color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.primary.copy(alpha = 0.1f),
+                contentColor = if (isSelected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.primary
+            ) {
+                Box(contentAlignment = Alignment.Center) {
+                    if (isSelected) {
+                        Icon(Icons.Default.Check, null, modifier = Modifier.size(16.dp))
+                    } else {
+                        Text(
+                            name.take(1).uppercase(),
+                            style = MaterialTheme.typography.labelSmall,
+                            fontWeight = FontWeight.Black
+                        )
+                    }
+                }
+            }
+
+            Column {
+                Text(
+                    name,
+                    style = MaterialTheme.typography.bodyMedium,
+                    fontWeight = FontWeight.ExtraBold,
+                    color = if (isSelected) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurface
+                )
+                if (score != null) {
+                    Text(
+                        "$score pts",
+                        style = MaterialTheme.typography.labelSmall,
+                        fontWeight = FontWeight.Bold,
+                        color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.primary.copy(alpha = 0.6f)
+                    )
+                }
+            }
+        }
+    }
 }
 
 @Composable

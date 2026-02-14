@@ -109,6 +109,7 @@ object AnalyticsManager {
         
         analyticsId?.let {
             val metadata = mutableMapOf<String, Any>()
+            @Suppress("DEPRECATION")
             finalBundle.keySet().forEach { key ->
                 metadata[key] = finalBundle.get(key) ?: ""
             }

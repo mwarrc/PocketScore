@@ -20,6 +20,7 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.mwarrc.pocketscore.domain.model.AppSettings
+import com.mwarrc.pocketscore.domain.model.SettlementMethod
 import com.mwarrc.pocketscore.domain.model.GameHistory
 import com.mwarrc.pocketscore.domain.model.GameState
 import java.text.SimpleDateFormat
@@ -50,21 +51,25 @@ fun MatchSplitTab(
         var totalAmount = 0.0
 
         gamesToCalculate.forEach { game ->
-            val playedCount = game.players.size
-            if (playedCount == 0) return@forEach
+            if (game.players.isEmpty()) return@forEach
             
             totalAmount += settings.matchCost
             
-            val maxScore = game.players.maxOfOrNull { it.score } ?: 0
-            val winners = game.players.filter { it.score == maxScore }
-            
-            val payers = if (settings.winnersPay) {
-                game.players
-            } else {
-                game.players.filter { p -> p !in winners }
+            val payers = when (settings.settlementMethod) {
+                SettlementMethod.ALL_SPLIT -> game.players
+                
+                SettlementMethod.LOSERS_PAY -> {
+                    val maxScore = game.players.maxOfOrNull { it.score } ?: 0
+                    game.players.filter { it.score != maxScore }
+                }
+                
+                SettlementMethod.LAST_N_PAY -> {
+                    // Sort by score ascending (losers first) and take the specified count
+                    game.players.sortedBy { it.score }.take(settings.lastLosersCount)
+                }
             }
             
-            if ( payers.isNotEmpty() ) {
+            if (payers.isNotEmpty()) {
                 val splitCost = settings.matchCost / payers.size
                 payers.forEach { player ->
                     playerDebts[player.name] = (playerDebts[player.name] ?: 0.0) + splitCost
@@ -215,11 +220,20 @@ fun MatchSplitTab(
                 )
             }
 
-            items(debts) { (name, amount) ->
+            items(debts, key = { it.first }) { (name, amount) ->
                 Surface(
                     shape = RoundedCornerShape(24.dp),
                     color = MaterialTheme.colorScheme.surfaceContainerHigh,
-                    modifier = Modifier.fillMaxWidth()
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .animateItem(
+                            fadeInSpec = null,
+                            fadeOutSpec = null,
+                            placementSpec = androidx.compose.animation.core.spring(
+                                dampingRatio = androidx.compose.animation.core.Spring.DampingRatioLowBouncy,
+                                stiffness = androidx.compose.animation.core.Spring.StiffnessLow
+                            )
+                        )
                 ) {
                     Row(
                         modifier = Modifier.padding(16.dp),
@@ -244,16 +258,16 @@ fun MatchSplitTab(
                             Text(
                                 name, 
                                 style = MaterialTheme.typography.titleMedium,
-                                fontWeight = FontWeight.Bold 
+                                fontWeight = FontWeight.SemiBold 
                             )
                             Text(
-                                "Matches: ${gamesToCalculate.count { g -> g.players.any { it.name == name } }}",
-                                style = MaterialTheme.typography.bodySmall,
+                                "Split across ${gamesToCalculate.count { g -> g.players.any { it.name == name } }} matches",
+                                style = MaterialTheme.typography.labelSmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                         }
                         Text(
-                            "${settings.currencySymbol} ${String.format("%.1f", amount)}",
+                            "${settings.currencySymbol} ${String.format("%.0f", amount)}",
                             style = MaterialTheme.typography.titleLarge,
                             fontWeight = FontWeight.Black,
                             color = MaterialTheme.colorScheme.primary
@@ -264,39 +278,105 @@ fun MatchSplitTab(
         }
 
         item {
-            Column(modifier = Modifier.padding(vertical = 8.dp)) {
+            Column(modifier = Modifier.padding(vertical = 12.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 Text(
-                    "Split Method", 
+                    "Settlement Rule", 
                     style = MaterialTheme.typography.labelLarge, 
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.padding(start = 4.dp, bottom = 8.dp)
+                    modifier = Modifier.padding(start = 4.dp)
                 )
-                SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
-                    SegmentedButton(
-                        selected = !settings.winnersPay,
-                        onClick = { onUpdateSettings { it.copy(winnersPay = false) } },
-                        shape = SegmentedButtonDefaults.itemShape(index = 0, count = 2),
-                        label = { Text("Losers Pay", style = MaterialTheme.typography.labelSmall) },
-                        icon = { Icon(Icons.Default.PersonRemove, null, modifier = Modifier.size(16.dp)) },
-                        colors = SegmentedButtonDefaults.colors(
-                            activeContainerColor = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.5f),
-                            activeContentColor = MaterialTheme.colorScheme.error,
-                            activeBorderColor = MaterialTheme.colorScheme.error.copy(alpha = 0.5f)
-                        )
+                
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(20.dp))
+                        .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f))
+                        .padding(4.dp)
+                ) {
+                    val methods = listOf(
+                        Triple(SettlementMethod.LOSERS_PAY, "Losers", Icons.Default.PersonRemove),
+                        Triple(SettlementMethod.ALL_SPLIT, "All Split", Icons.Default.Groups),
+                        Triple(SettlementMethod.LAST_N_PAY, "Bottom X", Icons.Default.FormatListNumbered)
                     )
-                    SegmentedButton(
-                        selected = settings.winnersPay,
-                        onClick = { onUpdateSettings { it.copy(winnersPay = true) } },
-                        shape = SegmentedButtonDefaults.itemShape(index = 1, count = 2),
-                        label = { Text("All Split", style = MaterialTheme.typography.labelSmall) },
-                        icon = { Icon(Icons.Default.Groups, null, modifier = Modifier.size(16.dp)) },
-                        colors = SegmentedButtonDefaults.colors(
-                            activeContainerColor = Color(0xFFE8F5E9).copy(alpha = 0.8f),
-                            activeContentColor = Color(0xFF2E7D32),
-                            activeBorderColor = Color(0xFF2E7D32).copy(alpha = 0.5f)
+                    
+                    methods.forEach { (method, label, icon) ->
+                        val isSelected = settings.settlementMethod == method
+                        Surface(
+                            onClick = { onUpdateSettings { it.copy(settlementMethod = method) } },
+                            modifier = Modifier
+                                .weight(1f)
+                                .height(48.dp),
+                            shape = RoundedCornerShape(16.dp),
+                            color = if (isSelected) MaterialTheme.colorScheme.primary else Color.Transparent,
+                            contentColor = if (isSelected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant
+                        ) {
+                            Row(
+                                modifier = Modifier.fillMaxSize(),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.Center
+                            ) {
+                                Icon(icon, null, modifier = Modifier.size(16.dp))
+                                Spacer(Modifier.width(6.dp))
+                                Text(label, style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold)
+                            }
+                        }
+                    }
+                }
+
+                androidx.compose.animation.AnimatedVisibility(
+                    visible = settings.settlementMethod == SettlementMethod.LAST_N_PAY,
+                    enter = androidx.compose.animation.expandVertically() + androidx.compose.animation.fadeIn(),
+                    exit = androidx.compose.animation.shrinkVertically() + androidx.compose.animation.fadeOut()
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 4.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(16.dp)
+                    ) {
+                        Text(
+                            "Number of losers to pay:",
+                            style = MaterialTheme.typography.bodyMedium,
+                            modifier = Modifier.weight(1f)
                         )
-                    )
+                        
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(12.dp))
+                                .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
+                                .padding(horizontal = 4.dp)
+                        ) {
+                            IconButton(
+                                onClick = { 
+                                    if (settings.lastLosersCount > 1) {
+                                        onUpdateSettings { it.copy(lastLosersCount = it.lastLosersCount - 1) }
+                                    }
+                                },
+                                modifier = Modifier.size(32.dp)
+                            ) {
+                                Icon(Icons.Default.Remove, null, modifier = Modifier.size(16.dp))
+                            }
+                            
+                            Text(
+                                "${settings.lastLosersCount}",
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Bold,
+                                modifier = Modifier.padding(horizontal = 12.dp)
+                            )
+                            
+                            IconButton(
+                                onClick = { 
+                                    onUpdateSettings { it.copy(lastLosersCount = it.lastLosersCount + 1) }
+                                },
+                                modifier = Modifier.size(32.dp)
+                            ) {
+                                Icon(Icons.Default.Add, null, modifier = Modifier.size(16.dp))
+                            }
+                        }
+                    }
                 }
             }
         }
@@ -351,6 +431,8 @@ fun MatchSplitTab(
                 val isSelected = game.id in selectedMatchIds
                 val maxScore = game.players.maxOfOrNull { it.score } ?: 0
                 val winners = game.players.filter { it.score == maxScore }
+                val sortedPlayers = game.players.sortedByDescending { it.score }
+                
                 val timeFormat = remember { SimpleDateFormat("HH:mm", Locale.getDefault()) }
                 val timeStr = timeFormat.format(Date(game.endTime ?: game.startTime))
 
@@ -369,7 +451,7 @@ fun MatchSplitTab(
                     ListItem(
                         headlineContent = { 
                             Text(
-                                winners.joinToString { it.name } + " won", 
+                                "Winner: ${winners.joinToString { it.name }}", 
                                 fontWeight = FontWeight.Bold,
                                 color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
                             ) 
@@ -378,10 +460,9 @@ fun MatchSplitTab(
                             Column {
                                 Text("$timeStr • ${game.players.size} players")
                                 Text(
-                                    game.players.joinToString { it.name },
+                                    sortedPlayers.joinToString { it.name },
                                     style = MaterialTheme.typography.bodySmall,
-                                    maxLines = 1,
-                                    overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
                             }
                         },

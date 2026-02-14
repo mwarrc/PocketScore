@@ -18,9 +18,17 @@ enum class RosterSortOption {
 }
 
 @Serializable
+enum class SettlementMethod {
+    LOSERS_PAY,    // Everyone except the winner(s)
+    ALL_SPLIT,     // Everyone pays equally
+    LAST_N_PAY     // Bottom X players pay
+}
+
+@Serializable
 data class AppSettings(
     val hapticFeedbackEnabled: Boolean = true,
     val leaderSpotlightEnabled: Boolean = true,
+    val loserSpotlightEnabled: Boolean = true,
     val defaultLayout: ScoreboardLayout = ScoreboardLayout.GRID,
     val isDarkMode: Boolean? = false, // Default to Light Mode
     val maxPlayers: Int = 8, // Default 8, can be overridden up to 32 (To Do - replace the slider)
@@ -41,10 +49,11 @@ data class AppSettings(
     val showIdentityTip: Boolean = true, // Toggle visibility of the Identity Tip on home screen
     val gamesPlayedCount: Int = 0, // Count of games played to auto-hide tips
     val hiddenPlayers: List<String> = emptyList(), // Players hidden from the leaderboard
-    val matchSplitEnabled: Boolean = true, // Toggle for match fee splitting feature
+    val matchSplitEnabled: Boolean = false, // Toggle for match fee splitting feature
     val matchCost: Double = 20.0, // Cost per match session
     val currencySymbol: String = "KSh", // Default currency (e.g., KSh for Kenya)
-    val winnersPay: Boolean = false, // If true, winners also split the cost
+    val settlementMethod: SettlementMethod = SettlementMethod.LOSERS_PAY,
+    val lastLosersCount: Int = 2, // Number of bottom players to pay if SettlementMethod.LAST_N_PAY
     val useCustomKeyboard: Boolean = false, // Toggle for the custom minimal numpad
     val customDeviceName: String? = null, // Personalized name for this device (e.g., "Jacob's Phone")
     val keyboardTheme: KeyboardTheme = KeyboardTheme.AUTO, // Keyboard color theme
@@ -52,7 +61,11 @@ data class AppSettings(
     val keyboardHeight: KeyboardHeight = KeyboardHeight.MEDIUM, // Keyboard button height
     val allowEliminatedInput: Boolean = false, // If true, eliminated players aren't auto-skipped in non-strict mode
     val rosterSortOption: RosterSortOption = RosterSortOption.MANUAL,
-    val analyticsId: String? = null // Unique ID for database analytics
+    val analyticsId: String? = null, // Unique ID for database analytics
+    val poolBallManagementEnabled: Boolean = true, // Toggle for pool-specific features
+    val isIncognitoMode: Boolean = false, // Master toggle for privacy mode
+    val incognitoSaveRecords: Boolean = false, // If true, saves game history even in incognito
+    val incognitoSavePlayers: Boolean = false // If true, saves player names even in incognito
 )
 
 @Serializable

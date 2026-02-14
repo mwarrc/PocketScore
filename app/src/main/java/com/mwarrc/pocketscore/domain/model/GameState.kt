@@ -15,5 +15,7 @@ data class GameState(
     val globalEvents: List<GameEvent> = emptyList(),
     val canUndo: Boolean = false,
     val isFinalized: Boolean = false,
-    val deviceInfo: String? = null
+    val ballsOnTable: Set<Int> = (1..15).toSet(),
+    val deviceInfo: String? = null,
+    val isArchived: Boolean = false
 )

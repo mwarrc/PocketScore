@@ -169,6 +169,26 @@ fun QuickSettingsSheet(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Column(modifier = Modifier.weight(1f)) {
+                    Text("Loser Spotlight", style = MaterialTheme.typography.titleMedium)
+                    Text(
+                        "Highlight the current loser",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                Switch(
+                    checked = settings.loserSpotlightEnabled,
+                    onCheckedChange = { enabled ->
+                        onUpdateSettings { it.copy(loserSpotlightEnabled = enabled) }
+                    }
+                )
+            }
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
                     Text("Custom Numpad", style = MaterialTheme.typography.titleMedium)
                     Text(
                         "Use minimal keyboard for scoring",
@@ -218,7 +238,7 @@ fun QuickSettingsSheet(
                 )
             }
 
-            if (!settings.strictTurnMode) {
+            if (!settings.strictTurnMode && settings.poolBallManagementEnabled) {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     verticalAlignment = Alignment.CenterVertically
@@ -256,6 +276,26 @@ fun QuickSettingsSheet(
                     checked = settings.autoScrollToActivePlayer,
                     onCheckedChange = { enabled ->
                         onUpdateSettings { it.copy(autoScrollToActivePlayer = enabled) }
+                    }
+                )
+            }
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text("Pool Ball Management", style = MaterialTheme.typography.titleMedium)
+                    Text(
+                        "Insights & elimination for billiards",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                Switch(
+                    checked = settings.poolBallManagementEnabled,
+                    onCheckedChange = { enabled ->
+                        onUpdateSettings { it.copy(poolBallManagementEnabled = enabled) }
                     }
                 )
             }

@@ -97,8 +97,9 @@ fun QuickCalculatorSheet(
     val scope = rememberCoroutineScope()
     val focusRequester = remember { FocusRequester() }
 
-    // Auto-focus and open keyboard on launch
+    // Auto-focus and open keyboard on launch with a small delay to prevent animation jank
     LaunchedEffect(Unit) {
+        kotlinx.coroutines.delay(300)
         focusRequester.requestFocus()
         if (settings.useCustomKeyboard) {
             showNumpad = true

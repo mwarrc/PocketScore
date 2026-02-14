@@ -4,7 +4,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.BugReport
-import androidx.compose.material.icons.filled.Chat
+import androidx.compose.material.icons.automirrored.filled.Chat
 import androidx.compose.material.icons.filled.Lightbulb
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -64,8 +64,8 @@ fun FeedbackDialog(
                         val icon = when (type) {
                             FeedbackType.BUG_REPORT -> Icons.Default.BugReport
                             FeedbackType.FEATURE_REQUEST -> Icons.Default.Lightbulb
-                            FeedbackType.CONTACT -> Icons.Default.Chat
-                            else -> Icons.Default.Chat
+                            FeedbackType.CONTACT -> Icons.AutoMirrored.Filled.Chat
+                            else -> Icons.AutoMirrored.Filled.Chat
                         }
                         
                         SegmentedButton(

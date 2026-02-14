@@ -24,6 +24,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Block
 import androidx.compose.material.icons.filled.EmojiEvents
+import androidx.compose.material.icons.filled.Group
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.outlined.Add
@@ -61,6 +62,9 @@ import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 fun ActivePlayerCard(
     player: Player,
     isLeader: Boolean,
+    isTie: Boolean = false,
+    isLoser: Boolean = false,
+    isLoserTie: Boolean = false,
     isCurrentTurn: Boolean,
     isStrictTurnMode: Boolean,
     allowEliminatedInput: Boolean = false,
@@ -76,14 +80,15 @@ fun ActivePlayerCard(
     alwaysShowControls: Boolean = false,
     // Elimination detection parameters
     leaderScore: Int = 0,
-    tableSum: Int = 0
+    tableSum: Int = 0,
+    poolBallManagementEnabled: Boolean = true
 ) {
     val focusRequester = remember { FocusRequester() }
     val keyboardController = LocalSoftwareKeyboardController.current
     
-    // Calculate if player is eliminated
+    // Calculate if player is eliminated - Only if pool management is enabled
     val potentialMax = player.score + tableSum
-    val isEliminated = !isLeader && potentialMax < leaderScore && tableSum > 0
+    val isEliminated = poolBallManagementEnabled && !isLeader && potentialMax < leaderScore && tableSum > 0
     
     // Logic for editing:
     // 1. In Strict Mode: Must be current turn AND not eliminated.
@@ -105,13 +110,15 @@ fun ActivePlayerCard(
     val containerColor = when {
         isEliminated -> MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.2f)
         isCurrentTurn -> MaterialTheme.colorScheme.primaryContainer
-        isLeader -> MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.6f) // Increased visibility
+        isLeader -> MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.6f)
+        isLoser -> MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f)
         else -> MaterialTheme.colorScheme.surface
     }
 
     val contentColor = when {
         isCurrentTurn -> MaterialTheme.colorScheme.onPrimaryContainer
-        isLeader -> MaterialTheme.colorScheme.onTertiaryContainer 
+        isLeader -> MaterialTheme.colorScheme.onTertiaryContainer
+        isLoser -> MaterialTheme.colorScheme.onSurfaceVariant
         else -> MaterialTheme.colorScheme.onSurface
     }
 
@@ -217,9 +224,23 @@ fun ActivePlayerCard(
                 ) {
                     Column(modifier = Modifier.weight(1f)) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
-                            if (isLeader) {
+                            if (isLeader || isLoser) {
+                                val badgeColor = if (isLeader) MaterialTheme.colorScheme.tertiary else MaterialTheme.colorScheme.surfaceVariant
+                                val onBadgeColor = if (isLeader) MaterialTheme.colorScheme.onTertiary else MaterialTheme.colorScheme.onSurfaceVariant
+                                val label = when {
+                                    isLeader && isTie -> "TIED"
+                                    isLeader -> "LEADER"
+                                    isLoser && isLoserTie -> "TIED"
+                                    else -> "LOSER"
+                                }
+                                val icon = when {
+                                    isLeader && isTie -> Icons.Default.Group
+                                    isLeader -> Icons.Default.EmojiEvents
+                                    else -> null
+                                }
+
                                 Surface(
-                                    color = MaterialTheme.colorScheme.tertiary,
+                                    color = badgeColor,
                                     shape = RoundedCornerShape(6.dp),
                                     modifier = Modifier.padding(end = 8.dp)
                                 ) {
@@ -227,18 +248,20 @@ fun ActivePlayerCard(
                                         modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
                                         verticalAlignment = Alignment.CenterVertically
                                     ) {
-                                        Icon(
-                                            Icons.Default.EmojiEvents,
-                                            contentDescription = "Leader",
-                                            modifier = Modifier.size(14.dp),
-                                            tint = MaterialTheme.colorScheme.onTertiary
-                                        )
-                                        Spacer(Modifier.width(4.dp))
+                                        if (icon != null) {
+                                            Icon(
+                                                icon,
+                                                contentDescription = label,
+                                                modifier = Modifier.size(14.dp),
+                                                tint = onBadgeColor
+                                            )
+                                            Spacer(Modifier.width(4.dp))
+                                        }
                                         Text(
-                                            "LEADER",
+                                            label,
                                             style = MaterialTheme.typography.labelSmall,
                                             fontWeight = FontWeight.Bold,
-                                            color = MaterialTheme.colorScheme.onTertiary
+                                            color = onBadgeColor
                                         )
                                     }
                                 }
@@ -460,7 +483,7 @@ fun ActivePlayerCard(
                             ) {
                                 val isDark = isSystemInDarkTheme()
 
-                                FilledTonalIconButton(
+                                 FilledIconButton(
                                     onClick = {
                                         if (!isStrictTurnMode && !isCurrentTurn) onSetTurn?.invoke()
                                         val points = scoreInput.toIntOrNull() ?: 0
@@ -472,9 +495,9 @@ fun ActivePlayerCard(
                                         .fillMaxHeight(),
                                     shape = RoundedCornerShape(12.dp),
                                     enabled = canEdit && scoreInput.isNotEmpty(),
-                                    colors = IconButtonDefaults.filledTonalIconButtonColors(
-                                        containerColor = if (isDark) MaterialTheme.colorScheme.errorContainer else Color(0xFFFFDAD4),
-                                        contentColor = MaterialTheme.colorScheme.onErrorContainer,
+                                    colors = IconButtonDefaults.filledIconButtonColors(
+                                        containerColor = if (isDark) Color(0xFF8C1D18) else MaterialTheme.colorScheme.error, // Prominent red
+                                        contentColor = if (isDark) Color(0xFFFFB4AB) else MaterialTheme.colorScheme.onError,
                                         disabledContainerColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f),
                                         disabledContentColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f)
                                     )

@@ -170,6 +170,22 @@ fun PoolProbabilitySheet(
                                 color = MaterialTheme.colorScheme.onSurface
                             )
                             
+                            Spacer(Modifier.width(8.dp))
+                            Surface(
+                                color = MaterialTheme.colorScheme.primary.copy(alpha = 0.1f),
+                                shape = RoundedCornerShape(8.dp)
+                            ) {
+                                Text(
+                                    "$tableSum pts",
+                                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+                                    style = androidx.compose.ui.text.TextStyle(fontSize = 10.sp),
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.primary
+                                )
+                            }
+                            
+                            Spacer(Modifier.weight(1f))
+                            
                             // Compact action buttons
                             Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                                 FilledTonalButton(
@@ -215,9 +231,9 @@ fun PoolProbabilitySheet(
                             columns = GridCells.Fixed(5),
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .height(140.dp),
-                            horizontalArrangement = Arrangement.spacedBy(6.dp),
-                            verticalArrangement = Arrangement.spacedBy(6.dp)
+                                .height(160.dp),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            verticalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
                             items((1..15).toList()) { ball ->
                                 val isOnTable = ballsOnTable.contains(ball)
@@ -232,7 +248,7 @@ fun PoolProbabilitySheet(
                                             if (isOnTable) ballsOnTable - ball else ballsOnTable + ball
                                         )
                                     },
-                                    size = 40.dp
+                                    size = 46.dp
                                 )
                             }
                         }
@@ -391,7 +407,7 @@ fun BallItem(
                 number.toString(),
                 style = MaterialTheme.typography.titleMedium.copy(
                     fontWeight = FontWeight.ExtraBold,
-                    fontSize = 18.sp,
+                    fontSize = (size.value * 0.4f).sp, // Scale font with size
                     shadow = if (isOnTable && !needsDarkText) Shadow(
                         color = Color.Black.copy(alpha = 0.5f),
                         offset = Offset(2f, 2f),
@@ -409,8 +425,8 @@ fun BallItem(
                 Icon(
                     Icons.Default.Block,
                     null,
-                    modifier = Modifier.size(size * 0.6f),
-                    tint = MaterialTheme.colorScheme.error.copy(alpha = 0.4f)
+                    modifier = Modifier.size(size * 0.8f),
+                    tint = MaterialTheme.colorScheme.error.copy(alpha = 0.3f)
                 )
             }
         }
@@ -580,22 +596,48 @@ fun QuickBallSelectDialog(
     onBallsOnTableChange: (Set<Int>) -> Unit,
     onDismiss: () -> Unit
 ) {
+    val ballValues = remember { 
+        mapOf(1 to 16, 2 to 17, 3 to 3, 4 to 4, 5 to 5, 6 to 6, 7 to 7, 8 to 8, 9 to 9, 10 to 10, 11 to 11, 12 to 12, 13 to 13, 14 to 14, 15 to 15)
+    }
+    val totalRemaining = remember(ballsOnTable) {
+        ballsOnTable.sumOf { ballValues[it] ?: 0 }
+    }
+
     AlertDialog(
         onDismissRequest = onDismiss,
         title = {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(
-                    Icons.Default.Analytics,
-                    null,
-                    tint = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.size(24.dp)
-                )
-                Spacer(Modifier.width(12.dp))
-                Text(
-                    "Table State",
-                    style = MaterialTheme.typography.titleLarge,
-                    fontWeight = FontWeight.Bold
-                )
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(
+                        Icons.Default.Analytics,
+                        null,
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(24.dp)
+                    )
+                    Spacer(Modifier.width(12.dp))
+                    Text(
+                        "Table State",
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+                
+                Surface(
+                    color = MaterialTheme.colorScheme.primaryContainer,
+                    shape = RoundedCornerShape(12.dp)
+                ) {
+                    Text(
+                        "$totalRemaining pts",
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                        style = MaterialTheme.typography.labelLarge,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onPrimaryContainer
+                    )
+                }
             }
         },
         text = {
@@ -604,32 +646,32 @@ fun QuickBallSelectDialog(
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
                 Text(
-                    "Quickly toggle balls currently on the table",
+                    "Toggle balls remaining on the table. Points are calculated automatically.",
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(bottom = 16.dp)
+                    modifier = Modifier.padding(bottom = 20.dp)
                 )
                 
                 // Use a fixed height box to ensure grid behaves in dialog
-                Box(modifier = Modifier.height(180.dp).fillMaxWidth()) {
+                Box(modifier = Modifier.height(240.dp).fillMaxWidth(), contentAlignment = Alignment.Center) {
                     LazyVerticalGrid(
                         columns = GridCells.Fixed(5),
                         horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        verticalArrangement = Arrangement.spacedBy(8.dp),
-                        modifier = Modifier.fillMaxSize()
+                        verticalArrangement = Arrangement.spacedBy(10.dp),
+                        modifier = Modifier.fillMaxWidth()
                     ) {
                         items((1..15).toList()) { ball ->
                             val isOnTable = ballsOnTable.contains(ball)
                             BallItem(
                                 number = ball,
-                                value = 0, // Value display not needed here
+                                value = ballValues[ball] ?: 0,
                                 isOnTable = isOnTable,
                                 onClick = {
                                     onBallsOnTableChange(
                                         if (isOnTable) ballsOnTable - ball else ballsOnTable + ball
                                     )
                                 },
-                                size = 44.dp
+                                size = 52.dp
                             )
                         }
                     }
@@ -639,7 +681,8 @@ fun QuickBallSelectDialog(
         confirmButton = {
             Button(
                 onClick = onDismiss,
-                shape = RoundedCornerShape(12.dp)
+                shape = RoundedCornerShape(12.dp),
+                modifier = Modifier.fillMaxWidth()
             ) {
                 Text("Done")
             }

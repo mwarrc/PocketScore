@@ -14,11 +14,13 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
+import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.*
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.compose.runtime.DisposableEffect
 import com.mwarrc.pocketscore.domain.model.PocketScoreShare
 import androidx.core.content.IntentCompat
 import com.mwarrc.pocketscore.util.ShareUtils
@@ -54,6 +56,7 @@ import com.mwarrc.pocketscore.ui.viewmodel.GameViewModelFactory
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
+        installSplashScreen()
         super.onCreate(savedInstanceState)
         requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
         enableEdgeToEdge()
@@ -110,10 +113,30 @@ class MainActivity : ComponentActivity() {
                 else -> "setup"
             }
 
+            var storagePermissionGranted by remember { mutableStateOf(false) }
+
+            fun hasStoragePermission(): Boolean {
+                return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                    Environment.isExternalStorageManager()
+                } else {
+                    androidx.core.content.ContextCompat.checkSelfPermission(
+                        this@MainActivity,
+                        android.Manifest.permission.WRITE_EXTERNAL_STORAGE
+                    ) == android.content.pm.PackageManager.PERMISSION_GRANTED
+                }
+            }
+
+            // Check initial state
+            LaunchedEffect(Unit) {
+                storagePermissionGranted = hasStoragePermission()
+            }
+
             // Request storage permissions on launch for Ghost Backups
             val requestPermissionLauncher = rememberLauncherForActivityResult(
                 ActivityResultContracts.RequestMultiplePermissions()
-            ) { /* Handle results if needed */ }
+            ) { 
+                storagePermissionGranted = hasStoragePermission()
+            }
 
             fun requestStoragePermissions() {
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
@@ -139,14 +162,17 @@ class MainActivity : ComponentActivity() {
                 }
             }
 
-            fun hasStoragePermission(): Boolean {
-                return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-                    Environment.isExternalStorageManager()
-                } else {
-                    androidx.core.content.ContextCompat.checkSelfPermission(
-                        this@MainActivity,
-                        android.Manifest.permission.WRITE_EXTERNAL_STORAGE
-                    ) == android.content.pm.PackageManager.PERMISSION_GRANTED
+            // Re-check permission on resume (e.g. returning from settings)
+            val lifecycleOwner = androidx.lifecycle.compose.LocalLifecycleOwner.current
+            DisposableEffect(lifecycleOwner) {
+                val observer = androidx.lifecycle.LifecycleEventObserver { _, event ->
+                    if (event == androidx.lifecycle.Lifecycle.Event.ON_RESUME) {
+                        storagePermissionGranted = hasStoragePermission()
+                    }
+                }
+                lifecycleOwner.lifecycle.addObserver(observer)
+                onDispose {
+                    lifecycleOwner.lifecycle.removeObserver(observer)
                 }
             }
 
@@ -231,7 +257,7 @@ class MainActivity : ComponentActivity() {
                                     canUndo = appState.gameState.canUndo,
                                     onUpdateScore = { id, pts -> viewModel.updateScore(id, pts) },
                                     onGlobalUndo = { viewModel.undoLastGlobalAction() },
-                                    onReset = { finalized -> viewModel.resetGame(finalized) },
+                                    onReset = { finalized, forceSave -> viewModel.resetGame(finalized, forceSave) },
                                     onToggleLayout = {
                                         viewModel.updateSettings { 
                                             it.copy(defaultLayout = if (it.defaultLayout == ScoreboardLayout.LIST) ScoreboardLayout.GRID else ScoreboardLayout.LIST)
@@ -242,8 +268,10 @@ class MainActivity : ComponentActivity() {
                                     onTogglePlayerActive = { id, active -> viewModel.setPlayerActive(id, active) },
                                     onSetCurrentPlayer = { id -> viewModel.setCurrentPlayer(id) },
                                     onNextTurn = { viewModel.nextTurn() },
-                                    onRestart = { playerNames -> viewModel.startRestartMatch(playerNames) },
-                                    onUpdateSettings = { update -> viewModel.updateSettings(update) }
+                                    onRestart = { playerNames, forceSave -> viewModel.startRestartMatch(playerNames, forceSave) },
+                                    onUpdateSettings = { update -> viewModel.updateSettings(update) },
+                                    ballsOnTable = appState.gameState.ballsOnTable,
+                                    onUpdateBallsOnTable = { balls -> viewModel.updateBallsOnTable(balls) }
                                 )
                             }
                             composable("history") {
@@ -255,6 +283,7 @@ class MainActivity : ComponentActivity() {
                                     onNavigateToSettings = { navController.navigate("settings") },
                                     onResumeGame = { game, override -> viewModel.resumeGame(game, override) },
                                     onDeleteGame = { id -> viewModel.deleteGameFromHistory(id) },
+                                    onArchiveGame = { id -> viewModel.toggleArchiveGame(id) },
                                     settings = appState.settings,
                                     onUpdateSettings = { update -> viewModel.updateSettings(update) },
                                     onRename = { old, new -> viewModel.renamePlayer(old, new) },
@@ -284,6 +313,8 @@ class MainActivity : ComponentActivity() {
                             composable("settings") {
                                 SettingsScreen(
                                     settings = appState.settings,
+                                    hasStoragePermission = storagePermissionGranted,
+                                    onRequestStoragePermission = { requestStoragePermissions() },
                                     onUpdateSettings = { update -> viewModel.updateSettings(update) },
                                     onNavigateToGame = {
                                         if (appState.gameState.isGameActive) navController.navigate("game") else navController.navigate("setup")
@@ -297,7 +328,16 @@ class MainActivity : ComponentActivity() {
                                             requestStoragePermissions()
                                         }
                                     },
-                                    onNavigateToFeedback = { navController.navigate("feedback") }
+                                    onNavigateToFeedback = { navController.navigate("feedback") },
+                                    onExportRecords = {
+                                        scope.launch {
+                                            val share = viewModel.getShareData(null)
+                                            shareData(share, "pocketscore_full_export.pscore")
+                                        }
+                                    },
+                                    onImportRecords = {
+                                        filePickerLauncher.launch("*/*")
+                                    }
                                 )
                             }
                             composable("feedback") {

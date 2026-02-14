@@ -37,6 +37,7 @@ import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.mwarrc.pocketscore.R
@@ -137,7 +138,7 @@ fun SplashScreen(
             Text(
                 text = "Track games with style",
                 style = MaterialTheme.typography.bodyLarge,
-                color = MaterialTheme.colorScheme.secondary,
+                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
                 letterSpacing = 0.2.sp,
                 modifier = Modifier.alpha(0.8f)
             )
@@ -153,7 +154,7 @@ fun SplashScreen(
             CircularProgressIndicator(
                 strokeWidth = 4.dp,
                 color = MaterialTheme.colorScheme.primary,
-                trackColor = MaterialTheme.colorScheme.surfaceVariant
+                trackColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f)
             )
 
             Spacer(Modifier.height(24.dp))

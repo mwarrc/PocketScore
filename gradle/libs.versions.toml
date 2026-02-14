@@ -12,8 +12,10 @@ navigation = "2.8.5"
 datastore = "1.1.2"
 lifecycle = "2.8.7"
 serialization = "1.7.3"
+splashscreen = "1.0.1"
 
 [libraries]
+androidx-core-splashscreen = { group = "androidx.core", name = "core-splashscreen", version.ref = "splashscreen" }
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
 junit = { group = "junit", name = "junit", version.ref = "junit" }
 androidx-junit = { group = "androidx.test.ext", name = "junit", version.ref = "junitVersion" }

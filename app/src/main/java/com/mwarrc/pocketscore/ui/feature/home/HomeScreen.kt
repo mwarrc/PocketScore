@@ -26,6 +26,10 @@ import androidx.compose.ui.unit.sp
 import com.mwarrc.pocketscore.domain.model.AppSettings
 import com.mwarrc.pocketscore.ui.feature.home.components.*
 import kotlinx.coroutines.launch
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.shrinkVertically
+import androidx.compose.material.icons.filled.VisibilityOff
 
 @Composable
 fun HomeScreen(
@@ -213,6 +217,46 @@ fun HomeScreen(
                 }
             }
 
+            // Incognito Mode Banner
+            item {
+                AnimatedVisibility(
+                    visible = settings.isIncognitoMode,
+                    enter = expandVertically(),
+                    exit = shrinkVertically()
+                ) {
+                    Surface(
+                        onClick = onNavigateToSettings,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 24.dp)
+                            .padding(bottom = 8.dp),
+                        shape = RoundedCornerShape(12.dp),
+                        color = MaterialTheme.colorScheme.tertiaryContainer,
+                        border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.tertiary)
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(12.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.Center
+                        ) {
+                            Icon(
+                                Icons.Default.VisibilityOff,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.onTertiaryContainer,
+                                modifier = Modifier.size(16.dp)
+                            )
+                            Spacer(Modifier.width(8.dp))
+                            Text(
+                                "Incognito Mode Active",
+                                style = MaterialTheme.typography.labelMedium,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onTertiaryContainer
+                            )
+                        }
+                    }
+                }
+            }
+
             // Active Roster Section
             if (settings.savedPlayerNames.isNotEmpty() && settings.showQuickSelectOnHome) {
                 item {
@@ -344,15 +388,20 @@ fun HomeScreen(
                 StartGameFloatingBar(
                     isVisible = isValid,
                     onStartGame = {
-                        val currentSaved = settings.savedPlayerNames.toMutableList()
-                        trimmedNames.reversed().forEach { name ->
-                            if (name.isNotEmpty()) {
-                                currentSaved.removeAll { it.equals(name, ignoreCase = true) }
-                                currentSaved.add(0, name)
+                        // Check Incognito Settings for Roster
+                        val shouldSavePlayers = if (settings.isIncognitoMode) settings.incognitoSavePlayers else true
+
+                        if (shouldSavePlayers) {
+                            val currentSaved = settings.savedPlayerNames.toMutableList()
+                            trimmedNames.reversed().forEach { name ->
+                                if (name.isNotEmpty()) {
+                                    currentSaved.removeAll { it.equals(name, ignoreCase = true) }
+                                    currentSaved.add(0, name)
+                                }
                             }
+                            val finalSaved = currentSaved.distinctBy { it.lowercase() }
+                            onUpdateSettings { it.copy(savedPlayerNames = finalSaved) }
                         }
-                        val finalSaved = currentSaved.distinctBy { it.lowercase() }
-                        onUpdateSettings { it.copy(savedPlayerNames = finalSaved) }
                         onStartGame(trimmedNames)
                     },
                     modifier = Modifier.padding(vertical = 12.dp)

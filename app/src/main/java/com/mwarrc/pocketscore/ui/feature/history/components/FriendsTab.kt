@@ -1,23 +1,17 @@
 package com.mwarrc.pocketscore.ui.feature.history.components
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.TrendingUp
 import androidx.compose.material.icons.filled.*
-import androidx.compose.material.icons.filled.Visibility
-import androidx.compose.material.icons.filled.VisibilityOff
-import androidx.compose.material.icons.filled.MoreVert
-import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.mwarrc.pocketscore.domain.model.AppSettings
@@ -29,6 +23,7 @@ data class PlayerStats(
     val wins: Int,
     val winRate: Float,
     val avgScore: Float,
+    val bestScore: Int,
     val totalPoints: Int,
     val isHiddenInLeaderboard: Boolean
 )
@@ -46,7 +41,6 @@ fun FriendsTab(
     var friendToRename by remember { mutableStateOf<PlayerStats?>(null) }
     var renameValue by remember { mutableStateOf("") }
 
-    // Calculate stats on the fly
     val playerStats = remember(history, settings.savedPlayerNames, settings.hiddenPlayers) {
         settings.savedPlayerNames.map { name ->
             val games = history.pastGames.filter { game -> 
@@ -58,11 +52,11 @@ fun FriendsTab(
             }
 
             val wins = games.count { game -> 
-                val winner = game.players.maxByOrNull { it.score }
-                winner?.name?.trim()?.equals(name, ignoreCase = true) == true
+                val maxScore = if (game.players.isNotEmpty()) game.players.maxOf { it.score } else 0
+                val winners = game.players.filter { it.score == maxScore }.map { it.name.trim().lowercase() }
+                name.trim().lowercase() in winners
             }
-            
-            val totalPoints = playerScores.sum()
+
             val played = games.size
             
             PlayerStats(
@@ -71,37 +65,67 @@ fun FriendsTab(
                 wins = wins, 
                 winRate = if (played > 0) (wins.toFloat() / played.toFloat()) * 100f else 0f,
                 avgScore = if (played > 0) playerScores.average().toFloat() else 0f,
-                totalPoints = totalPoints,
+                bestScore = playerScores.maxOrNull() ?: 0,
+                totalPoints = playerScores.sum(),
                 isHiddenInLeaderboard = name in settings.hiddenPlayers
             )
         }.sortedByDescending { it.gamesPlayed }
     }
 
-    if (friendToRemove != null) {
-        AlertDialog(
-            onDismissRequest = { friendToRemove = null },
-            icon = { Icon(Icons.Default.Delete, null, tint = MaterialTheme.colorScheme.error) },
-            title = { Text("Remove from Roster?") },
-            text = { 
-                Text("Removing ${friendToRemove?.name} will hide them from the 'Active Roster' picker, but their match history will still be safe.") 
-            },
-            confirmButton = {
-                Button(
-                    onClick = {
-                        onUpdateSettings { s ->
-                            s.copy(savedPlayerNames = s.savedPlayerNames.filter { it != friendToRemove?.name })
+    Scaffold(
+        floatingActionButton = {
+            ExtendedFloatingActionButton(
+                onClick = { showAddDialog = true },
+                icon = { Icon(Icons.Default.Add, null) },
+                text = { Text("New Player") },
+                containerColor = MaterialTheme.colorScheme.primaryContainer,
+                contentColor = MaterialTheme.colorScheme.onPrimaryContainer
+            )
+        }
+    ) { padding ->
+        LazyColumn(
+            modifier = Modifier.fillMaxSize().padding(padding),
+            contentPadding = PaddingValues(16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            if (playerStats.isEmpty()) {
+                item {
+                    Box(Modifier.fillMaxWidth().padding(top = 80.dp), contentAlignment = Alignment.Center) {
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Icon(Icons.Default.Group, null, modifier = Modifier.size(64.dp), tint = MaterialTheme.colorScheme.surfaceVariant)
+                            Spacer(Modifier.height(16.dp))
+                            Text("Your Roster is Empty", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Text("Add friends to track their individual stats.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
-                        friendToRemove = null
-                    },
-                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
-                ) { Text("Remove") }
-            },
-            dismissButton = {
-                TextButton(onClick = { friendToRemove = null }) { Text("Cancel") }
+                    }
+                }
+            } else {
+                items(playerStats, key = { it.name }) { stat ->
+                    PlayerStatCard(
+                        stat = stat,
+                        onToggleLeaderboard = {
+                            onUpdateSettings { s ->
+                                val newHidden = if (stat.isHiddenInLeaderboard) {
+                                    s.hiddenPlayers - stat.name
+                                } else {
+                                    s.hiddenPlayers + stat.name
+                                }
+                                s.copy(hiddenPlayers = newHidden)
+                            }
+                        },
+                        onRemove = { friendToRemove = stat },
+                        onRename = { 
+                            friendToRename = stat
+                            renameValue = stat.name
+                        }
+                    )
+                }
+                item { Spacer(Modifier.height(80.dp)) }
             }
-        )
+        }
     }
 
+    // Dialogs
     if (showAddDialog) {
         val trimmed = newFriendName.trim()
         val alreadyExists = settings.savedPlayerNames.any { it.equals(trimmed, ignoreCase = true) }
@@ -120,9 +144,7 @@ fun FriendsTab(
                         isError = alreadyExists,
                         supportingText = if (alreadyExists) {
                             { Text("This name is already in your roster") }
-                        } else {
-                            { Text("Names are used to track history across games.") }
-                        },
+                        } else null,
                         shape = RoundedCornerShape(12.dp)
                     )
                 }
@@ -146,26 +168,46 @@ fun FriendsTab(
         )
     }
 
+    if (friendToRemove != null) {
+        AlertDialog(
+            onDismissRequest = { friendToRemove = null },
+            icon = { Icon(Icons.Default.Delete, null, tint = MaterialTheme.colorScheme.error) },
+            title = { Text("Remove from Roster?") },
+            text = { Text("Removing ${friendToRemove?.name} will hide them from the 'Active Roster' picker, but their match history will still be safe.") },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        onUpdateSettings { s ->
+                            s.copy(savedPlayerNames = s.savedPlayerNames.filter { it != friendToRemove?.name })
+                        }
+                        friendToRemove = null
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
+                ) { Text("Remove") }
+            },
+            dismissButton = {
+                TextButton(onClick = { friendToRemove = null }) { Text("Cancel") }
+            }
+        )
+    }
+
     if (friendToRename != null) {
         val trimmed = renameValue.trim()
-        val isSelf = trimmed.equals(friendToRename?.name?.trim(), ignoreCase = true)
-        val exists = settings.savedPlayerNames.any { it.trim().equals(trimmed, ignoreCase = true) }
-        val isTaken = exists && !isSelf
-        val isChanged = trimmed != friendToRename?.name
-
+        val isTaken = settings.savedPlayerNames.any { it.trim().equals(trimmed, ignoreCase = true) && !it.trim().equals(friendToRename?.name?.trim(), ignoreCase = true) }
+        
         AlertDialog(
             onDismissRequest = { friendToRename = null },
             icon = { Icon(Icons.Default.Warning, null, tint = MaterialTheme.colorScheme.tertiary) },
             title = { Text("Rename Player") },
             text = {
                 Column {
-                    Card(
-                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.5f)),
+                    Surface(
+                        color = MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.3f),
                         shape = RoundedCornerShape(12.dp),
                         modifier = Modifier.padding(bottom = 16.dp)
                     ) {
                         Text(
-                            "CRITICAL: Names are unique IDs. Renaming will update all past match records to match this new name.",
+                            "Names are unique IDs. Renaming will update all past match records to match this new name.",
                             style = MaterialTheme.typography.labelSmall,
                             color = MaterialTheme.colorScheme.onTertiaryContainer,
                             modifier = Modifier.padding(12.dp)
@@ -177,9 +219,7 @@ fun FriendsTab(
                         label = { Text("Update Name") },
                         singleLine = true,
                         isError = isTaken,
-                        supportingText = if (isTaken) {
-                            { Text("Name already taken") }
-                        } else null,
+                        supportingText = if (isTaken) { { Text("Name already taken") } } else null,
                         shape = RoundedCornerShape(12.dp)
                     )
                 }
@@ -187,12 +227,12 @@ fun FriendsTab(
             confirmButton = {
                 Button(
                     onClick = {
-                        if (!isTaken && isChanged && trimmed.isNotEmpty()) {
+                        if (!isTaken && trimmed.isNotEmpty() && trimmed != friendToRename?.name) {
                             onRename(friendToRename!!.name, trimmed)
                             friendToRename = null
                         }
                     },
-                    enabled = !isTaken && isChanged && trimmed.isNotEmpty(),
+                    enabled = !isTaken && trimmed.isNotEmpty() && trimmed != friendToRename?.name,
                     shape = RoundedCornerShape(12.dp)
                 ) { Text("Update Records") }
             },
@@ -201,63 +241,10 @@ fun FriendsTab(
             }
         )
     }
-
-    Scaffold(
-        floatingActionButton = {
-            ExtendedFloatingActionButton(
-                onClick = { showAddDialog = true },
-                icon = { Icon(Icons.Default.Add, null) },
-                text = { Text("New Player") },
-                containerColor = MaterialTheme.colorScheme.primaryContainer,
-                contentColor = MaterialTheme.colorScheme.onPrimaryContainer
-            )
-        }
-    ) { padding ->
-        LazyColumn(
-            modifier = Modifier.fillMaxSize().padding(padding),
-            contentPadding = PaddingValues(16.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
-        ) {
-            if (playerStats.isEmpty()) {
-                item {
-                    Box(Modifier.fillMaxWidth().padding(top = 80.dp), contentAlignment = Alignment.Center) {
-                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            Icon(Icons.Default.Group, null, modifier = Modifier.size(64.dp), tint = MaterialTheme.colorScheme.surfaceVariant)
-                            Spacer(Modifier.height(16.dp))
-                            Text("Your Roster is Empty", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                            Text("Add friends to track their individual stats.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        }
-                    }
-                }
-            } else {
-                items(playerStats, key = { it.name }) { stat ->
-                    FriendStatCard(
-                        stat = stat,
-                        onToggleLeaderboard = {
-                            onUpdateSettings { s ->
-                                val newHidden = if (stat.isHiddenInLeaderboard) {
-                                    s.hiddenPlayers - stat.name
-                                } else {
-                                    s.hiddenPlayers + stat.name
-                                }
-                                s.copy(hiddenPlayers = newHidden)
-                            }
-                        },
-                        onRemove = { friendToRemove = stat },
-                        onRename = { 
-                            friendToRename = stat
-                            renameValue = stat.name
-                        }
-                    )
-                }
-                item { Spacer(Modifier.height(80.dp)) }
-            }
-        }
-    }
 }
 
 @Composable
-fun FriendStatCard(
+fun PlayerStatCard(
     stat: PlayerStats,
     onToggleLeaderboard: () -> Unit,
     onRemove: () -> Unit,
@@ -266,9 +253,8 @@ fun FriendStatCard(
     var showMenu by remember { mutableStateOf(false) }
 
     Card(
-        shape = RoundedCornerShape(24.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+        shape = RoundedCornerShape(20.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
             Row(
@@ -277,7 +263,7 @@ fun FriendStatCard(
             ) {
                 Surface(
                     shape = CircleShape,
-                    color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.7f),
+                    color = MaterialTheme.colorScheme.primaryContainer,
                     modifier = Modifier.size(44.dp)
                 ) {
                     Box(contentAlignment = Alignment.Center) {
@@ -353,29 +339,29 @@ fun FriendStatCard(
                 }
             }
             
-            Spacer(Modifier.height(20.dp))
+            Spacer(Modifier.height(16.dp))
             
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
-                SmallStat("Win Rate", "${stat.winRate.toInt()}%", MaterialTheme.colorScheme.primary)
-                SmallStat("Wins", "${stat.wins}", MaterialTheme.colorScheme.secondary)
-                SmallStat("Avg Score", "${stat.avgScore.toInt()}", MaterialTheme.colorScheme.tertiary)
-                SmallStat("Total Pts", "${stat.totalPoints}", MaterialTheme.colorScheme.onSurface)
+                StatItem("Win Rate", "${stat.winRate.toInt()}%")
+                StatItem("Wins", "${stat.wins}")
+                StatItem("Avg", "${stat.avgScore.toInt()}")
+                StatItem("Best", "${stat.bestScore}")
             }
         }
     }
 }
 
 @Composable
-fun SmallStat(label: String, value: String, color: Color) {
+fun StatItem(label: String, value: String) {
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
         Text(
             value,
             style = MaterialTheme.typography.titleMedium,
-            fontWeight = FontWeight.ExtraBold,
-            color = color
+            fontWeight = FontWeight.Bold,
+            color = MaterialTheme.colorScheme.primary
         )
         Text(
             label,

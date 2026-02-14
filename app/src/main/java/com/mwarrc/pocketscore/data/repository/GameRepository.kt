@@ -14,8 +14,9 @@ interface GameRepository {
     suspend fun saveGameState(gameState: GameState)
     suspend fun clearGameState()
     
-    suspend fun archiveCurrentGame(gameState: GameState)
+    suspend fun archiveCurrentGame(gameState: GameState, saveOverride: Boolean = false)
     suspend fun deleteGameFromHistory(gameId: String)
+    suspend fun updateGameInHistory(game: GameState)
     suspend fun updateSettings(settings: AppSettings)
     
     suspend fun getShareableData(gameId: String? = null): PocketScoreShare

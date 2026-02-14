@@ -340,75 +340,88 @@ fun SnapshotItem(
     onDelete: () -> Unit,
     onShare: () -> Unit
 ) {
-    Column {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(vertical = 8.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Surface(
-                modifier = Modifier.size(40.dp),
-                shape = RoundedCornerShape(12.dp),
-                color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f)
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(20.dp),
+        color = MaterialTheme.colorScheme.surfaceColorAtElevation(1.dp),
+        border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                Box(contentAlignment = Alignment.Center) {
-                    Icon(
-                        Icons.Default.Backup,
-                        null,
-                        modifier = Modifier.size(20.dp),
-                        tint = MaterialTheme.colorScheme.primary
+                Surface(
+                    modifier = Modifier.size(44.dp),
+                    shape = RoundedCornerShape(14.dp),
+                    color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.4f)
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Icon(
+                            Icons.Default.Backup,
+                            null,
+                            modifier = Modifier.size(22.dp),
+                            tint = MaterialTheme.colorScheme.primary
+                        )
+                    }
+                }
+
+                Spacer(Modifier.width(16.dp))
+
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        name,
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = FontWeight.Black,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                    Text(
+                        date,
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
                     )
                 }
             }
 
-            Spacer(Modifier.width(16.dp))
+            Spacer(Modifier.height(16.dp))
 
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    name,
-                    style = MaterialTheme.typography.bodyLarge,
-                    fontWeight = FontWeight.Medium,
-                    color = MaterialTheme.colorScheme.onSurface
-                )
-                Text(
-                    date,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
-
-            Row(horizontalArrangement = Arrangement.spacedBy(0.dp)) {
-                IconButton(onClick = onRestore) {
-                    Icon(
-                        Icons.Default.Restore,
-                        "Restore",
-                        modifier = Modifier.size(20.dp),
-                        tint = MaterialTheme.colorScheme.primary
-                    )
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                FilledTonalButton(
+                    onClick = onRestore,
+                    modifier = Modifier.weight(1.2f).height(44.dp),
+                    shape = RoundedCornerShape(12.dp),
+                    contentPadding = PaddingValues(0.dp)
+                ) {
+                    Icon(Icons.Default.Restore, null, modifier = Modifier.size(18.dp))
+                    Spacer(Modifier.width(8.dp))
+                    Text("Restore", style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold)
                 }
 
-                IconButton(onClick = onShare) {
-                    Icon(
-                        Icons.Default.Share,
-                        "Share",
-                        modifier = Modifier.size(20.dp),
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
+                OutlinedButton(
+                    onClick = onShare,
+                    modifier = Modifier.weight(1f).height(44.dp),
+                    shape = RoundedCornerShape(12.dp),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
+                ) {
+                    Icon(Icons.Default.Share, null, modifier = Modifier.size(18.dp))
+                    Spacer(Modifier.width(8.dp))
+                    Text("Share", style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold)
                 }
-                IconButton(onClick = onDelete) {
-                    Icon(
-                        Icons.Default.DeleteOutline,
-                        "Delete",
-                        modifier = Modifier.size(20.dp),
-                        tint = MaterialTheme.colorScheme.error
+
+                IconButton(
+                    onClick = onDelete,
+                    modifier = Modifier.size(44.dp),
+                    colors = IconButtonDefaults.iconButtonColors(
+                        containerColor = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.2f),
+                        contentColor = MaterialTheme.colorScheme.error
                     )
+                ) {
+                    Icon(Icons.Default.DeleteOutline, null, modifier = Modifier.size(20.dp))
                 }
             }
         }
-        HorizontalDivider(
-            thickness = 0.5.dp,
-            color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f)
-        )
     }
 }

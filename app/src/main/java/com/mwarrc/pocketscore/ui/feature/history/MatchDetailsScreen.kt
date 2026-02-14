@@ -8,25 +8,24 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.automirrored.filled.Undo
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.material3.TabRowDefaults.tabIndicatorOffset
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.mwarrc.pocketscore.core.time.formatTimeAgo
-import com.mwarrc.pocketscore.domain.model.GameEvent
-import com.mwarrc.pocketscore.domain.model.GameEventType
 import com.mwarrc.pocketscore.domain.model.GameState
 import java.text.SimpleDateFormat
 import java.util.*
-import com.mwarrc.pocketscore.ui.feature.history.components.MatchInsightsTab
-import com.mwarrc.pocketscore.ui.feature.history.components.MatchTimelineTab
+import com.mwarrc.pocketscore.ui.feature.history.components.match.MatchInsightsTab
+import com.mwarrc.pocketscore.ui.feature.history.components.match.MatchTimelineTab
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -36,10 +35,16 @@ fun MatchDetailsScreen(
 ) {
     var selectedTabIndex by remember { mutableIntStateOf(0) }
     val tabs = listOf("Overview", "Insights", "Timeline")
+    
+    val scrollBehavior = TopAppBarDefaults.pinnedScrollBehavior()
 
     Scaffold(
+        modifier = Modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
         topBar = {
-            Column(modifier = Modifier.background(MaterialTheme.colorScheme.surface)) {
+            Column(modifier = Modifier
+                .background(MaterialTheme.colorScheme.surface)
+                .statusBarsPadding()
+            ) {
                 Spacer(Modifier.height(30.dp))
                 CenterAlignedTopAppBar(
                     title = {
@@ -47,7 +52,7 @@ fun MatchDetailsScreen(
                             Text(
                                 "Match Record",
                                 style = MaterialTheme.typography.titleMedium,
-                                fontWeight = FontWeight.Bold
+                                fontWeight = FontWeight.SemiBold
                             )
                             val date = Date(game.endTime ?: game.startTime)
                             val dateStr = SimpleDateFormat("MMM dd, yyyy • HH:mm", Locale.getDefault()).format(date)
@@ -62,13 +67,24 @@ fun MatchDetailsScreen(
                         IconButton(onClick = onBack) {
                             Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back")
                         }
-                    }
+                    },
+                    scrollBehavior = scrollBehavior,
+                    windowInsets = WindowInsets(top = 0.dp)
                 )
                 
-                PrimaryTabRow(
+                TabRow(
                     selectedTabIndex = selectedTabIndex,
                     containerColor = MaterialTheme.colorScheme.surface,
-                    divider = {}
+                    contentColor = MaterialTheme.colorScheme.primary,
+                    divider = {},
+                    indicator = { tabPositions ->
+                        if (selectedTabIndex < tabPositions.size) {
+                            TabRowDefaults.SecondaryIndicator(
+                                Modifier.tabIndicatorOffset(tabPositions[selectedTabIndex]),
+                                color = MaterialTheme.colorScheme.primary
+                            )
+                        }
+                    }
                 ) {
                     tabs.forEachIndexed { index, title ->
                         Tab(
@@ -104,163 +120,118 @@ fun MatchDetailsScreen(
 private fun MatchOverviewTab(game: GameState) {
     val winners = game.players.groupBy { it.score }.maxByOrNull { it.key }?.value ?: emptyList()
     val sortedPlayers = game.players.sortedByDescending { it.score }
+    val totalPoints = game.players.sumOf { it.score }
+    val avgScore = if (game.players.isNotEmpty()) totalPoints / game.players.size else 0
 
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(16.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp)
+        contentPadding = PaddingValues(24.dp),
+        verticalArrangement = Arrangement.spacedBy(24.dp)
     ) {
-        // Winner Card
+        // Winner Section - Minimal
         item {
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                colors = CardDefaults.cardColors(
-                    containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.7f)
-                ),
-                shape = RoundedCornerShape(24.dp)
-            ) {
-                Column(
-                    modifier = Modifier.padding(24.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally
-                ) {
-                    Icon(
-                        Icons.Default.EmojiEvents,
-                        null,
-                        modifier = Modifier.size(48.dp),
-                        tint = MaterialTheme.colorScheme.primary
-                    )
-                    Spacer(Modifier.height(12.dp))
-                    Text(
-                        if (winners.size > 1) "Draw Match!" else "Match Winner!",
-                        style = MaterialTheme.typography.labelLarge,
-                        color = MaterialTheme.colorScheme.primary,
-                        fontWeight = FontWeight.Bold
-                    )
-                    Text(
-                        winners.joinToString(" & ") { it.name },
-                        style = MaterialTheme.typography.headlineMedium,
-                        fontWeight = FontWeight.Black,
-                        color = MaterialTheme.colorScheme.onPrimaryContainer
-                    )
-                    Text(
-                        "${winners.firstOrNull()?.score ?: 0} Total Points",
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f)
-                    )
-                }
-            }
-        }
-
-        // Stats Row
-        item {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                StatCard(
-                    modifier = Modifier.weight(1f),
-                    icon = Icons.Default.Timeline,
-                    label = "Total Events",
-                    value = "${game.globalEvents.size}",
-                    color = MaterialTheme.colorScheme.secondary
-                )
-                
-                val duration = if (game.endTime != null) (game.endTime - game.startTime) / 60000 else 0
-                StatCard(
-                    modifier = Modifier.weight(1f),
-                    icon = Icons.Default.Timer,
-                    label = "Duration",
-                    value = "${duration}m",
-                    color = MaterialTheme.colorScheme.tertiary
-                )
-            }
-        }
-
-        // Device Info
-        if (game.deviceInfo != null) {
-            item {
+            Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.fillMaxWidth()) {
                 Surface(
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(16.dp),
-                    color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.2f),
+                    shape = CircleShape,
+                    color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f),
+                    modifier = Modifier.size(64.dp)
                 ) {
-                    Row(
-                        modifier = Modifier.padding(12.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Icon(
-                            Icons.Default.Smartphone,
-                            null,
-                            modifier = Modifier.size(16.dp),
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                        Spacer(Modifier.width(8.dp))
+                    Box(contentAlignment = Alignment.Center) {
                         Text(
-                            "Record created on ${game.deviceInfo}",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                            "🏆",
+                            style = MaterialTheme.typography.headlineMedium
                         )
                     }
                 }
+                Spacer(Modifier.height(16.dp))
+                Text(
+                    if (winners.size > 1) "Draw Match" else "Match Winner",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    fontWeight = FontWeight.Bold
+                )
+                Text(
+                    winners.joinToString(" & ") { it.name },
+                    style = MaterialTheme.typography.headlineLarge,
+                    fontWeight = FontWeight.Black,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+                Text(
+                    "${winners.firstOrNull()?.score ?: 0} pts",
+                    style = MaterialTheme.typography.titleLarge,
+                    color = MaterialTheme.colorScheme.primary,
+                    fontWeight = FontWeight.Bold
+                )
+            }
+        }
+
+        // Stats Grid
+        item {
+            Row(modifier = Modifier.fillMaxWidth().height(IntrinsicSize.Min), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                val duration = if (game.endTime != null) (game.endTime - game.startTime) / 60000 else 0
+                StatBox(modifier = Modifier.weight(1f), label = "Duration", value = "${duration}m")
+                StatBox(modifier = Modifier.weight(1f), label = "Total Pts", value = "$totalPoints")
+                StatBox(modifier = Modifier.weight(1f), label = "Events", value = "${game.globalEvents.size}")
             }
         }
 
         // Scoreboard
         item {
-            Text(
-                "Final Scoreboard",
-                style = MaterialTheme.typography.titleLarge,
+             Text(
+                "Final Standings",
+                style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.Bold,
-                modifier = Modifier.padding(top = 8.dp)
+                color = MaterialTheme.colorScheme.onSurface
             )
         }
 
         items(sortedPlayers) { player ->
             val isWinner = winners.any { it.id == player.id }
-            Surface(
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(16.dp),
-                color = if (isWinner) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.15f) 
-                        else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f),
-                border = if (isWinner) androidx.compose.foundation.BorderStroke(2.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.3f)) else null
+            val rank = sortedPlayers.indexOf(player) + 1
+            
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 8.dp),
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                Row(
-                    modifier = Modifier.padding(16.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Box(
-                        modifier = Modifier
-                            .size(40.dp)
-                            .clip(RoundedCornerShape(12.dp))
-                            .background(if (isWinner) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Text(
-                            player.name.take(1).uppercase(),
-                            fontWeight = FontWeight.Bold,
-                            color = if (isWinner) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-                    Spacer(Modifier.width(16.dp))
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(
-                            player.name,
-                            style = MaterialTheme.typography.bodyLarge,
-                            fontWeight = FontWeight.Bold
-                        )
-                        val rank = sortedPlayers.indexOf(player) + 1
-                        Text(
-                            "Rank #$rank",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
+                Text(
+                    "#$rank",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = if (isWinner) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
+                    modifier = Modifier.width(32.dp)
+                )
+                
+                Column(modifier = Modifier.weight(1f)) {
                     Text(
-                        "${player.score}",
-                        style = MaterialTheme.typography.titleLarge,
-                        fontWeight = FontWeight.Black,
-                        color = if (player.score < 0) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface
+                        player.name,
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.SemiBold, // Clean, not bold
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                }
+                
+                Text(
+                    "${player.score}",
+                    style = MaterialTheme.typography.headlineSmall,
+                    fontWeight = if (isWinner) FontWeight.Black else FontWeight.Bold,
+                    color = if (isWinner) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
+                )
+            }
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.2f))
+        }
+
+        // Device Info - Subtle footer
+        if (game.deviceInfo != null) {
+            item {
+                Spacer(Modifier.height(16.dp))
+                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.alpha(0.5f)) {
+                    Icon(Icons.Default.Smartphone, null, modifier = Modifier.size(14.dp))
+                    Spacer(Modifier.width(8.dp))
+                    Text(
+                        "Played on ${game.deviceInfo}",
+                        style = MaterialTheme.typography.labelSmall
                     )
                 }
             }
@@ -269,28 +240,23 @@ private fun MatchOverviewTab(game: GameState) {
 }
 
 @Composable
-private fun StatCard(
+private fun StatBox(
     modifier: Modifier = Modifier,
-    icon: androidx.compose.ui.graphics.vector.ImageVector,
     label: String,
-    value: String,
-    color: Color
+    value: String
 ) {
     Surface(
-        modifier = modifier,
+        modifier = modifier.fillMaxHeight(),
         shape = RoundedCornerShape(16.dp),
-        color = color.copy(alpha = 0.1f),
-        border = androidx.compose.foundation.BorderStroke(1.dp, color.copy(alpha = 0.2f))
+        color = MaterialTheme.colorScheme.surfaceContainerLow
     ) {
         Column(
             modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.Center,
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            Icon(icon, null, tint = color, modifier = Modifier.size(24.dp))
-            Spacer(Modifier.height(8.dp))
-            Text(value, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = color)
-            Text(label, style = MaterialTheme.typography.labelSmall, color = color.copy(alpha = 0.7f))
+            Text(value, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+            Text(label, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
     }
 }
-
