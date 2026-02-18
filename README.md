@@ -8,7 +8,7 @@ PocketScore leverage Material 3 design principles to provide a premium, cohesive
 
 ## Showcase
 
-View our full high-resolution gallery and feature showcase at [mwarrc.github.io/pscore/screenshots](https://mwarrc.github.io/pscore/screenshots).
+View screenshots at [screenshots](https://mwarrc.github.io/pscore/screenshots).
 
 ## Key Capabilities
 
