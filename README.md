@@ -2,6 +2,15 @@
 
 PocketScore is a modern, expressive, and user-friendly score-keeping application for Android. Built with Kotlin and Jetpack Compose, it offers a seamless experience for managing game nights, tracking scores, and celebrating victories.
 
+<div align="center">
+  <br />
+  <a href="https://github.com/mwarrc/PocketScore/releases/download/v1.0.0-expressive/PocketScore_v1_expressive.apk">
+    <img src="https://img.shields.io/badge/Download-Latest%20APK-brightgreen?style=for-the-badge&logo=android" alt="Download Latest APK" />
+  </a>
+  <br />
+  <br />
+</div>
+
 ## Performance and Design
 
 PocketScore leverage Material 3 design principles to provide a premium, cohesive user interface. The application is built with an offline-first architecture, ensuring data privacy and consistent performance without the need for an internet connection.
@@ -79,6 +88,10 @@ Contributions are welcome. Please adhere to the following workflow:
 3.  Commit changes with descriptive messages.
 4.  Push to your branch.
 5.  Submit a Pull Request for review.
+
+## Licensing
+
+PocketScore is open-source software licensed under the [GNU Affero General Public License v3.0 (AGPL-3.0)](LICENSE). 
 
 ---
 
