@@ -1,17 +1,17 @@
 package com.mwarrc.pocketscore.ui.feature.home.components
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.remember
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -19,31 +19,14 @@ import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.mwarrc.pocketscore.ui.theme.getMaterialPlayerColor
 
 /**
  * A specialized interactive card for defining player identities during match setup.
- * 
- * Features:
- * - **Smart Validation Feedback**: Visual indicators for duplicates, empty slots, and new vs returning players.
- * - **Identity Intelligence**: Detects if a name matches a returning player with existing history.
- * - **AutoFocus Support**: Automatically requests keyboard focus when added to the list.
- * - **Destructive Actions**: Safely allows roster trimming with a dedicated remove button.
- * - **Expressive UI**: Uses high-contrast badges and clear supporting text to guide the user.
- * 
- * @param index The position of the player in the current roster (0-indexed).
- * @param name The current text value of the player's name.
- * @param hasError Whether the current input is invalid (empty or duplicate).
- * @param isDuplicate Specific flag for when the name already exists in the current session.
- * @param isContinuing Specific flag for when the name matches a globally saved player.
- * @param isNewPlayer Specific flag for a name that exists neither in the session nor the saved roster.
- * @param allowRemove Whether this card can be deleted from the roster.
- * @param shouldFocus Whether the text field should immediately capture input focus.
- * @param onNameChange Callback triggered as the user types.
- * @param onRemove Callback triggered when the remove action is tapped.
- * @param modifier Modifier for the card container.
  */
 @Composable
 fun PlayerInputCard(
@@ -61,7 +44,6 @@ fun PlayerInputCard(
 ) {
     val focusRequester = remember { FocusRequester() }
 
-    // Auto-focus logic for new entries
     LaunchedEffect(shouldFocus) {
         if (shouldFocus) {
             focusRequester.requestFocus()
@@ -74,11 +56,11 @@ fun PlayerInputCard(
         modifier = modifier.fillMaxWidth(),
         shape = RoundedCornerShape(20.dp),
         color = MaterialTheme.colorScheme.surface,
-        border = androidx.compose.foundation.BorderStroke(
+        border = BorderStroke(
             width = 1.dp,
             color = when {
-                isDuplicate -> MaterialTheme.colorScheme.error.copy(alpha = 0.7f)
-                hasError -> MaterialTheme.colorScheme.primary.copy(alpha = 0.3f)
+                isDuplicate -> MaterialTheme.colorScheme.error
+                hasError -> MaterialTheme.colorScheme.error.copy(alpha = 0.5f)
                 name.isNotEmpty() -> MaterialTheme.colorScheme.primary.copy(alpha = 0.5f)
                 else -> MaterialTheme.colorScheme.outlineVariant
             }
@@ -87,14 +69,12 @@ fun PlayerInputCard(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(12.dp),
+                .padding(vertical = 8.dp, horizontal = 12.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            // Identity Badge (Index)
             InputIdentityBadge(index = index, hasError = hasError, isDuplicate = isDuplicate)
 
-            // Dynamic Input Section
             Column(modifier = Modifier.weight(1f)) {
                 PlayerTextField(
                     name = name,
@@ -103,7 +83,6 @@ fun PlayerInputCard(
                     onNameChange = onNameChange
                 )
                 
-                // Smart Status Indicators
                 if (hasError || isContinuing || isNewPlayer) {
                     InputStatusIndicator(
                         name = name,
@@ -116,7 +95,6 @@ fun PlayerInputCard(
                 }
             }
 
-            // Destructive Action
             if (allowRemove) {
                 RemovePlayerIconButton(onRemove)
             } else {
@@ -138,11 +116,7 @@ private fun InputIdentityBadge(index: Int, hasError: Boolean, isDuplicate: Boole
                 text = "${index + 1}",
                 style = MaterialTheme.typography.titleSmall,
                 fontWeight = FontWeight.Black,
-                color = when {
-                    isDuplicate -> MaterialTheme.colorScheme.error
-                    hasError -> MaterialTheme.colorScheme.primary
-                    else -> MaterialTheme.colorScheme.onPrimaryContainer
-                }
+                color = if (hasError) MaterialTheme.colorScheme.onError else MaterialTheme.colorScheme.onPrimaryContainer
             )
         }
     }
@@ -158,7 +132,7 @@ private fun PlayerTextField(
     TextField(
         value = name,
         onValueChange = { newValue ->
-            val filtered = newValue.filter { it.isLetterOrDigit() }
+            val filtered = newValue.take(24)
             onNameChange(filtered)
         },
         modifier = Modifier
@@ -168,10 +142,14 @@ private fun PlayerTextField(
             Text(
                 text = "Player Name", 
                 style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
+                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
             ) 
         },
         singleLine = true,
+        keyboardOptions = KeyboardOptions(
+            capitalization = KeyboardCapitalization.Words,
+            imeAction = ImeAction.Next
+        ),
         colors = TextFieldDefaults.colors(
             focusedContainerColor = Color.Transparent,
             unfocusedContainerColor = Color.Transparent,
@@ -180,7 +158,10 @@ private fun PlayerTextField(
             focusedIndicatorColor = Color.Transparent,
             unfocusedIndicatorColor = Color.Transparent,
             errorIndicatorColor = Color.Transparent,
-            cursorColor = MaterialTheme.colorScheme.primary
+            cursorColor = MaterialTheme.colorScheme.primary,
+            focusedTextColor = MaterialTheme.colorScheme.onSurface,
+            unfocusedTextColor = MaterialTheme.colorScheme.onSurface,
+            errorTextColor = MaterialTheme.colorScheme.error
         ),
         textStyle = MaterialTheme.typography.bodyLarge.copy(
             fontWeight = FontWeight.Bold,
@@ -206,7 +187,7 @@ private fun InputStatusIndicator(
     ) {
         val (icon, text, color) = when {
             isDuplicate -> Triple(Icons.Default.Close, "Duplicate: ${name.trim()}", MaterialTheme.colorScheme.error)
-            hasError && name.isEmpty() -> Triple(Icons.Default.Close, "Empty Slot", MaterialTheme.colorScheme.primary.copy(alpha = 0.6f))
+            hasError && name.isEmpty() -> Triple(Icons.Default.Close, "Empty Slot", MaterialTheme.colorScheme.error.copy(alpha = 0.7f))
             isContinuing -> Triple(Icons.Default.History, "Continuing Record", MaterialTheme.colorScheme.primary)
             isNewPlayer -> Triple(Icons.Default.Star, "New Player", accentColor)
             else -> Triple(Icons.Default.History, "", MaterialTheme.colorScheme.onSurfaceVariant)

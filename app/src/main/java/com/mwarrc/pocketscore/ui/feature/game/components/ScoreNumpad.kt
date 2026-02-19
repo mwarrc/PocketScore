@@ -3,13 +3,16 @@ package com.mwarrc.pocketscore.ui.feature.game.components
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.spring
+import androidx.compose.foundation.LocalIndication
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.Orientation
 import androidx.compose.foundation.gestures.draggable
 import androidx.compose.foundation.gestures.rememberDraggableState
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Backspace
 import androidx.compose.material.icons.filled.KeyboardArrowDown
@@ -112,17 +115,18 @@ fun ScoreNumpad(
                         }
                     }
                 ),
-            color = MaterialTheme.colorScheme.surfaceColorAtElevation(8.dp),
-            shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp),
-            tonalElevation = 8.dp,
-            shadowElevation = 16.dp
+            color = MaterialTheme.colorScheme.surfaceContainer,
+            shape = RectangleShape,
+            tonalElevation = 0.dp,
+            shadowElevation = 0.dp
         ) {
             Column(
                 modifier = Modifier
-                    .padding(horizontal = 20.dp)
-                    .padding(top = 8.dp, bottom = 24.dp)
-                    .navigationBarsPadding(),
-                verticalArrangement = Arrangement.spacedBy(12.dp)
+                    .fillMaxWidth()
+                    .windowInsetsPadding(WindowInsets.navigationBars)
+                    .padding(horizontal = 8.dp)
+                    .padding(top = 4.dp, bottom = 20.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 // Elegant Top Bar
                 Row(
@@ -136,8 +140,9 @@ fun ScoreNumpad(
                     FilledTonalIconButton(
                         onClick = { showSettings = true },
                         modifier = Modifier.size(40.dp),
+                        shape = RectangleShape,
                         colors = IconButtonDefaults.filledTonalIconButtonColors(
-                            containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+                            containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.2f)
                         )
                     ) {
                         Icon(
@@ -151,11 +156,11 @@ fun ScoreNumpad(
                     // Center: Prominent Drag Handle
                     Box(
                         modifier = Modifier
-                            .width(36.dp)
+                            .width(40.dp)
                             .height(4.dp)
                             .background(
                                 MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.2f),
-                                RoundedCornerShape(2.dp)
+                                RectangleShape
                             )
                     )
 
@@ -167,11 +172,12 @@ fun ScoreNumpad(
                         FilledTonalIconButton(
                             onClick = onTogglePin,
                             modifier = Modifier.size(40.dp),
+                            shape = RectangleShape,
                             colors = IconButtonDefaults.filledTonalIconButtonColors(
                                 containerColor = if (isPinned) 
                                     MaterialTheme.colorScheme.primaryContainer 
                                 else 
-                                    MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+                                    MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.2f)
                             )
                         ) {
                             Icon(
@@ -188,8 +194,9 @@ fun ScoreNumpad(
                         FilledTonalIconButton(
                             onClick = onDismiss,
                             modifier = Modifier.size(40.dp),
+                            shape = RectangleShape,
                             colors = IconButtonDefaults.filledTonalIconButtonColors(
-                                containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+                                containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.2f)
                             )
                         ) {
                             Icon(
@@ -212,7 +219,7 @@ fun ScoreNumpad(
                 keys.forEach { row ->
                     Row(
                         modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
                         row.forEach { key ->
                             Box(
@@ -227,7 +234,7 @@ fun ScoreNumpad(
                                     isDark = isDark,
                                     onClick = {
                                         if (settings.hapticFeedbackEnabled) {
-                                            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                            haptic.performHapticFeedback(HapticFeedbackType.KeyboardTap)
                                         }
                                         when (key) {
                                             "backspace" -> onBackspaceClick()
@@ -260,24 +267,29 @@ private fun NumpadKey(
     onClick: () -> Unit
 ) {
     val isAction = key == "backspace"
-    
-    FilledTonalButton(
-        onClick = onClick,
-        modifier = Modifier.fillMaxSize(),
-        shape = RoundedCornerShape(14.dp),
-        colors = ButtonDefaults.filledTonalButtonColors(
-            containerColor = if (isAction) 
-                MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.3f)
-            else 
-                MaterialTheme.colorScheme.surfaceContainerHighest,
-            contentColor = if (isAction)
-                MaterialTheme.colorScheme.error
-            else if (isDark)
-                Color.White
-            else
-                MaterialTheme.colorScheme.onSurface
-        ),
-        contentPadding = PaddingValues(0.dp)
+    val containerColor = if (isAction) 
+        MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.3f)
+    else 
+        MaterialTheme.colorScheme.surfaceContainerHighest
+        
+    val contentColor = if (isAction)
+        MaterialTheme.colorScheme.error
+    else if (isDark)
+        Color.White
+    else
+        MaterialTheme.colorScheme.onSurface
+
+    // Use Box + clickable for zero-lag performance (bypasses Material button overhead)
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(containerColor)
+            .clickable(
+                onClick = onClick,
+                interactionSource = remember { MutableInteractionSource() },
+                indication = LocalIndication.current // Keeps visual feedback but executes faster
+            ),
+        contentAlignment = Alignment.Center
     ) {
         if (key == "backspace") {
             Icon(

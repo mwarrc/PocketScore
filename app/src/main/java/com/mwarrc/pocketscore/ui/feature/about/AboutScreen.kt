@@ -80,7 +80,7 @@ fun AboutScreen(
             ) {
                 // Header (App Logo + Version)
                 AboutHeader(
-                    version = "v0.1.2 Expressive"
+                    version = "v1.0.0 Expressive"
                 )
 
                 Spacer(Modifier.height(32.dp))

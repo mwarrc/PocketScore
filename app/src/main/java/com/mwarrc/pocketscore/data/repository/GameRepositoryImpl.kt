@@ -131,7 +131,7 @@ class GameRepositoryImpl(private val context: Context) : GameRepository {
             val updatedHistory = if (shouldSaveRecord) {
                 val archivedGame = gameState.copy(endTime = System.currentTimeMillis())
                 currentHistory.copy(
-                    pastGames = (listOf(archivedGame) + currentHistory.pastGames)
+                    pastGames = (listOf(archivedGame) + currentHistory.pastGames.filter { it.id != archivedGame.id })
                         .take(MAX_HISTORY_SIZE)
                 )
             } else {

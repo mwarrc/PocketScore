@@ -48,7 +48,7 @@ fun NumpadOverlay(
             ) {
                 ScoreNumpad(
                     onNumberClick = { num ->
-                        if (scoreInput.length < 5) onScoreInputChange(scoreInput + num)
+                        onScoreInputChange(scoreInput + num)
                     },
                     onBackspaceClick = {
                         if (scoreInput.isNotEmpty()) onScoreInputChange(scoreInput.dropLast(1))

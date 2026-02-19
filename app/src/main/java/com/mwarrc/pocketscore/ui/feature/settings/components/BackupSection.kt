@@ -21,6 +21,7 @@ import androidx.compose.material.icons.filled.FolderOpen
 import androidx.compose.material.icons.filled.IosShare
 import androidx.compose.material.icons.filled.Link
 import androidx.compose.material.icons.filled.Security
+import androidx.compose.material.icons.filled.VerifiedUser
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -31,6 +32,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.compose.material3.ExperimentalMaterial3Api
 import com.mwarrc.pocketscore.domain.model.AppSettings
 
@@ -177,52 +179,92 @@ fun BackupSection(
             }
         }
 
+        // ── Backup Status Banner ──
+        val isLinked = backupsFolderUri != null
         Surface(
-            onClick = onLinkBackupsFolder,
-            color = if (backupsFolderUri == null) 
-                MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.2f)
-            else 
-                MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.15f),
-            shape = RoundedCornerShape(16.dp),
+            onClick = if (isLinked) onNavigateToBackups else onLinkBackupsFolder,
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(top = 4.dp),
+            shape = RoundedCornerShape(20.dp),
+            color = if (isLinked) {
+                MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.25f)
+            } else {
+                MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.9f)
+            },
             border = BorderStroke(
                 1.dp, 
-                if (backupsFolderUri == null) 
+                if (isLinked) {
+                    MaterialTheme.colorScheme.primary.copy(alpha = 0.15f)
+                } else {
                     MaterialTheme.colorScheme.error.copy(alpha = 0.2f)
-                else 
-                    MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)
-            )
+                }
+            ),
+            tonalElevation = if (isLinked) 2.dp else 0.dp
         ) {
             Row(
                 modifier = Modifier.padding(16.dp),
-                verticalAlignment = Alignment.CenterVertically
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(16.dp)
             ) {
-                Icon(
-                    if (backupsFolderUri == null) Icons.Default.Warning else Icons.Default.FolderOpen,
-                    null,
-                    tint = if (backupsFolderUri == null) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.size(24.dp)
-                )
-                Spacer(Modifier.width(16.dp))
-                Column {
+                Surface(
+                    shape = CircleShape,
+                    color = if (isLinked) {
+                        MaterialTheme.colorScheme.primary
+                    } else {
+                        MaterialTheme.colorScheme.onErrorContainer.copy(alpha = 0.2f)
+                    },
+                    modifier = Modifier.size(44.dp)
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Icon(
+                            imageVector = if (isLinked) Icons.Default.FolderOpen else Icons.Default.Warning,
+                            contentDescription = null,
+                            modifier = Modifier.size(24.dp),
+                            tint = if (isLinked) {
+                                MaterialTheme.colorScheme.onPrimary
+                            } else {
+                                MaterialTheme.colorScheme.error
+                            }
+                        )
+                    }
+                }
+                Column(modifier = Modifier.weight(1f)) {
                     Text(
-                        if (backupsFolderUri == null) "Backup Vault: Unlinked" else "Backup Vault: Active",
+                        text = if (isLinked) "Backup Vault: SAFE" else "Survival Vault: AT RISK",
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.ExtraBold,
-                        color = if (backupsFolderUri == null) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary
+                        color = if (isLinked) {
+                            MaterialTheme.colorScheme.onPrimaryContainer
+                        } else {
+                            MaterialTheme.colorScheme.onErrorContainer
+                        }
                     )
-                    Spacer(Modifier.height(2.dp))
                     Text(
-                        text = if (backupsFolderUri == null)
-                            "Unlinked records won't survive an app uninstall."
-                        else
-                            "Triple-Shield mirror protection is active.",
+                        text = if (isLinked) {
+                            "Mirror protection is active. Your data is being safely archived."
+                        } else {
+                            "Records are at risk if uninstalled. Link a folder for maximum survival."
+                        },
                         style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f)
+                        color = if (isLinked) {
+                            MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.75f)
+                        } else {
+                            MaterialTheme.colorScheme.onErrorContainer.copy(alpha = 0.8f)
+                        },
+                        lineHeight = 16.sp
                     )
                 }
+                Icon(
+                    Icons.AutoMirrored.Filled.ArrowForwardIos,
+                    null,
+                    modifier = Modifier.size(12.dp),
+                    tint = if (isLinked) {
+                        MaterialTheme.colorScheme.primary.copy(alpha = 0.5f)
+                    } else {
+                        MaterialTheme.colorScheme.error.copy(alpha = 0.6f)
+                    }
+                )
             }
         }
     }

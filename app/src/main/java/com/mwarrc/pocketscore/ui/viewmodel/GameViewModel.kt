@@ -43,6 +43,9 @@ class GameViewModel(
     private val _error = MutableSharedFlow<String>()
     val error: SharedFlow<String> = _error.asSharedFlow()
 
+    private val _importSuccess = MutableSharedFlow<Pair<Int, Int>>()
+    val importSuccess: SharedFlow<Pair<Int, Int>> = _importSuccess.asSharedFlow()
+
     init {
         initializeState()
         initializeAnalytics()
@@ -144,7 +147,7 @@ class GameViewModel(
     fun startNewGame(playerNames: List<String>) {
         val trimmedNames = playerNames.map { it.trim() }.filter { it.isNotBlank() }
         
-        // Validation
+        // 1. Validation (Synchronous check first)
         if (trimmedNames.size < MIN_PLAYERS) {
             emitError("At least $MIN_PLAYERS players are required to start a game")
             return
@@ -162,21 +165,36 @@ class GameViewModel(
             return
         }
         
-        val newPlayers = uniqueNames.map { Player(name = it) }
-        val firstPlayerId = newPlayers.first().id
-        
-        val newState = GameState(
-            players = newPlayers,
-            isGameActive = true,
-            currentPlayerId = firstPlayerId,
-            deviceInfo = _state.value.settings.customDeviceName ?: deviceInfoProvider.getDeviceModel()
-        )
-        
-        updateGameState(newState)
-        analyticsManager.logGameStarted(
-            newPlayers.size,
-            analyticsId = _state.value.settings.analyticsId
-        )
+        // 2. State Transformation & Persistence (Async)
+        viewModelScope.launch {
+            try {
+                // BUG FIX: Ensure any currently active match is safely archived before overwriting
+                // This prevents losing progress if a user starts a new game while another is running.
+                val currentState = _state.value.gameState
+                if (currentState.isGameActive && (currentState.players.any { it.score != 0 } || currentState.getScoringEventCount() > 0)) {
+                    repository.archiveCurrentGame(currentState.copy(isFinalized = false), saveOverride = false)
+                }
+
+                val newPlayers = uniqueNames.map { Player(name = it) }
+                val firstPlayerId = newPlayers.first().id
+                
+                val newState = GameState(
+                    players = newPlayers,
+                    isGameActive = true,
+                    currentPlayerId = firstPlayerId,
+                    deviceInfo = _state.value.settings.customDeviceName ?: deviceInfoProvider.getDeviceModel()
+                )
+                
+                repository.saveGameState(newState)
+                analyticsManager.logGameStarted(
+                    newPlayers.size,
+                    analyticsId = _state.value.settings.analyticsId
+                )
+            } catch (e: Exception) {
+                Log.e(TAG, "Error starting new game", e)
+                emitError("Failed to start game")
+            }
+        }
     }
 
     /**
@@ -247,6 +265,68 @@ class GameViewModel(
     }
 
     /**
+     * Calculates the ID of the next valid player based on current settings and game state.
+     * 
+     * Handles rotation, skipping eliminated players when strict mode is active,
+     * and ensuring we don't return an invalid ID.
+     * 
+     * @param state The current game state
+     * @param settings Current application settings
+     * @param forceSkipCurrent If true, will start searching from the player AFTER the current one
+     * @return The ID of the next player to take a turn
+     */
+    private fun calculateNextTurnId(
+        state: GameState,
+        settings: AppSettings,
+        forceSkipCurrent: Boolean = false
+    ): String? {
+        val activePlayers = state.players.filter { it.isActive }
+        if (activePlayers.isEmpty()) return state.currentPlayerId
+
+        val currentPlayerId = state.currentPlayerId ?: return activePlayers.firstOrNull()?.id
+        
+        // Helper to determine if a player should be skipped
+        fun shouldSkip(player: Player): Boolean {
+            if (!settings.poolBallManagementEnabled) return false
+            
+            val ballValues = settings.ballValues
+            val tableSum = state.ballsOnTable.sumOf { ballValues[it] ?: 0 }
+            val leaderScore = activePlayers.maxOfOrNull { it.score } ?: 0
+            
+            val isEliminated = if (tableSum <= 0) false else {
+                val actualLeaders = if (activePlayers.any { it.score != 0 }) {
+                    activePlayers.filter { it.score == leaderScore }.map { it.id }.toSet()
+                } else {
+                    emptySet()
+                }
+                val potentialMax = player.score + tableSum
+                !actualLeaders.contains(player.id) && potentialMax < leaderScore
+            }
+
+            return isEliminated && (settings.strictTurnMode || !settings.allowEliminatedInput)
+        }
+
+        val currentIndex = activePlayers.indexOfFirst { it.id == currentPlayerId }
+        if (currentIndex == -1) return activePlayers.firstOrNull()?.id
+
+        // Start searching from the current player (unless forceSkipCurrent is true)
+        var nextIndex = if (forceSkipCurrent) (currentIndex + 1) % activePlayers.size else currentIndex
+        var attempts = 0
+        
+        while (attempts < activePlayers.size) {
+            val candidate = activePlayers[nextIndex]
+            if (!shouldSkip(candidate)) {
+                return candidate.id
+            }
+            nextIndex = (nextIndex + 1) % activePlayers.size
+            attempts++
+        }
+        
+        // If everyone is eliminated or skipped, fallback to the current player or first available
+        return currentPlayerId
+    }
+
+    /**
      * Finds the next valid (non-eliminated) player for the current turn.
      * 
      * In pool management mode, skips players who are mathematically eliminated.
@@ -256,63 +336,7 @@ class GameViewModel(
      * @return ID of next valid player, or null if none available
      */
     private fun findNextValidPlayer(state: GameState, settings: AppSettings): String? {
-        val activePlayers = state.players.filter { it.isActive }
-        if (activePlayers.isEmpty()) return state.currentPlayerId
-        
-        val currentPlayerId = state.currentPlayerId ?: return activePlayers.firstOrNull()?.id
-        if (!settings.poolBallManagementEnabled) return currentPlayerId
-        
-        val ballValues = settings.ballValues
-        val tableSum = state.ballsOnTable.sumOf { ballValues[it] ?: 0 }
-        val leaderScore = activePlayers.maxOfOrNull { it.score } ?: 0
-        
-        // Determine actual leaders (players tied for first place)
-        val actualLeaders = if (activePlayers.any { it.score != 0 }) {
-            activePlayers.filter { it.score == leaderScore }.map { it.id }.toSet()
-        } else {
-            emptySet()
-        }
-
-        /**
-         * Checks if a player is mathematically eliminated.
-         */
-        fun isEliminated(player: Player): Boolean {
-            if (tableSum <= 0) return false
-            val potentialMax = player.score + tableSum
-            return !actualLeaders.contains(player.id) && potentialMax < leaderScore
-        }
-
-        /**
-         * Checks if a player should be skipped in turn rotation.
-         */
-        fun shouldSkipPlayer(player: Player): Boolean {
-            return isEliminated(player) && 
-                   (settings.strictTurnMode || !settings.allowEliminatedInput)
-        }
-
-        val currentPlayer = activePlayers.find { it.id == currentPlayerId }
-        val shouldSkipCurrent = currentPlayer != null && shouldSkipPlayer(currentPlayer)
-            
-        if (!shouldSkipCurrent) return currentPlayerId
-        
-        // Find next valid player in rotation
-        val currentIndex = activePlayers.indexOfFirst { it.id == currentPlayerId }
-        if (currentIndex == -1) return activePlayers.firstOrNull()?.id
-        
-        var nextIndex = (currentIndex + 1) % activePlayers.size
-        var attempts = 0
-        
-        while (attempts < activePlayers.size) {
-            val candidate = activePlayers[nextIndex]
-            if (!shouldSkipPlayer(candidate)) {
-                return candidate.id
-            }
-            nextIndex = (nextIndex + 1) % activePlayers.size
-            attempts++
-        }
-        
-        // All players eliminated - return current
-        return currentPlayerId
+        return calculateNextTurnId(state, settings, forceSkipCurrent = false)
     }
 
     /**
@@ -324,13 +348,41 @@ class GameViewModel(
     fun resumeGame(game: GameState, shouldOverrideHistory: Boolean) {
         viewModelScope.launch {
             try {
+                // BUG FIX: Archive existing active game before resuming another one
+                val currentActive = _state.value.gameState
+                if (currentActive.isGameActive && (currentActive.players.any { it.score != 0 } || currentActive.getScoringEventCount() > 0)) {
+                    repository.archiveCurrentGame(currentActive.copy(isFinalized = false), saveOverride = false)
+                }
+
                 if (shouldOverrideHistory) {
                     repository.deleteGameFromHistory(game.id)
                 }
-                updateGameState(game.copy(
+                
+                val now = System.currentTimeMillis()
+
+                // If we're creating a new entry, we MUST generate a new ID and reset startTime
+                // to avoid duplicate keys in history and chronological confusion.
+                val sessionToResume = if (shouldOverrideHistory) {
+                    game
+                } else {
+                    game.copy(
+                        id = java.util.UUID.randomUUID().toString(),
+                        startTime = now // Reset start time for the new branch
+                    )
+                }
+
+                // BUG FIX: Reset terminal status flags to make the session active again
+                val finalState = sessionToResume.copy(
                     isGameActive = true,
-                    lastUpdate = System.currentTimeMillis()
-                ))
+                    isFinalized = false,
+                    endTime = null,
+                    canUndo = false,     // Reset undo for the fresh resume session
+                    isArchived = false,  // Ensure it's visible in main flow
+                    lastUpdate = now
+                )
+
+                repository.saveGameState(finalState)
+                
                 analyticsManager.logGameStarted(
                     game.players.size,
                     isResume = true,
@@ -389,17 +441,12 @@ class GameViewModel(
      */
     fun nextTurn() {
         val currentState = _state.value.gameState
-        val activePlayers = currentState.players.filter { it.isActive }
+        val settings = _state.value.settings
         
-        if (activePlayers.isEmpty()) {
-            Log.w(TAG, "No active players for next turn")
-            return
+        val nextId = calculateNextTurnId(currentState, settings, forceSkipCurrent = true)
+        if (nextId != null) {
+            updateGameState(currentState.copy(currentPlayerId = nextId))
         }
-
-        val currentIndex = activePlayers.indexOfFirst { it.id == currentState.currentPlayerId }
-        val nextIndex = if (currentIndex == -1) 0 else (currentIndex + 1) % activePlayers.size
-        
-        updateGameState(currentState.copy(currentPlayerId = activePlayers[nextIndex].id))
     }
 
     /**
@@ -458,21 +505,25 @@ class GameViewModel(
         )
         val updatedGlobalEvents = currentState.globalEvents + globalEvent
 
+        // Prepare context for turn calculation
+        val tempState = currentState.copy(
+            players = updatedPlayers,
+            globalEvents = updatedGlobalEvents
+        )
+
         // Advance to next active player if enabled
-        val activePlayers = updatedPlayers.filter { it.isActive }
-        val nextPlayerId = if (settings.autoNextTurn && activePlayers.isNotEmpty()) {
-            val currentIndex = activePlayers.indexOfFirst { it.id == currentState.currentPlayerId }
-            val nextIndex = if (currentIndex == -1) 0 else (currentIndex + 1) % activePlayers.size
-            activePlayers[nextIndex].id
+        val nextPlayerId = if (settings.autoNextTurn) {
+            calculateNextTurnId(tempState, settings, forceSkipCurrent = true) ?: tempState.currentPlayerId
         } else {
-            currentState.currentPlayerId
+            // Even if not auto-advancing, we should check if current player became eliminated
+            // and might need to be skipped if they can't input anymore.
+            // But usually autoNextTurn is the primary driver for this bug.
+            tempState.currentPlayerId
         }
 
-        updateGameState(currentState.copy(
-            players = updatedPlayers,
+        updateGameState(tempState.copy(
             currentPlayerId = nextPlayerId,
             lastUpdate = System.currentTimeMillis(),
-            globalEvents = updatedGlobalEvents,
             canUndo = true
         ))
     }
@@ -571,29 +622,21 @@ class GameViewModel(
             points = if (isActive) 1 else 0,
             message = if (isActive) "RE-ENABLED: ${player.name}" else "DISABLED: ${player.name}"
         )
-        val updatedGlobalEvents = currentState.globalEvents + statusEvent
+        
+        val tempState = currentState.copy(
+            players = updatedPlayers,
+            globalEvents = currentState.globalEvents + statusEvent
+        )
 
-        // If disabling the current player, advance to next active player
-        var nextPlayerId = currentState.currentPlayerId
-        if (!isActive && playerId == currentState.currentPlayerId) {
-            val nextActive = updatedPlayers.filter { it.isActive }
-            if (nextActive.isNotEmpty()) {
-                val oldActive = currentState.players.filter { it.isActive }
-                val oldIndex = oldActive.indexOfFirst { it.id == playerId }
-                
-                // Fixed: Check for valid index before using modulo
-                nextPlayerId = if (oldIndex >= 0) {
-                    nextActive[oldIndex % nextActive.size].id
-                } else {
-                    nextActive.first().id
-                }
-            }
+        // If disabling the current player, advance to next valid player
+        val nextPlayerId = if (!isActive && playerId == currentState.currentPlayerId) {
+            calculateNextTurnId(tempState, settings, forceSkipCurrent = true) ?: tempState.currentPlayerId
+        } else {
+            tempState.currentPlayerId
         }
 
-        updateGameState(currentState.copy(
-            players = updatedPlayers,
+        updateGameState(tempState.copy(
             currentPlayerId = nextPlayerId,
-            globalEvents = updatedGlobalEvents,
             lastUpdate = System.currentTimeMillis()
         ))
     }
@@ -668,6 +711,10 @@ class GameViewModel(
                         repository.createLocalSnapshot("Restart-Trigger-$timestamp")
                         refreshSnapshots()
                     }
+                    
+                    // BUG FIX: Clear state after archiving to prevent double-archiving 
+                    // in the subsequent startNewGame call.
+                    repository.clearGameState()
                 }
                 
                 // Start new game
@@ -758,7 +805,19 @@ class GameViewModel(
     fun importData(share: PocketScoreShare, playerNameMappings: Map<String, String> = emptyMap()) {
         viewModelScope.launch {
             try {
+                // Pre-merge calculation for summary
+                val currentHistory = _state.value.gameHistory
+                val currentSettings = _state.value.settings
+                
+                val existingIds = currentHistory.pastGames.map { it.id }.toSet()
+                val newMatches = share.games.count { it.id !in existingIds }
+                
+                val existingNamesLower = currentSettings.savedPlayerNames.map { it.lowercase() }.toSet()
+                val mappedFriends = share.friends.map { playerNameMappings[it] ?: it }
+                val newPlayers = mappedFriends.distinct().count { it.lowercase() !in existingNamesLower }
+
                 repository.mergeShareData(share, playerNameMappings)
+                _importSuccess.emit(newMatches to newPlayers)
             } catch (e: Exception) {
                 Log.e(TAG, "Error importing data", e)
                 emitError("Failed to import data")

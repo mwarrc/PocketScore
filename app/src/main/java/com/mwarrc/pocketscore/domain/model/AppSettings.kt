@@ -114,6 +114,7 @@ data class AppSettings(
     val savedPlayerNames: List<String> = emptyList(),
     val showQuickSelectOnHome: Boolean = true,
     val hiddenPlayers: List<String> = emptyList(),
+    val deactivatedPlayers: List<String> = emptyList(),
     val rosterSortOption: RosterSortOption = RosterSortOption.MANUAL,
     
     // Snapshots & Backups

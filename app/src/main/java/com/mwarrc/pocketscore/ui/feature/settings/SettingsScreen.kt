@@ -69,6 +69,7 @@ fun SettingsScreen(
     onNavigateToGame: () -> Unit,
     onNavigateToHistory: () -> Unit,
     onNavigateToAbout: () -> Unit,
+    onNavigateToHelp: () -> Unit,
     onNavigateToBackups: () -> Unit,
     onNavigateToFeedback: () -> Unit,
     onNavigateToBallValues: () -> Unit,
@@ -170,6 +171,7 @@ fun SettingsScreen(
             SettingsDivider(alpha = 0.5f)
 
             SupportSection(
+                onNavigateToHelp = onNavigateToHelp,
                 onNavigateToFeedback = onNavigateToFeedback,
                 onNavigateToAbout = onNavigateToAbout
             )

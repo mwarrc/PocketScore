@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -26,13 +27,17 @@ import androidx.compose.material.icons.filled.HistoryEdu
 import android.net.Uri
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
+import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.FolderOpen
 import androidx.compose.material.icons.filled.Link
 import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.Shield
+import androidx.compose.material.icons.filled.VerifiedUser
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Surface
 import androidx.compose.material.icons.filled.Schedule
+import androidx.compose.material.icons.filled.Security
 import androidx.compose.material.icons.filled.Storage
 import androidx.compose.material.icons.filled.Sync
 import androidx.compose.material3.CenterAlignedTopAppBar
@@ -57,6 +62,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.mwarrc.pocketscore.domain.model.AppSettings
 import com.mwarrc.pocketscore.ui.feature.settings.components.CreateSnapshotDialog
 import com.mwarrc.pocketscore.ui.feature.settings.components.DeleteSnapshotDialog
@@ -194,10 +200,60 @@ fun BackupManagementScreen(
             contentPadding = PaddingValues(bottom = 88.dp, top = 8.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            // Auto-Snapshots Section
+            item {
+                val isLinked = settings.backupsFolderUri != null
+                val isAutoOn = settings.localSnapshotsEnabled
+                val layers = listOf(
+                    "Internal" to true,
+                    "Sync" to true,
+                    "Vault" to isLinked,
+                    "Downloads" to isAutoOn
+                )
+                val activeCount = layers.count { it.second }
+                val allGood = activeCount == 4
+                
+                Surface(
+                    color = if (allGood) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.2f) 
+                            else MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.2f),
+                    shape = RoundedCornerShape(20.dp),
+                    border = BorderStroke(
+                        1.dp, 
+                        if (allGood) MaterialTheme.colorScheme.primary.copy(alpha = 0.2f)
+                        else MaterialTheme.colorScheme.tertiary.copy(alpha = 0.2f)
+                    ),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Column(modifier = Modifier.padding(16.dp)) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(
+                                if (allGood) Icons.Default.VerifiedUser else Icons.Default.Shield,
+                                null,
+                                tint = if (allGood) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.tertiary,
+                                modifier = Modifier.size(20.dp)
+                            )
+                            Spacer(Modifier.width(12.dp))
+                            Text(
+                                if (allGood) "Maximum Survival Active" else "Redundancy: $activeCount/4 Layers",
+                                style = MaterialTheme.typography.titleSmall,
+                                fontWeight = FontWeight.Bold,
+                                color = if (allGood) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onTertiaryContainer
+                            )
+                        }
+                        Spacer(Modifier.height(8.dp))
+                        Text(
+                            if (allGood) "Every snapshot is safely mirrored across all 4 defense layers. Your game records are safe."
+                            else "Currently mirrored to: ${layers.filter { it.second }.joinToString { it.first }}. Link a Vault and enable Auto-Snapshots for max security.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = (if (allGood) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onTertiaryContainer).copy(alpha = 0.8f),
+                            lineHeight = 16.sp
+                        )
+                    }
+                }
+            }
+
             item {
                 Text(
-                    "External Backup Folder",
+                    "Primary Vault (External Folder)",
                     style = MaterialTheme.typography.labelLarge,
                     color = MaterialTheme.colorScheme.primary,
                     fontWeight = FontWeight.Bold,
@@ -428,7 +484,7 @@ fun BackupManagementScreen(
                     onRestore = {
                         onRestore(name)
                         scope.launch {
-                            snackbarHostState.showSnackbar("Opening Import Manager...")
+                            snackbarHostState.showSnackbar("Preparing restore preview...")
                         }
                     },
                     onDelete = { snapshotToDelete = name },

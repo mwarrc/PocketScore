@@ -38,29 +38,89 @@ fun FriendsTab(
     onUpdateSettings: ((AppSettings) -> AppSettings) -> Unit,
     onRename: (String, String) -> Unit
 ) {
+    // Selection state management
+    var selectionMode by remember { mutableStateOf(false) }
+    var selectedNames by remember { mutableStateOf(setOf<String>()) }
+
     // Dialog state management
     var showAddDialog by remember { mutableStateOf(false) }
     var friendToRemove by remember { mutableStateOf<PlayerStats?>(null) }
     var friendToRename by remember { mutableStateOf<PlayerStats?>(null) }
 
+    // Reset selection when exiting selection mode
+    LaunchedEffect(selectionMode) {
+        if (!selectionMode) selectedNames = emptySet()
+    }
+
     // Calculate player statistics from history
-    val playerStats = remember(history, settings.savedPlayerNames, settings.hiddenPlayers) {
+    val playerStats = remember(history, settings.savedPlayerNames, settings.hiddenPlayers, settings.deactivatedPlayers) {
         PlayerStats.calculateAll(
             playerNames = settings.savedPlayerNames,
             history = history,
-            hiddenPlayers = settings.hiddenPlayers
+            hiddenPlayers = settings.hiddenPlayers,
+            deactivatedPlayers = settings.deactivatedPlayers
         )
     }
 
     Scaffold(
         floatingActionButton = {
-            ExtendedFloatingActionButton(
-                onClick = { showAddDialog = true },
-                icon = { Icon(Icons.Default.Add, contentDescription = null) },
-                text = { Text("New Player") },
-                containerColor = MaterialTheme.colorScheme.primaryContainer,
-                contentColor = MaterialTheme.colorScheme.onPrimaryContainer
-            )
+            if (!selectionMode) {
+                ExtendedFloatingActionButton(
+                    onClick = { showAddDialog = true },
+                    icon = { Icon(Icons.Default.Add, contentDescription = null) },
+                    text = { Text("New Player") },
+                    containerColor = MaterialTheme.colorScheme.primaryContainer,
+                    contentColor = MaterialTheme.colorScheme.onPrimaryContainer
+                )
+            }
+        },
+        bottomBar = {
+            if (selectionMode) {
+                BottomAppBar(
+                    containerColor = MaterialTheme.colorScheme.secondaryContainer,
+                    contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
+                    actions = {
+                        // Hide from Leaderboard
+                        IconButton(onClick = {
+                            onUpdateSettings { s ->
+                                val allHidden = (s.hiddenPlayers + selectedNames).distinct()
+                                s.copy(hiddenPlayers = allHidden)
+                            }
+                            selectionMode = false
+                        }) {
+                            Icon(Icons.Default.VisibilityOff, "Hide from Ranks")
+                        }
+                        
+                        // Hide from Home Screen (Deactivate)
+                        IconButton(onClick = {
+                            onUpdateSettings { s ->
+                                val allDeactivated = (s.deactivatedPlayers + selectedNames).distinct()
+                                s.copy(hiddenPlayers = (s.hiddenPlayers + selectedNames).distinct(), deactivatedPlayers = allDeactivated)
+                            }
+                            selectionMode = false
+                        }) {
+                            Icon(Icons.Default.HomeWork, "Hide from Home")
+                        }
+                    },
+                    floatingActionButton = {
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            // Delete Mass Action
+                            FloatingActionButton(
+                                onClick = {
+                                    onUpdateSettings { s ->
+                                        s.copy(savedPlayerNames = s.savedPlayerNames.filter { it !in selectedNames })
+                                    }
+                                    selectionMode = false
+                                },
+                                containerColor = MaterialTheme.colorScheme.error,
+                                contentColor = MaterialTheme.colorScheme.onError
+                            ) {
+                                Icon(Icons.Default.Delete, "Delete Selected")
+                            }
+                        }
+                    }
+                )
+            }
         }
     ) { padding ->
         if (playerStats.isEmpty()) {
@@ -69,6 +129,20 @@ fun FriendsTab(
             PlayerList(
                 playerStats = playerStats,
                 padding = padding,
+                selectionMode = selectionMode,
+                selectedNames = selectedNames,
+                onToggleSelection = { name ->
+                    selectedNames = if (name in selectedNames) {
+                        selectedNames - name
+                    } else {
+                        selectedNames + name
+                    }
+                    if (selectedNames.isEmpty()) selectionMode = false
+                },
+                onEnterSelectionMode = { name ->
+                    selectionMode = true
+                    selectedNames = setOf(name)
+                },
                 onToggleLeaderboard = { stat ->
                     onUpdateSettings { s ->
                         val newHidden = if (stat.isHiddenInLeaderboard) {
@@ -77,6 +151,16 @@ fun FriendsTab(
                             s.hiddenPlayers + stat.name
                         }
                         s.copy(hiddenPlayers = newHidden)
+                    }
+                },
+                onToggleDeactivated = { stat ->
+                    onUpdateSettings { s ->
+                        val newDeactivated = if (stat.isDeactivated) {
+                            s.deactivatedPlayers - stat.name
+                        } else {
+                            s.deactivatedPlayers + stat.name
+                        }
+                        s.copy(deactivatedPlayers = newDeactivated)
                     }
                 },
                 onRemove = { friendToRemove = it },
@@ -169,27 +253,32 @@ private fun EmptyRosterState(modifier: Modifier = Modifier) {
 private fun PlayerList(
     playerStats: List<PlayerStats>,
     padding: PaddingValues,
+    selectionMode: Boolean = false,
+    selectedNames: Set<String> = emptySet(),
+    onToggleSelection: (String) -> Unit = {},
+    onEnterSelectionMode: (String) -> Unit = {},
     onToggleLeaderboard: (PlayerStats) -> Unit,
+    onToggleDeactivated: (PlayerStats) -> Unit,
     onRemove: (PlayerStats) -> Unit,
     onRename: (PlayerStats) -> Unit
 ) {
     LazyColumn(
         modifier = Modifier.fillMaxSize().padding(padding),
-        contentPadding = PaddingValues(16.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp)
+        contentPadding = PaddingValues(top = 8.dp, bottom = 100.dp),
+        verticalArrangement = Arrangement.spacedBy(4.dp)
     ) {
         items(playerStats, key = { it.name }) { stat ->
             PlayerStatCard(
                 stat = stat,
+                selectionMode = selectionMode,
+                isSelected = stat.name in selectedNames,
+                onToggleSelection = { onToggleSelection(stat.name) },
+                onEnterSelectionMode = { onEnterSelectionMode(stat.name) },
                 onToggleLeaderboard = { onToggleLeaderboard(stat) },
+                onToggleDeactivated = { onToggleDeactivated(stat) },
                 onRemove = { onRemove(stat) },
                 onRename = { onRename(stat) }
             )
-        }
-        
-        // Bottom padding for FAB
-        item { 
-            Spacer(Modifier.height(80.dp)) 
         }
     }
 }

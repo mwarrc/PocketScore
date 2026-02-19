@@ -56,6 +56,7 @@ fun HomeScreen(
     onNavigateToHistory: () -> Unit,
     onNavigateToSettings: () -> Unit,
     onNavigateToAbout: () -> Unit,
+    onNavigateToHelp: () -> Unit,
     onUpdateSettings: ((AppSettings) -> AppSettings) -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -90,13 +91,14 @@ fun HomeScreen(
                 .fillMaxSize()
                 .padding(padding)
                 .imePadding(),
-            contentPadding = PaddingValues(top = 56.dp, bottom = 32.dp),
-            verticalArrangement = Arrangement.spacedBy(20.dp)
+            contentPadding = PaddingValues(top = 40.dp, bottom = 32.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             // Hero Section (Branding & Quick Navigation)
             item {
                 HomeHeader(
                     onNavigateToAbout = onNavigateToAbout,
+                    onNavigateToHelp = onNavigateToHelp,
                     modifier = Modifier.padding(horizontal = 20.dp)
                 )
             }
@@ -109,40 +111,39 @@ fun HomeScreen(
                         onResumeGame = onResumeGame,
                         onNavigateToHistory = onNavigateToHistory,
                         onNavigateToSettings = onNavigateToSettings,
-                        showSettingsBadge = !storagePermissionGranted,
+                        showSettingsBadge = settings.backupsFolderUri == null,
                         modifier = Modifier.padding(horizontal = 20.dp)
                     )
                 } else {
                     NavigationCard(
                         onNavigateToHistory = onNavigateToHistory,
                         onNavigateToSettings = onNavigateToSettings,
-                        showSettingsBadge = !storagePermissionGranted,
+                        showSettingsBadge = settings.backupsFolderUri == null,
                         modifier = Modifier.padding(horizontal = 20.dp)
                     )
                 }
             }
 
             // High-Level Session Feedback
-            item {
-                HomeSessionBanner(
-                    settings = settings,
-                    onSettingsClick = onNavigateToSettings,
-                    modifier = Modifier.padding(horizontal = 24.dp)
-                )
+            if (settings.isGuestSession) {
+                item {
+                    HomeSessionBanner(
+                        settings = settings,
+                        onSettingsClick = onNavigateToSettings,
+                        modifier = Modifier.padding(horizontal = 24.dp)
+                    )
+                }
             }
 
             // Feature Highlights & Pro Tips
-            item {
-                HomePromoSection(
-                    showTip = settings.showIdentityTip,
-                    onDismissTip = { onUpdateSettings { it.copy(showIdentityTip = false) } },
-                    modifier = Modifier.padding(horizontal = 24.dp)
-                )
-            }
-
-            // Roster Setup Header
-            item {
-                HomeRosterHeader(modifier = Modifier.padding(horizontal = 24.dp))
+            if (settings.showIdentityTip) {
+                item {
+                    HomePromoSection(
+                        showTip = settings.showIdentityTip,
+                        onDismissTip = { onUpdateSettings { it.copy(showIdentityTip = false) } },
+                        modifier = Modifier.padding(horizontal = 24.dp)
+                    )
+                }
             }
 
             // Smart Quick-Select Roster
@@ -158,6 +159,7 @@ fun HomeScreen(
                         onAutoSortOptionChange = { option ->
                             onUpdateSettings { it.copy(rosterSortOption = option) }
                         },
+                        settings = settings,
                         history = history,
                         modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp)
                     )

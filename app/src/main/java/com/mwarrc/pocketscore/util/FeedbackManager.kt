@@ -9,9 +9,9 @@ import java.util.*
  * Types of user feedback.
  */
 enum class FeedbackType {
-    BUG_REPORT,
-    FEATURE_REQUEST,
     CONTACT,
+    FEATURE_REQUEST,
+    BUG_REPORT,
     OTHER
 }
 

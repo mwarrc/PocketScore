@@ -25,7 +25,8 @@ data class PlayerStats(
     val avgScore: Float,
     val bestScore: Int,
     val totalPoints: Int,
-    val isHiddenInLeaderboard: Boolean
+    val isHiddenInLeaderboard: Boolean,
+    val isDeactivated: Boolean
 ) {
     companion object {
         /**
@@ -34,12 +35,14 @@ data class PlayerStats(
          * @param playerName The player's name to calculate stats for
          * @param history Complete game history
          * @param hiddenPlayers List of player names hidden from leaderboard
+         * @param deactivatedPlayers List of player names hidden from home screen
          * @return PlayerStats object with calculated metrics
          */
         fun fromHistory(
             playerName: String,
             history: GameHistory,
-            hiddenPlayers: List<String>
+            hiddenPlayers: List<String>,
+            deactivatedPlayers: List<String> = emptyList()
         ): PlayerStats {
             // Find all games this player participated in (case-insensitive)
             val games = history.pastGames.filter { game ->
@@ -76,7 +79,8 @@ data class PlayerStats(
                 avgScore = if (played > 0) playerScores.average().toFloat() else 0f,
                 bestScore = playerScores.maxOrNull() ?: 0,
                 totalPoints = playerScores.sum(),
-                isHiddenInLeaderboard = playerName in hiddenPlayers
+                isHiddenInLeaderboard = playerName in hiddenPlayers,
+                isDeactivated = playerName in deactivatedPlayers
             )
         }
         
@@ -86,15 +90,17 @@ data class PlayerStats(
          * @param playerNames List of all player names to calculate stats for
          * @param history Complete game history
          * @param hiddenPlayers List of player names hidden from leaderboard
+         * @param deactivatedPlayers List of player names hidden from home screen
          * @return List of PlayerStats sorted by games played (descending)
          */
         fun calculateAll(
             playerNames: List<String>,
             history: GameHistory,
-            hiddenPlayers: List<String>
+            hiddenPlayers: List<String>,
+            deactivatedPlayers: List<String> = emptyList()
         ): List<PlayerStats> {
             return playerNames
-                .map { name -> fromHistory(name, history, hiddenPlayers) }
+                .map { name -> fromHistory(name, history, hiddenPlayers, deactivatedPlayers) }
                 .sortedByDescending { it.gamesPlayed }
         }
     }

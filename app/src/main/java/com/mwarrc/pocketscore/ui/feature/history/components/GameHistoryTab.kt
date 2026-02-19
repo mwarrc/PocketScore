@@ -158,6 +158,7 @@ private fun groupGamesByDate(games: List<GameState>): Map<String, List<GameState
     val currentYear = SimpleDateFormat("yyyy", Locale.getDefault()).format(Date())
 
     return games
+        .distinctBy { it.id }
         .sortedByDescending { it.endTime ?: it.startTime }
         .groupBy { game ->
             val date = Date(game.endTime ?: game.startTime)

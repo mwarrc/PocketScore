@@ -16,12 +16,18 @@ import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.ActivityResultLauncher
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.core.content.IntentCompat
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
@@ -50,6 +56,7 @@ import com.mwarrc.pocketscore.ui.feature.history.HistoryScreen
 import com.mwarrc.pocketscore.ui.feature.history.import_.ImportPreviewScreen
 import com.mwarrc.pocketscore.ui.feature.history.MatchDetailsScreen
 import com.mwarrc.pocketscore.ui.feature.home.HomeScreen
+import com.mwarrc.pocketscore.ui.feature.help.HelpScreen
 import com.mwarrc.pocketscore.ui.feature.onboarding.OnboardingScreen
 import com.mwarrc.pocketscore.ui.feature.settings.BackupManagementScreen
 import com.mwarrc.pocketscore.ui.feature.settings.BallValuesScreen
@@ -123,6 +130,20 @@ class MainActivity : ComponentActivity() {
         var storagePermissionGranted by remember { mutableStateOf(false) }
         var importError by remember { mutableStateOf<String?>(null) }
         var pendingBackupsNavigation by remember { mutableStateOf(false) }
+        val globalSnackbarHostState = remember { SnackbarHostState() }
+
+        // Observe import success for summary snackbar
+        LaunchedEffect(viewModel) {
+            viewModel.importSuccess.collect { (matches: Int, players: Int) ->
+                val message = when {
+                    matches > 0 && players > 0 -> "Imported $matches matches & $players new players"
+                    matches > 0 -> "Imported $matches new matches"
+                    players > 0 -> "Imported $players new players"
+                    else -> "Data merged successfully"
+                }
+                globalSnackbarHostState.showSnackbar(message)
+            }
+        }
 
         // Observe intent data from Flow
         val pendingData by pendingShareDataFlow.collectAsStateWithLifecycle()
@@ -228,99 +249,111 @@ class MainActivity : ComponentActivity() {
 
         val startDestination = if (appState.gameState.isGameActive) "game" else "setup"
 
-        PocketScoreTheme(darkTheme = darkTheme) {
-            when {
-                showSplash -> {
-                    SplashScreen(
-                        onTimeout = {
-                            showSplash = false
-                            if (!appState.settings.hasSeenOnboarding) {
-                                showOnboarding = true
-                            }
-                        }
-                    )
-                }
-                showOnboarding -> {
-                    OnboardingScreen(
-                        onComplete = {
-                            showOnboarding = false
-                            viewModel.updateSettings { it.copy(hasSeenOnboarding = true) }
-                        }
-                    )
-                }
-                else -> {
-                    // Sync navigation with game state
-                    LaunchedEffect(appState.gameState.isGameActive) {
-                        val currentRoute = navController.currentDestination?.route
-                        // Only auto-navigate when on setup or game screens to avoid interrupting other flows
-                        val isOnGameFlowScreen = currentRoute == "setup" || currentRoute == "game"
-
-                        if (isOnGameFlowScreen) {
-                            when {
-                                appState.gameState.isGameActive && currentRoute != "game" -> {
-                                    navController.navigate("game") {
-                                        popUpTo("setup") { inclusive = true }
+            PocketScoreTheme(darkTheme = darkTheme) {
+                Box(modifier = Modifier.fillMaxSize()) {
+                    when {
+                        showSplash -> {
+                            SplashScreen(
+                                onTimeout = {
+                                    showSplash = false
+                                    if (!appState.settings.hasSeenOnboarding) {
+                                        showOnboarding = true
                                     }
                                 }
-                                !appState.gameState.isGameActive && currentRoute == "game" -> {
-                                    navController.navigate("setup") {
-                                        popUpTo("game") { inclusive = true }
+                            )
+                        }
+                        showOnboarding -> {
+                            OnboardingScreen(
+                                onComplete = {
+                                    showOnboarding = false
+                                    viewModel.updateSettings { it.copy(hasSeenOnboarding = true) }
+                                }
+                            )
+                        }
+                        else -> {
+                            // Sync navigation with game state
+                            LaunchedEffect(appState.gameState.isGameActive) {
+                                val currentRoute = navController.currentDestination?.route
+                                // Only auto-navigate when on setup or game screens to avoid interrupting other flows
+                                val isOnGameFlowScreen = currentRoute == "setup" || currentRoute == "game"
+
+                                if (isOnGameFlowScreen) {
+                                    when {
+                                        appState.gameState.isGameActive && currentRoute != "game" -> {
+                                            navController.navigate("game") {
+                                                popUpTo("setup") { inclusive = true }
+                                            }
+                                        }
+                                        !appState.gameState.isGameActive && currentRoute == "game" -> {
+                                            navController.navigate("setup") {
+                                                popUpTo("game") { inclusive = true }
+                                            }
+                                        }
                                     }
                                 }
                             }
+
+                            // Main Navigation Host
+                            PocketScoreNavHost(
+                                navController = navController,
+                                startDestination = startDestination,
+                                appState = appState,
+                                viewModel = viewModel,
+                                storagePermissionGranted = storagePermissionGranted,
+                                onUpdateSelectedMatchId = { selectedMatchId = it },
+                                selectedMatchId = selectedMatchId,
+                                requestPermission = { pendingBackupsNavigation = true; requestStoragePermissions(requestPermissionLauncher) },
+                                onImportRecords = { filePickerLauncher.launch("application/octet-stream") },
+                                onLinkBackupsFolder = { backupsFolderLauncher.launch(null) },
+                                shareData = { share, name -> shareData(share, name) },
+                                onDataRestored = { data -> incomingShareData = data },
+                                onImportError = { error -> importError = error }
+                            )
                         }
                     }
 
-                    // Main Navigation Host
-                    PocketScoreNavHost(
-                        navController = navController,
-                        startDestination = startDestination,
-                        appState = appState,
-                        viewModel = viewModel,
-                        storagePermissionGranted = storagePermissionGranted,
-                        onUpdateSelectedMatchId = { selectedMatchId = it },
-                        selectedMatchId = selectedMatchId,
-                        requestPermission = { pendingBackupsNavigation = true; requestStoragePermissions(requestPermissionLauncher) },
-                        onImportRecords = { filePickerLauncher.launch("application/octet-stream") },
-                        onLinkBackupsFolder = { backupsFolderLauncher.launch(null) },
-                        shareData = { share, name -> shareData(share, name) },
-                        onDataRestored = { data -> incomingShareData = data }
+                    // Overlay for import preview
+                    incomingShareData?.let { data ->
+                        ImportPreviewScreen(
+                            shareData = data,
+                            existingPlayers = appState.settings.savedPlayerNames,
+                            existingGames = appState.gameHistory.pastGames.map { it.id },
+                            onConfirm = { mappings ->
+                                viewModel.importData(data, mappings)
+                                incomingShareData = null
+                                importError = null
+                            },
+                            onCancel = {
+                                incomingShareData = null
+                                importError = null
+                            }
+                        )
+                    }
+
+                    // Show import error if any
+                    importError?.let { error ->
+                        AlertDialog(
+                            onDismissRequest = { importError = null },
+                            title = { Text("Import Failed") },
+                            text = { Text(error) },
+                            confirmButton = {
+                                TextButton(onClick = { importError = null }) {
+                                    Text("OK")
+                                }
+                            }
+                        )
+                    }
+
+                    // Global Snackbar for Success Notifications
+                    SnackbarHost(
+                        hostState = globalSnackbarHostState,
+                        modifier = Modifier
+                            .align(Alignment.BottomCenter)
+                            .padding(bottom = 32.dp)
+                            .padding(horizontal = 24.dp)
                     )
                 }
             }
-
-            // Overlay for import preview
-            incomingShareData?.let { data ->
-                ImportPreviewScreen(
-                    shareData = data,
-                    existingPlayers = appState.settings.savedPlayerNames,
-                    existingGames = appState.gameHistory.pastGames.map { it.id },
-                    onConfirm = { mappings ->
-                        viewModel.importData(data, mappings)
-                        incomingShareData = null
-                        importError = null
-                    },
-                    onCancel = {
-                        incomingShareData = null
-                        importError = null
-                    }
-                )
-            }
-
-            // Show import error if any
-            importError?.let { error ->
-                AlertDialog(
-                    onDismissRequest = { importError = null },
-                    title = { Text("Import Failed") },
-                    text = { Text(error) },
-                    confirmButton = {
-                        TextButton(onClick = { importError = null }) {
-                            Text("OK")
-                        }
-                    }
-                )
-            }
-        }
     }
 
     /**
@@ -339,7 +372,8 @@ class MainActivity : ComponentActivity() {
         onImportRecords: () -> Unit,
         onLinkBackupsFolder: () -> Unit,
         shareData: (PocketScoreShare, String?) -> Unit,
-        onDataRestored: (PocketScoreShare) -> Unit
+        onDataRestored: (PocketScoreShare) -> Unit,
+        onImportError: (String) -> Unit
     ) {
         val scope = rememberCoroutineScope()
 
@@ -360,6 +394,7 @@ class MainActivity : ComponentActivity() {
                     onNavigateToHistory = { navController.navigate("history") },
                     onNavigateToSettings = { navController.navigate("settings") },
                     onNavigateToAbout = { navController.navigate("about") },
+                    onNavigateToHelp = { navController.navigate("help") },
                     onUpdateSettings = { update -> viewModel.updateSettings(update) }
                 )
             }
@@ -471,6 +506,7 @@ class MainActivity : ComponentActivity() {
                     },
                     onNavigateToHistory = { navController.navigate("history") },
                     onNavigateToAbout = { navController.navigate("about") },
+                    onNavigateToHelp = { navController.navigate("help") },
                     onNavigateToBackups = {
                         navController.navigate("backups")
                     },
@@ -502,8 +538,14 @@ class MainActivity : ComponentActivity() {
                     onBack = { navController.popBackStack() },
                     snapshots = snapshots,
                     onRestore = { name ->
-                        viewModel.restoreFromSnapshot(name)
-                        navController.popBackStack()
+                        scope.launch {
+                            val data = viewModel.getSnapshotContent(name)
+                            if (data != null) {
+                                onDataRestored(data)
+                            } else {
+                                onImportError("Failed to load snapshot data.")
+                            }
+                        }
                     },
                     onDelete = { viewModel.deleteSnapshot(it) },
                     onShare = { name ->
@@ -540,6 +582,13 @@ class MainActivity : ComponentActivity() {
                     settings = appState.settings,
                     onUpdateSettings = { update -> viewModel.updateSettings(update) },
                     onBack = { navController.popBackStack() }
+                )
+            }
+
+            composable("help") {
+                HelpScreen(
+                    onNavigateBack = { navController.popBackStack() },
+                    onNavigateToFeedback = { navController.navigate("feedback") }
                 )
             }
         }

@@ -1,6 +1,7 @@
 package com.mwarrc.pocketscore.ui.feature.history.components
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -10,136 +11,165 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 
 /**
- * Card displaying a player's statistics and management options.
+ * Minimal list item displaying a player's key info and management options.
  * 
  * Features:
- * - Avatar with player initial
- * - Player name with hidden indicator
+ * - Avatar with player initial (or Checkbox in selection mode)
+ * - Player name with status indicators
  * - Games played count
- * - Statistics grid (Win Rate, Wins, Average, Best Score)
- * - Context menu for actions (toggle leaderboard visibility, rename, remove)
+ * - Context menu for actions
+ * - Long-press to enter selection mode
  * 
  * @param stat Player statistics to display
+ * @param selectionMode Whether the list is in selection mode
+ * @param isSelected Whether this specific item is selected
+ * @param onToggleSelection Callback to toggle selection
+ * @param onEnterSelectionMode Callback to start selection mode
  * @param onToggleLeaderboard Callback to toggle leaderboard visibility
+ * @param onToggleDeactivated Callback to toggle home screen visibility
  * @param onRemove Callback to initiate player removal
  * @param onRename Callback to initiate player rename
  */
+@OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
 @Composable
 fun PlayerStatCard(
     stat: PlayerStats,
+    selectionMode: Boolean = false,
+    isSelected: Boolean = false,
+    onToggleSelection: () -> Unit = {},
+    onEnterSelectionMode: () -> Unit = {},
     onToggleLeaderboard: () -> Unit,
+    onToggleDeactivated: () -> Unit,
     onRemove: () -> Unit,
     onRename: () -> Unit
 ) {
     var showMenu by remember { mutableStateOf(false) }
 
-    Card(
-        shape = RoundedCornerShape(20.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surface
-        )
-    ) {
-        Column(modifier = Modifier.padding(16.dp)) {
-            // Header: Avatar, Name, Menu
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                PlayerAvatar(
-                    initial = stat.name.firstOrNull()?.toString()?.uppercase() ?: "?",
-                    size = 44.dp
-                )
-                
-                Spacer(Modifier.width(16.dp))
-                
-                PlayerInfo(
-                    name = stat.name,
-                    gamesPlayed = stat.gamesPlayed,
-                    isHidden = stat.isHiddenInLeaderboard,
-                    modifier = Modifier.weight(1f)
-                )
-
-                PlayerCardMenu(
-                    isHidden = stat.isHiddenInLeaderboard,
-                    showMenu = showMenu,
-                    onMenuToggle = { showMenu = !showMenu },
-                    onDismiss = { showMenu = false },
-                    onToggleLeaderboard = onToggleLeaderboard,
-                    onRename = onRename,
-                    onRemove = onRemove
-                )
-            }
-            
-            Spacer(Modifier.height(16.dp))
-            
-            // Statistics Grid
-            PlayerStatsGrid(stat = stat)
-        }
-    }
-}
-
-/**
- * Circular avatar displaying player's initial.
- */
-@Composable
-private fun PlayerAvatar(
-    initial: String,
-    size: androidx.compose.ui.unit.Dp
-) {
     Surface(
-        shape = CircleShape,
-        color = MaterialTheme.colorScheme.primaryContainer,
-        modifier = Modifier.size(size)
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 12.dp, vertical = 4.dp),
+        shape = RoundedCornerShape(16.dp),
+        color = if (isSelected) 
+            MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.7f) 
+        else 
+            MaterialTheme.colorScheme.surface,
+        tonalElevation = 1.dp
     ) {
-        Box(contentAlignment = Alignment.Center) {
-            Text(
-                initial,
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.onPrimaryContainer
-            )
-        }
-    }
-}
-
-/**
- * Player name and games played count with optional hidden indicator.
- */
-@Composable
-private fun PlayerInfo(
-    name: String,
-    gamesPlayed: Int,
-    isHidden: Boolean,
-    modifier: Modifier = Modifier
-) {
-    Column(modifier = modifier) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Text(
-                name,
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold
-            )
-            
-            if (isHidden) {
-                Spacer(Modifier.width(8.dp))
-                Icon(
-                    Icons.Default.VisibilityOff,
-                    contentDescription = "Hidden from leaderboard",
-                    modifier = Modifier.size(14.dp),
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(16.dp))
+                .combinedClickable(
+                    onClick = { 
+                        if (selectionMode) onToggleSelection() 
+                        else showMenu = true 
+                    },
+                    onLongClick = {
+                        if (!selectionMode) onEnterSelectionMode()
+                        else onToggleSelection()
+                    }
                 )
-            }
+        ) {
+            ListItem(
+                headlineContent = {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(
+                            stat.name,
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = if (isSelected) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurface
+                        )
+                        
+                        Spacer(Modifier.width(8.dp))
+                        
+                        // Status Indicators
+                        if (stat.isHiddenInLeaderboard) {
+                            Icon(
+                                Icons.Default.VisibilityOff,
+                                contentDescription = "Hidden from Leaderboard",
+                                modifier = Modifier.size(14.dp),
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
+                            )
+                        }
+                        if (stat.isDeactivated) {
+                            Spacer(Modifier.width(4.dp))
+                            Icon(
+                                Icons.Default.HomeWork,
+                                contentDescription = "Hidden from Home",
+                                modifier = Modifier.size(14.dp),
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
+                            )
+                        }
+                    }
+                },
+                supportingContent = {
+                    Text(
+                        "${stat.gamesPlayed} Matches • ${stat.winRate.toInt()}% Win Rate",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = if (isSelected) MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f) else MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                },
+                leadingContent = {
+                    Box(contentAlignment = Alignment.Center) {
+                        Surface(
+                            shape = CircleShape,
+                            color = if (isSelected) 
+                                MaterialTheme.colorScheme.primary 
+                            else 
+                                MaterialTheme.colorScheme.primaryContainer,
+                            modifier = Modifier.size(40.dp)
+                        ) {
+                            Box(contentAlignment = Alignment.Center) {
+                                if (isSelected) {
+                                    Icon(
+                                        Icons.Default.Check,
+                                        contentDescription = "Selected",
+                                        tint = MaterialTheme.colorScheme.onPrimary,
+                                        modifier = Modifier.size(24.dp)
+                                    )
+                                } else {
+                                    Text(
+                                        stat.name.firstOrNull()?.toString()?.uppercase() ?: "?",
+                                        style = MaterialTheme.typography.titleMedium,
+                                        fontWeight = FontWeight.Bold,
+                                        color = MaterialTheme.colorScheme.onPrimaryContainer
+                                    )
+                                }
+                            }
+                        }
+                    }
+                },
+                trailingContent = {
+                    if (!selectionMode) {
+                        Box {
+                            IconButton(onClick = { showMenu = true }) {
+                                Icon(Icons.Default.MoreVert, contentDescription = "Options")
+                            }
+                            
+                            PlayerCardMenu(
+                                isHidden = stat.isHiddenInLeaderboard,
+                                isDeactivated = stat.isDeactivated,
+                                showMenu = showMenu,
+                                onDismiss = { showMenu = false },
+                                onToggleLeaderboard = onToggleLeaderboard,
+                                onToggleDeactivated = onToggleDeactivated,
+                                onRename = onRename,
+                                onRemove = onRemove,
+                                onSelect = onEnterSelectionMode
+                            )
+                        }
+                    }
+                },
+                colors = ListItemDefaults.colors(containerColor = Color.Transparent)
+            )
         }
-        
-        Text(
-            "$gamesPlayed Matches Total",
-            style = MaterialTheme.typography.labelSmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
     }
 }
 
@@ -149,111 +179,104 @@ private fun PlayerInfo(
 @Composable
 private fun PlayerCardMenu(
     isHidden: Boolean,
+    isDeactivated: Boolean,
     showMenu: Boolean,
-    onMenuToggle: () -> Unit,
     onDismiss: () -> Unit,
     onToggleLeaderboard: () -> Unit,
+    onToggleDeactivated: () -> Unit,
     onRename: () -> Unit,
-    onRemove: () -> Unit
+    onRemove: () -> Unit,
+    onSelect: () -> Unit
 ) {
-    Box {
-        IconButton(onClick = onMenuToggle) {
-            Icon(Icons.Default.MoreVert, contentDescription = "Options")
-        }
-        
-        DropdownMenu(
-            expanded = showMenu,
-            onDismissRequest = onDismiss
-        ) {
-            // Toggle leaderboard visibility
-            DropdownMenuItem(
-                text = { 
-                    Text(
-                        if (isHidden) "Show in Leaderboard" 
-                        else "Hide from Leaderboard"
-                    ) 
-                },
-                leadingIcon = { 
-                    Icon(
-                        if (isHidden) Icons.Default.Visibility 
-                        else Icons.Default.VisibilityOff, 
-                        contentDescription = null
-                    ) 
-                },
-                onClick = {
-                    onToggleLeaderboard()
-                    onDismiss()
-                }
-            )
-            
-            // Rename player
-            DropdownMenuItem(
-                text = { Text("Rename Player") },
-                leadingIcon = { Icon(Icons.Default.Edit, contentDescription = null) },
-                onClick = {
-                    onRename()
-                    onDismiss()
-                }
-            )
-            
-            HorizontalDivider()
-            
-            // Remove from roster
-            DropdownMenuItem(
-                text = { 
-                    Text(
-                        "Remove from Roster", 
-                        color = MaterialTheme.colorScheme.error
-                    ) 
-                },
-                leadingIcon = { 
-                    Icon(
-                        Icons.Default.Delete, 
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.error
-                    ) 
-                },
-                onClick = {
-                    onRemove()
-                    onDismiss()
-                }
-            )
-        }
-    }
-}
-
-/**
- * Grid displaying player statistics.
- */
-@Composable
-private fun PlayerStatsGrid(stat: PlayerStats) {
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.SpaceBetween
+    DropdownMenu(
+        expanded = showMenu,
+        onDismissRequest = onDismiss
     ) {
-        StatItem(label = "Win Rate", value = "${stat.winRate.toInt()}%")
-        StatItem(label = "Wins", value = "${stat.wins}")
-        StatItem(label = "Avg", value = "${stat.avgScore.toInt()}")
-        StatItem(label = "Best", value = "${stat.bestScore}")
-    }
-}
-
-/**
- * Individual statistic item with label and value.
- */
-@Composable
-private fun StatItem(label: String, value: String) {
-    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-        Text(
-            value,
-            style = MaterialTheme.typography.titleMedium,
-            fontWeight = FontWeight.Bold,
-            color = MaterialTheme.colorScheme.primary
+        // Toggle leaderboard visibility
+        DropdownMenuItem(
+            text = { 
+                Text(
+                    if (isHidden) "Show in Leaderboard" 
+                    else "Hide from Leaderboard"
+                ) 
+            },
+            leadingIcon = { 
+                Icon(
+                    if (isHidden) Icons.Default.Visibility 
+                    else Icons.Default.VisibilityOff, 
+                    contentDescription = null
+                ) 
+            },
+            onClick = {
+                onToggleLeaderboard()
+                onDismiss()
+            }
         )
-        Text(
-            label,
-            style = MaterialTheme.typography.labelSmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
+        
+        // Toggle home screen visibility (Deactivate)
+        DropdownMenuItem(
+            text = { 
+                Text(
+                    if (isDeactivated) "Activate for Home" 
+                    else "Hide from Home"
+                ) 
+            },
+            leadingIcon = { 
+                Icon(
+                    if (isDeactivated) Icons.Default.Home 
+                    else Icons.Default.HomeWork, 
+                    contentDescription = null
+                ) 
+            },
+            onClick = {
+                onToggleDeactivated()
+                onDismiss()
+            }
+        )
+        
+        // Multi-select
+        DropdownMenuItem(
+            text = { Text("Select Multiple") },
+            leadingIcon = { Icon(Icons.Default.Checklist, contentDescription = null) },
+            onClick = {
+                onSelect()
+                onDismiss()
+            }
+        )
+
+        HorizontalDivider()
+
+        // Rename player
+        DropdownMenuItem(
+            text = { Text("Rename Player") },
+            leadingIcon = { Icon(Icons.Default.Edit, contentDescription = null) },
+            onClick = {
+                onRename()
+                onDismiss()
+            }
+        )
+        
+        HorizontalDivider()
+        
+        // Remove from roster
+        DropdownMenuItem(
+            text = { 
+                Text(
+                    "Remove from Roster", 
+                    color = MaterialTheme.colorScheme.error
+                ) 
+            },
+            leadingIcon = { 
+                Icon(
+                    Icons.Default.Delete, 
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.error
+                ) 
+            },
+            onClick = {
+                onRemove()
+                onDismiss()
+            }
         )
     }
 }

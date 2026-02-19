@@ -14,6 +14,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.mwarrc.pocketscore.domain.model.AppSettings
 import com.mwarrc.pocketscore.domain.model.GameHistory
 import com.mwarrc.pocketscore.domain.model.RosterSortOption
 import com.mwarrc.pocketscore.ui.feature.home.utils.RosterSorter
@@ -43,6 +44,7 @@ fun ActiveRosterSection(
     onSelectName: (String) -> Unit,
     autoSortOption: RosterSortOption,
     onAutoSortOptionChange: (RosterSortOption) -> Unit,
+    settings: AppSettings,
     history: GameHistory? = null,
     modifier: Modifier = Modifier
 ) {
@@ -52,8 +54,11 @@ fun ActiveRosterSection(
     var shuffleSeed by remember { mutableIntStateOf(0) }
 
     // Roster Pool Sorting
-    val sortedNames = remember(savedPlayerNames, autoSortOption, history, shuffleSeed) {
-        RosterSorter.sort(savedPlayerNames, autoSortOption, history, shuffleSeed)
+    val sortedNames = remember(savedPlayerNames, autoSortOption, history, shuffleSeed, settings.deactivatedPlayers) {
+        val filtered = savedPlayerNames.filter { name ->
+            name !in settings.deactivatedPlayers
+        }
+        RosterSorter.sort(filtered, autoSortOption, history, shuffleSeed)
     }
 
     Column(

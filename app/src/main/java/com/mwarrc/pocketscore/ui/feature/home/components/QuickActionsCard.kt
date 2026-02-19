@@ -13,6 +13,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.mwarrc.pocketscore.domain.model.Player
 
 /**
@@ -205,12 +206,24 @@ private fun QuickActionsButtonGroup(
                     Surface(
                         modifier = Modifier
                             .align(Alignment.TopEnd)
-                            .padding(4.dp)
-                            .size(7.dp),
+                            .offset(x = 4.dp, y = (-4).dp),
                         shape = CircleShape,
                         color = MaterialTheme.colorScheme.error,
-                        shadowElevation = 4.dp
-                    ) { }
+                        shadowElevation = 6.dp,
+                        border = androidx.compose.foundation.BorderStroke(2.dp, MaterialTheme.colorScheme.surface)
+                    ) {
+                        Box(
+                            modifier = Modifier.size(14.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                "!", 
+                                style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp),
+                                fontWeight = FontWeight.Black,
+                                color = MaterialTheme.colorScheme.onError
+                            )
+                        }
+                    }
                 }
             }
         }

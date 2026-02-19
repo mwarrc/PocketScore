@@ -96,6 +96,7 @@ private fun SplitSummaryHeader(
     Row(
         modifier = Modifier
             .fillMaxWidth()
+            .padding(horizontal = 4.dp) // Added padding to prevent cutoff
             .clip(RoundedCornerShape(12.dp))
             .clickable { onClick() },
         horizontalArrangement = Arrangement.SpaceBetween,
@@ -103,7 +104,7 @@ private fun SplitSummaryHeader(
     ) {
         Column(modifier = Modifier.weight(1f)) {
             Text(
-                text = "Total Session to Settle", 
+                text = "  Total Session to Settle", 
                 style = MaterialTheme.typography.labelMedium, 
                 color = if (totalAmount > 0) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
             )
@@ -167,11 +168,13 @@ private fun MatchCostEditor(
     currencySymbol: String,
     onUpdate: ((AppSettings) -> AppSettings) -> Unit
 ) {
-    var costText by remember { 
-        mutableStateOf(if (matchCost == 0.0) "" else matchCost.toString().removeSuffix(".0")) 
-    }
+    var symbolText by remember { mutableStateOf(currencySymbol) }
+    var costText by remember(matchCost) { mutableStateOf(if (matchCost % 1.0 == 0.0) matchCost.toInt().toString() else matchCost.toString()) }
 
-    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
         OutlinedTextField(
             value = costText,
             onValueChange = { newValue ->
@@ -179,25 +182,44 @@ private fun MatchCostEditor(
                     if (newValue.count { it == '.' } <= 1) {
                         costText = newValue
                         val dValue = newValue.toDoubleOrNull()
-                        onUpdate { s -> s.copy(matchCost = dValue ?: 0.0) }
+                        if (dValue != null) {
+                            onUpdate { s -> s.copy(matchCost = dValue) }
+                        }
                     }
                 }
             },
             label = { Text("Cost per Match") },
             modifier = Modifier.weight(1f),
-            prefix = { Text(currencySymbol) },
+            prefix = { 
+                Text(
+                    text = symbolText,
+                    modifier = Modifier.padding(end = 4.dp),
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                ) 
+            },
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
             shape = RoundedCornerShape(12.dp),
-            singleLine = true
+            singleLine = true,
+            colors = OutlinedTextFieldDefaults.colors(
+                focusedBorderColor = MaterialTheme.colorScheme.primary,
+                unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant
+            )
         )
+        
         OutlinedTextField(
-            value = currencySymbol,
+            value = symbolText,
             onValueChange = { newSymbol -> 
+                symbolText = newSymbol
                 onUpdate { s -> s.copy(currencySymbol = newSymbol) } 
             },
             label = { Text("Symbol") },
-            modifier = Modifier.width(80.dp),
-            shape = RoundedCornerShape(12.dp)
+            modifier = Modifier.width(90.dp),
+            shape = RoundedCornerShape(12.dp),
+            singleLine = true,
+            colors = OutlinedTextFieldDefaults.colors(
+                focusedBorderColor = MaterialTheme.colorScheme.primary,
+                unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant
+            )
         )
     }
 }

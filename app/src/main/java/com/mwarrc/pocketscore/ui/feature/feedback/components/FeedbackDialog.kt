@@ -22,7 +22,7 @@ fun FeedbackDialog(
     onDismissRequest: () -> Unit,
     onSuccess: () -> Unit
 ) {
-    var selectedType by remember { mutableStateOf(FeedbackType.BUG_REPORT) }
+    var selectedType by remember { mutableStateOf(FeedbackType.CONTACT) }
     var message by remember { mutableStateOf("") }
     var email by remember { mutableStateOf("") }
     var isSubmitting by remember { mutableStateOf(false) }
