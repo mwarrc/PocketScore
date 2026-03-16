@@ -45,7 +45,8 @@ data class GameEvent(
     val message: String? = null,
     val timestamp: Long = System.currentTimeMillis(),
     val previousScore: Int? = null,
-    val newScore: Int? = null
+    val newScore: Int? = null,
+    val autoRemovedBall: Int? = null
 ) {
     /**
      * Validates that the event has consistent data.

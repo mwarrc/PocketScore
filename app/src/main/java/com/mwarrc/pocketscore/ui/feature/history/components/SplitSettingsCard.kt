@@ -4,6 +4,7 @@ import androidx.compose.animation.*
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
@@ -53,6 +54,7 @@ fun SplitSettingsCard(
             SplitSummaryHeader(
                 totalAmount = totalAmount,
                 currencySymbol = settings.currencySymbol,
+                decimals = settings.settlementRoundingDecimals,
                 matchCost = settings.matchCost,
                 settlementMethod = settings.settlementMethod,
                 isExpanded = showQuickSettings,
@@ -78,6 +80,26 @@ fun SplitSettingsCard(
                         lastLosersCount = settings.lastLosersCount,
                         onUpdate = onUpdateSettings
                     )
+                    
+                    HorizontalDivider(color = MaterialTheme.colorScheme.primary.copy(alpha = 0.1f))
+                    
+                    Row(
+                        modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Text(
+                            text = "Rounding Decimals:",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        RoundingDecimalsStepper(
+                            decimals = settings.settlementRoundingDecimals,
+                            onUpdate = { newDecimals ->
+                                onUpdateSettings { it.copy(settlementRoundingDecimals = newDecimals) }
+                            }
+                        )
+                    }
                 }
             }
         }
@@ -88,79 +110,69 @@ fun SplitSettingsCard(
 private fun SplitSummaryHeader(
     totalAmount: Double,
     currencySymbol: String,
+    decimals: Int,
     matchCost: Double,
     settlementMethod: com.mwarrc.pocketscore.domain.model.SettlementMethod,
     isExpanded: Boolean,
     onClick: () -> Unit
 ) {
+    val methodText = when (settlementMethod) {
+        com.mwarrc.pocketscore.domain.model.SettlementMethod.LOSERS_PAY -> "Losers Pay"
+        com.mwarrc.pocketscore.domain.model.SettlementMethod.ALL_SPLIT -> "All Split"
+        com.mwarrc.pocketscore.domain.model.SettlementMethod.LAST_N_PAY -> "Bottom X Pay"
+    }
+
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 4.dp) // Added padding to prevent cutoff
-            .clip(RoundedCornerShape(12.dp))
-            .clickable { onClick() },
+            .clip(RoundedCornerShape(16.dp))
+            .clickable { onClick() }
+            .padding(8.dp),
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically
     ) {
         Column(modifier = Modifier.weight(1f)) {
             Text(
-                text = "  Total Session to Settle", 
-                style = MaterialTheme.typography.labelMedium, 
-                color = if (totalAmount > 0) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
+                text = "TOTAL TO SETTLE", 
+                style = MaterialTheme.typography.labelSmall,
+                fontWeight = FontWeight.Bold,
+                color = (if (totalAmount > 0) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant).copy(alpha = 0.8f)
             )
+            
+            val formatString = if (decimals == 0) "%.0f" else "%.${decimals}f"
             Text(
-                text = "$currencySymbol ${String.format("%.0f", totalAmount)}",
-                style = MaterialTheme.typography.displaySmall,
+                text = "$currencySymbol ${String.format(formatString, totalAmount)}",
+                style = MaterialTheme.typography.headlineLarge,
                 fontWeight = FontWeight.Black,
-                color = if (totalAmount > 0) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurfaceVariant
+                color = if (totalAmount > 0) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(top = 4.dp, bottom = 4.dp)
             )
-        }
-        Row(
-            verticalAlignment = Alignment.CenterVertically, 
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-                Surface(
-                    color = (if (totalAmount > 0) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant).copy(alpha = 0.1f),
-                    shape = RoundedCornerShape(8.dp)
-                ) {
-                    Text(
-                        text = settlementMethod.name.replace("_", " "),
-                        style = MaterialTheme.typography.labelSmall,
-                        fontWeight = FontWeight.Black,
-                        color = if (totalAmount > 0) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
-                    )
-                }
 
-                if (!isExpanded) {
-                    Surface(
-                        color = if (totalAmount > 0) 
-                            MaterialTheme.colorScheme.primary.copy(alpha = 0.05f) 
-                        else 
-                            MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.03f),
-                        shape = RoundedCornerShape(8.dp),
-                        border = androidx.compose.foundation.BorderStroke(
-                            0.5.dp, 
-                            (if (totalAmount > 0) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant).copy(alpha = 0.1f)
-                        )
-                    ) {
-                        Text(
-                            text = "$currencySymbol${matchCost.toString().removeSuffix(".0")}/match",
-                            style = MaterialTheme.typography.labelSmall,
-                            fontWeight = FontWeight.Bold,
-                            color = if (totalAmount > 0) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
-                        )
-                    }
-                }
+            AnimatedVisibility(visible = !isExpanded) {
+                Text(
+                    text = "$methodText   •   $currencySymbol${matchCost.toString().removeSuffix(".0")} / match",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        }
+
+        Surface(
+            shape = CircleShape,
+            color = if (totalAmount > 0) MaterialTheme.colorScheme.primary.copy(alpha = 0.1f) else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.1f),
+            modifier = Modifier.size(40.dp)
+        ) {
+            Box(contentAlignment = Alignment.Center) {
                 Icon(
                     imageVector = if (isExpanded) Icons.Default.ExpandLess else Icons.Default.Tune,
                     contentDescription = if (isExpanded) "Collapse Settings" else "Show Settings",
                     tint = if (totalAmount > 0) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
                 )
+            }
         }
     }
 }
+
 
 @Composable
 private fun MatchCostEditor(
@@ -323,6 +335,41 @@ private fun LoserCountStepper(
         
         IconButton(
             onClick = { onUpdate(count + 1) },
+            modifier = Modifier.size(32.dp)
+        ) {
+            Icon(Icons.Default.Add, null, modifier = Modifier.size(16.dp))
+        }
+    }
+}
+
+@Composable
+private fun RoundingDecimalsStepper(
+    decimals: Int,
+    onUpdate: (Int) -> Unit
+) {
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = Modifier
+            .clip(RoundedCornerShape(12.dp))
+            .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
+            .padding(horizontal = 4.dp)
+    ) {
+        IconButton(
+            onClick = { if (decimals > 0) onUpdate(decimals - 1) },
+            modifier = Modifier.size(32.dp)
+        ) {
+            Icon(Icons.Default.Remove, null, modifier = Modifier.size(16.dp))
+        }
+        
+        Text(
+            text = ".$decimals",
+            style = MaterialTheme.typography.titleMedium,
+            fontWeight = FontWeight.Bold,
+            modifier = Modifier.padding(horizontal = 12.dp)
+        )
+        
+        IconButton(
+            onClick = { if (decimals < 4) onUpdate(decimals + 1) },
             modifier = Modifier.size(32.dp)
         ) {
             Icon(Icons.Default.Add, null, modifier = Modifier.size(16.dp))

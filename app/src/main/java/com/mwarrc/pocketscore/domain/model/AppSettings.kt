@@ -133,6 +133,8 @@ data class AppSettings(
     val currencySymbol: String = "KSh",
     val settlementMethod: SettlementMethod = SettlementMethod.LOSERS_PAY,
     val lastLosersCount: Int = 2,
+    val matchExcludedPlayers: Map<String, Set<String>> = emptyMap(), // matchId -> set of playerNames
+    val settlementRoundingDecimals: Int = 2,
     
     // Custom Keyboard
     val useCustomKeyboard: Boolean = false,
@@ -147,8 +149,10 @@ data class AppSettings(
     
     // Pool-Specific
     val poolBallManagementEnabled: Boolean = true,
+    val autoRemovePoolBalls: Boolean = true,
     val ballValues: Map<Int, Int> = DEFAULT_BALL_VALUES,
     val ballValuePresets: List<BallValuePreset> = DEFAULT_PRESETS,
+    val endGameCelebrationEnabled: Boolean = true,
     
     // Guest Mode
     val isGuestSession: Boolean = false,
@@ -174,7 +178,7 @@ data class AppSettings(
         /**
          * Maximum allowed value for maxPlayers.
          */
-        const val MAX_PLAYERS_LIMIT = 32
+        const val MAX_PLAYERS_LIMIT = 100
         
         /**
          * Default ball values for pool scoring.
@@ -224,6 +228,26 @@ data class AppSettings(
             lastLosersCount = lastLosersCount.coerceAtLeast(1),
             matchCost = matchCost.coerceAtLeast(0.0)
         )
+    }
+
+    /**
+     * Toggles whether a player is excluded from a specific match's settlement calculations.
+     */
+    fun toggleMatchPlayerExclusion(matchId: String, playerName: String): AppSettings {
+        val currentExclusions = matchExcludedPlayers[matchId] ?: emptySet()
+        val nextExclusions = if (playerName in currentExclusions) {
+            currentExclusions - playerName
+        } else {
+            currentExclusions + playerName
+        }
+        
+        val nextMap = if (nextExclusions.isEmpty()) {
+            matchExcludedPlayers - matchId
+        } else {
+            matchExcludedPlayers + (matchId to nextExclusions)
+        }
+        
+        return copy(matchExcludedPlayers = nextMap)
     }
 }
 

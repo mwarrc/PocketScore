@@ -28,7 +28,7 @@ import kotlinx.coroutines.launch
  * - **Quick Roster Access**: Select from recently played or popular players.
  * - **Session Management**: Visual indicators for active games and guest session status.
  * - **Smart Navigation**: Fast access to history, settings, and analytical features.
- * - **Identity Awareness**: Encourages consistent 'Pro Name' usage for accurate lifetime stats.
+ * - **Identity Awareness**: Encourages consistent 'ScepticPlayer' usage for accurate lifetime stats.
  * 
  * @param settings Application configuration (themes, guest mode, roster limits).
  * @param history Recent game history used for roster smart-sorting.

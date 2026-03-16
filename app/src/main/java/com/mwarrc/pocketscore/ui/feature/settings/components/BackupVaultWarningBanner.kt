@@ -30,17 +30,21 @@ import androidx.compose.material3.ExperimentalMaterial3Api
  *
  * @param backupsFolderUri The currently linked folder URI (null if not linked).
  * @param onLinkBackupsFolder Callback to trigger the folder linking process.
+ * @param onNavigateToBackups Callback to navigate to the backups management screen.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun BackupVaultWarningBanner(
     backupsFolderUri: String?,
-    onLinkBackupsFolder: () -> Unit
+    onLinkBackupsFolder: () -> Unit,
+    onNavigateToBackups: () -> Unit
 ) {
     val isLinked = backupsFolderUri != null
 
     Surface(
-        onClick = onLinkBackupsFolder,
+        onClick = {
+            if (isLinked) onNavigateToBackups() else onLinkBackupsFolder()
+        },
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(20.dp),
         color = if (isLinked) {

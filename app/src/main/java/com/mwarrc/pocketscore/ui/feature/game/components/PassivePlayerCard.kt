@@ -68,7 +68,7 @@ fun PassivePlayerCard(
     isActualTurn: Boolean,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
-    lastPoints: Int? = null,
+    lastPoints: Pair<Int, Boolean>? = null,
     leaderScore: Int = 0,
     tableSum: Int = 0,
     poolBallManagementEnabled: Boolean = true
@@ -134,20 +134,26 @@ fun PassivePlayerCard(
             
             // Last Points Indicator
             if (lastPoints != null && !isEliminated) {
+                val (pointsValue, isUndo) = lastPoints
+                val actualValue = if (isUndo) -pointsValue else pointsValue // If it was an undo of +10, points is -10. actual is 10.
                 val pointsColor = when {
-                    lastPoints > 0 -> Color(0xFF4CAF50) // Green
-                    lastPoints < 0 -> MaterialTheme.colorScheme.error
+                    pointsValue > 0 -> Color(0xFF4CAF50) // Green
+                    pointsValue < 0 -> MaterialTheme.colorScheme.error
                     else -> MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
                 }
                 val pointsText = when {
-                    lastPoints > 0 -> "+$lastPoints"
-                    lastPoints < 0 -> "$lastPoints"
+                    isUndo && actualValue > 0 -> "Undo +$actualValue"
+                    isUndo && actualValue < 0 -> "Undo $actualValue"
+                    isUndo -> "Undo 0"
+                    pointsValue > 0 -> "+$pointsValue"
+                    pointsValue < 0 -> "$pointsValue"
                     else -> "0"
                 }
 
                 Surface(
-                    color = pointsColor.copy(alpha = 0.15f),
+                    color = pointsColor.copy(alpha = 0.25f), // Significantly more visible
                     shape = RoundedCornerShape(4.dp),
+                    border = BorderStroke(0.5.dp, pointsColor.copy(alpha = 0.3f)), // Subtle border
                     modifier = Modifier
                         .align(Alignment.BottomEnd)
                         .padding(8.dp)
@@ -155,7 +161,7 @@ fun PassivePlayerCard(
                     Text(
                         text = pointsText,
                         style = MaterialTheme.typography.labelSmall,
-                        fontWeight = FontWeight.Bold,
+                        fontWeight = FontWeight.ExtraBold, // More emphasis
                         color = pointsColor,
                         modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp)
                     )
@@ -167,64 +173,90 @@ fun PassivePlayerCard(
             if (isLeader) {
                 val starTint = MaterialTheme.colorScheme.tertiary
                 Box(modifier = Modifier.matchParentSize()) {
-                    // Top Left
+                    // Top Left Flow
                     Icon(
                         Icons.Default.Star,
                         null,
                         modifier = Modifier
-                            .size(24.dp)
+                            .size(22.dp)
                             .align(Alignment.TopStart)
-                            .offset(8.dp, 8.dp)
-                            .alpha(0.15f)
-                            .rotate(-15f),
+                            .offset(10.dp, 12.dp)
+                            .alpha(0.17f)
+                            .rotate(-18f),
                         tint = starTint
                     )
-                    // Top Right
-                    Icon(
-                        Icons.Default.Star,
-                        null,
-                        modifier = Modifier
-                            .size(16.dp)
-                            .align(Alignment.TopEnd)
-                            .offset((-24).dp, 6.dp)
-                            .alpha(0.12f)
-                            .rotate(20f),
-                        tint = starTint
-                    )
-                    // Middle area
                     Icon(
                         Icons.Default.Star,
                         null,
                         modifier = Modifier
                             .size(14.dp)
-                            .align(Alignment.CenterEnd)
-                            .offset((-8).dp, (-12).dp)
+                            .align(Alignment.TopStart)
+                            .offset(42.dp, 8.dp)
                             .alpha(0.1f)
-                            .rotate(10f),
+                            .rotate(22f),
                         tint = starTint
                     )
-                    // Bottom Left
+                    
+                    // Top Right Area
+                    Icon(
+                        Icons.Default.Star,
+                        null,
+                        modifier = Modifier
+                            .size(18.dp)
+                            .align(Alignment.TopEnd)
+                            .offset((-36).dp, 10.dp)
+                            .alpha(0.14f)
+                            .rotate(-10f),
+                        tint = starTint
+                    )
+
+                    // Middle / Center Scattered
+                    Icon(
+                        Icons.Default.Star,
+                        null,
+                        modifier = Modifier
+                            .size(16.dp)
+                            .align(Alignment.CenterStart)
+                            .offset(18.dp, (-12).dp)
+                            .alpha(0.12f)
+                            .rotate(14f),
+                        tint = starTint
+                    )
+                    Icon(
+                        Icons.Default.Star,
+                        null,
+                        modifier = Modifier
+                            .size(12.dp)
+                            .align(Alignment.CenterEnd)
+                            .offset((-8).dp, (-8).dp)
+                            .alpha(0.08f)
+                            .rotate(-28f),
+                        tint = starTint
+                    )
+
+                    // Bottom Left Element
                     Icon(
                         Icons.Default.Star,
                         null,
                         modifier = Modifier
                             .size(20.dp)
                             .align(Alignment.BottomStart)
-                            .offset(12.dp, (-8).dp)
+                            .offset(16.dp, (-10).dp)
                             .alpha(0.15f)
-                            .rotate(-10f),
+                            .rotate(8f),
                         tint = starTint
                     )
-                    // Bottom Right
+                    
+                    // Bottom Right Element - Moved left to avoid badge
                     Icon(
                         Icons.Default.Star,
                         null,
                         modifier = Modifier
-                            .size(22.dp)
+                            .size(26.dp)
                             .align(Alignment.BottomEnd)
-                            .offset((-10).dp, (-6).dp)
-                            .alpha(0.18f)
-                            .rotate(-5f),
+                            .offset((-55).dp, (-6).dp)
+                            .alpha(0.16f)
+                            .rotate(-12f),
                         tint = starTint
                     )
                 }
@@ -246,9 +278,9 @@ fun PassivePlayerCard(
                 val badgeColor = if (isLeader) MaterialTheme.colorScheme.tertiary else MaterialTheme.colorScheme.surfaceVariant
                 val onBadgeColor = if (isLeader) MaterialTheme.colorScheme.onTertiary else MaterialTheme.colorScheme.onSurfaceVariant
                 val label = when {
-                    isLeader && isTie -> "TIED"
+                    isLeader && isTie -> "TIED LEADER"
                     isLeader -> "LEADER"
-                    isLoser && isLoserTie -> "TIED"
+                    isLoser && isLoserTie -> "TIED LOSER"
                     else -> "LOSER"
                 }
                 val icon = when {

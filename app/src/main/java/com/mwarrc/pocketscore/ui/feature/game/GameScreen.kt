@@ -11,6 +11,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.unit.dp
 import com.mwarrc.pocketscore.domain.model.*
@@ -66,7 +67,7 @@ fun GameScreen(
     settings: AppSettings,
     globalEvents: List<GameEvent>,
     canUndo: Boolean,
-    onUpdateScore: (String, Int) -> Unit,
+    onUpdateScore: (String, Int, Int?) -> Unit,
     onGlobalUndo: () -> Unit,
     onReset: (Boolean, Boolean) -> Unit,
     onToggleLayout: () -> Unit,
@@ -102,9 +103,14 @@ fun GameScreen(
     var exitConfirmed by remember { mutableStateOf(false) }
     var tempForceSave by remember { mutableStateOf(false) }
     var localHeaderSelection by remember { mutableStateOf<String?>(null) }
+    var lastAutoRemovedBall by remember { mutableStateOf<Int?>(null) }
+    var showCelebration by remember { mutableStateOf(false) }
+    var lastBackPressTime by remember { mutableStateOf(0L) }
     
     val haptic = LocalHapticFeedback.current
     val scope = rememberCoroutineScope()
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val keyboardController = LocalSoftwareKeyboardController.current
 
     // --- Derived Game State ---
     
@@ -124,30 +130,26 @@ fun GameScreen(
     }
 
     // Leader Spotlight IDs
-    val leaderIds by remember(activePlayers, settings.leaderSpotlightEnabled) {
-        derivedStateOf {
-            if (settings.leaderSpotlightEnabled && activePlayers.size > 1 && activePlayers.any { it.score != 0 }) {
-                val maxScore = activePlayers.maxOfOrNull { it.score } ?: 0
-                activePlayers.filter { it.score == maxScore }.map { it.id }.toSet()
-            } else emptySet()
-        }
+    val leaderIds = remember(activePlayers, settings.leaderSpotlightEnabled) {
+        if (settings.leaderSpotlightEnabled && activePlayers.size > 1 && activePlayers.any { it.score != 0 }) {
+            val maxScore = activePlayers.maxOfOrNull { it.score } ?: 0
+            activePlayers.filter { it.score == maxScore }.map { it.id }.toSet()
+        } else emptySet()
     }
-    
-    val isTie by remember { derivedStateOf { leaderIds.size > 1 } }
+
+    val isTie = remember(leaderIds) { leaderIds.size > 1 }
 
     // Loser Spotlight IDs
-    val loserIds by remember(activePlayers, settings.loserSpotlightEnabled, leaderScore) {
-        derivedStateOf {
-            if (settings.loserSpotlightEnabled && activePlayers.size > 1) {
-                val minScore = activePlayers.minOfOrNull { it.score } ?: 0
-                if (minScore < leaderScore) {
-                    activePlayers.filter { it.score == minScore }.map { it.id }.toSet()
-                } else emptySet()
+    val loserIds = remember(activePlayers, settings.loserSpotlightEnabled, leaderScore) {
+        if (settings.loserSpotlightEnabled && activePlayers.size > 1) {
+            val minScore = activePlayers.minOfOrNull { it.score } ?: 0
+            if (minScore < leaderScore) {
+                activePlayers.filter { it.score == minScore }.map { it.id }.toSet()
             } else emptySet()
-        }
+        } else emptySet()
     }
-    
-    val isLoserTie by remember { derivedStateOf { loserIds.size > 1 } }
+
+    val isLoserTie = remember(loserIds) { loserIds.size > 1 }
 
     // Last Change Tracking
     val lastScoreEvent = remember(globalEvents, canUndo) {
@@ -160,24 +162,38 @@ fun GameScreen(
             it.type == GameEventType.CORRECTION || 
             it.type == GameEventType.UNDO 
         }.groupBy { it.playerId }
-         .mapValues { it.value.lastOrNull()?.points }
+         .mapValues { entry -> 
+             val last = entry.value.lastOrNull()
+             last?.let { Pair(it.points, it.type == GameEventType.UNDO) }
+         }
     }
 
     // --- Interaction Handlers ---
+    
+    val isImeVisible = WindowInsets.isImeVisible
+    val focusManager = androidx.compose.ui.platform.LocalFocusManager.current
 
-    BackHandler(enabled = showNumpad || (hasActiveGame && !exitConfirmed)) {
+    BackHandler(enabled = showCelebration || showNumpad || (hasActiveGame && !exitConfirmed && !isImeVisible)) {
         when {
+            showCelebration -> showCelebration = false
             showNumpad && isNumpadPinned -> isNumpadPinned = false
             showNumpad -> showNumpad = false
             showPoolProbability -> showPoolProbability = false
-            hasActiveGame && !exitConfirmed -> showExitConfirmation = true
+            hasActiveGame && !exitConfirmed -> {
+                val currentTime = System.currentTimeMillis()
+                if (currentTime - lastBackPressTime < 2000L) {
+                    showExitConfirmation = true
+                } else {
+                    lastBackPressTime = currentTime
+                    android.widget.Toast.makeText(context, "Press back again to exit game", android.widget.Toast.LENGTH_SHORT).show()
+                }
+            }
         }
     }
 
     // --- Dynamic Effects ---
 
     // Sync Numpad with Keyboard visibility
-    val isImeVisible = WindowInsets.isImeVisible
     LaunchedEffect(isImeVisible, settings.useCustomKeyboard) {
         if (!settings.useCustomKeyboard && !isImeVisible) {
             showNumpad = false
@@ -226,6 +242,37 @@ fun GameScreen(
         selected ?: current ?: activePlayers.firstOrNull()
     }
 
+    LaunchedEffect(lastAutoRemovedBall) {
+        if (lastAutoRemovedBall != null) {
+            delay(3000L)
+            lastAutoRemovedBall = null
+        }
+    }
+
+    // End-Game Celebration
+    LaunchedEffect(tableSum, leaderScore, activePlayers) {
+        if (!settings.poolBallManagementEnabled || !settings.endGameCelebrationEnabled || !hasActiveGame || showCelebration) return@LaunchedEffect
+        
+        val maxScore = activePlayers.maxOfOrNull { it.score } ?: 0
+        
+        // Table cleared: all balls potted
+        val tableCleared = tableSum == 0 && activePlayers.isNotEmpty()
+        
+        // Last man standing: every player except the leader(s) is mathematically eliminated
+        // (their score + all remaining table value still can't beat the leader)
+        val nonLeaders = activePlayers.filter { it.score < maxScore }
+        val allOthersEliminated = nonLeaders.isNotEmpty() &&
+            nonLeaders.all { it.score + tableSum < maxScore }
+        val lastManStanding = allOthersEliminated && activePlayers.size >= 2
+
+        if (tableCleared || lastManStanding) {
+            focusManager.clearFocus(force = true)
+            showNumpad = false
+            keyboardController?.hide()
+            showCelebration = true
+        }
+    }
+
     // --- Overlay & Dialog Composable Blocks ---
 
     if (showResetDialog) {
@@ -265,7 +312,6 @@ fun GameScreen(
     }
 
     if (showExitConfirmation) {
-        val context = androidx.compose.ui.platform.LocalContext.current
         ExitConfirmationDialog(
             onDismiss = { showExitConfirmation = false },
             onConfirm = {
@@ -320,7 +366,8 @@ fun GameScreen(
         PoolProbabilitySheet(
             players = players,
             ballsOnTable = ballsOnTable,
-            ballValues = settings.ballValues,
+            settings = settings,
+            onUpdateSettings = onUpdateSettings,
             onBallsOnTableChange = onUpdateBallsOnTable,
             onDismiss = { showPoolProbability = false }
         )
@@ -360,6 +407,7 @@ fun GameScreen(
                     settings = settings,
                     tableSum = tableSum,
                     canUndo = canUndo,
+                    lastAutoRemovedBall = lastAutoRemovedBall,
                     onEndSession = { showResetDialog = true },
                     onUndo = { showUndoConfirmation = true },
                     onQuickBalls = { showQuickBallDialog = true }
@@ -409,8 +457,22 @@ fun GameScreen(
                     onScoreInputChange = { scoreInput = it },
                     onShowNumpad = { showNumpad = true },
                     onUpdateScore = { pid, pts ->
-                        onUpdateScore(pid, pts)
-                        
+                        // Auto-remove pool balls logic
+                        var ballToRemove: Int? = null
+                        if (settings.poolBallManagementEnabled && settings.autoRemovePoolBalls && pts > 0) {
+                            ballToRemove = ballsOnTable.firstOrNull { ball ->
+                                settings.ballValues[ball] == pts
+                            }
+                            if (ballToRemove == null) {
+                                lastAutoRemovedBall = -1 // Indicates no matching ball
+                            } else {
+                                lastAutoRemovedBall = ballToRemove
+                            }
+                        }
+
+                        // Single call handles updating score and updating balls atomically
+                        onUpdateScore(pid, pts, ballToRemove)
+
                         // Strict mode auto-advance logic
                         if (pts >= 0 && settings.strictTurnMode && !settings.autoNextTurn) {
                             scope.launch {
@@ -439,6 +501,25 @@ fun GameScreen(
                 onDismiss = { if (!isNumpadPinned) showNumpad = false },
                 settings = settings,
                 onUpdateSettings = onUpdateSettings
+            )
+        }
+
+        // Winner Celebration overlay — sits on top of everything
+        if (showCelebration) {
+            val maxScore = players.maxOfOrNull { it.score } ?: 0
+            val winners = players.filter { it.score == maxScore && it.isActive }
+            WinnerCelebrationOverlay(
+                winners = winners,
+                onDismiss = { showCelebration = false },
+                onRestart = {
+                    showCelebration = false
+                    tempForceSave = false // Normal save & play again
+                    showQuickRestart = true
+                },
+                onArchive = {
+                    showCelebration = false
+                    onReset(true, false)
+                }
             )
         }
     }

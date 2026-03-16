@@ -23,6 +23,16 @@ import androidx.compose.ui.unit.sp
 import com.mwarrc.pocketscore.R
 import com.mwarrc.pocketscore.domain.model.AppSettings
 
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.togetherWith
+import androidx.compose.foundation.background
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.runtime.getValue
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+
 /**
  * The primary top navigation bar for the game screen.
  * 
@@ -32,6 +42,7 @@ import com.mwarrc.pocketscore.domain.model.AppSettings
  * @param settings Current application settings
  * @param tableSum Sum of points remaining on the table
  * @param canUndo Whether an action is available to undo
+ * @param lastAutoRemovedBall The number of the last automatically removed ball, if any. -1 indicates 'No fit'
  * @param onEndSession Callback to trigger match ending flow
  * @param onUndo Callback to revert last action
  * @param onQuickBalls Callback to open ball selection overlay
@@ -42,6 +53,7 @@ fun GameTopBar(
     settings: AppSettings,
     tableSum: Int,
     canUndo: Boolean,
+    lastAutoRemovedBall: Int?,
     onEndSession: () -> Unit,
     onUndo: () -> Unit,
     onQuickBalls: () -> Unit
@@ -68,35 +80,111 @@ fun GameTopBar(
                     enter = fadeIn() + scaleIn(),
                     exit = fadeOut() + scaleOut()
                 ) {
+                    val targetBgColor = if (lastAutoRemovedBall != null) MaterialTheme.colorScheme.tertiaryContainer else MaterialTheme.colorScheme.primaryContainer
+                    val targetContentColor = if (lastAutoRemovedBall != null) MaterialTheme.colorScheme.onTertiaryContainer else MaterialTheme.colorScheme.onPrimaryContainer
+                    
+                    val bgColor by animateColorAsState(targetBgColor, label = "bgColor")
+                    val contentColor by animateColorAsState(targetContentColor, label = "contentColor")
+
                     Surface(
                         onClick = onQuickBalls,
                         shape = RoundedCornerShape(50), // Fully rounded pill
-                        color = MaterialTheme.colorScheme.primaryContainer,
+                        color = bgColor,
+                        contentColor = contentColor,
                         modifier = Modifier
                             .height(48.dp) // Bigger touch target
                             .widthIn(min = 140.dp), // Wider for presence
                         tonalElevation = 6.dp, // Higher elevation for "glossy"/pop effect
                         shadowElevation = 4.dp,
-                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.1f))
+                        border = BorderStroke(1.dp, contentColor.copy(alpha = 0.1f))
                     ) {
-                        Row(
-                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.Center
-                        ) {
-                            Icon(
-                                painter = painterResource(id = R.drawable.ic_pool_balls),
-                                contentDescription = "Quick Balls",
-                                tint = MaterialTheme.colorScheme.onPrimaryContainer,
-                                modifier = Modifier.size(24.dp) // Slightly bigger icon
-                            )
-                            Spacer(Modifier.width(8.dp))
-                            Text(
-                                "$tableSum pts",
-                                style = MaterialTheme.typography.titleMedium, // Larger text
-                                fontWeight = FontWeight.Black,
-                                color = MaterialTheme.colorScheme.onPrimaryContainer
-                            )
+                        AnimatedContent(
+                            targetState = lastAutoRemovedBall, 
+                            label = "BallStateAnimation",
+                            transitionSpec = {
+                                (fadeIn(animationSpec = tween(600)) + scaleIn(initialScale = 0.8f)) togetherWith
+                                    (fadeOut(animationSpec = tween(600)) + scaleOut(targetScale = 0.8f))
+                            }
+                        ) { removedBall ->
+                            if (removedBall != null) {
+                                if (removedBall == -1) {
+                                    Row(
+                                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.Center
+                                    ) {
+                                        Icon(
+                                            Icons.Default.Close,
+                                            contentDescription = "No match",
+                                            tint = contentColor,
+                                            modifier = Modifier.size(24.dp)
+                                        )
+                                        Spacer(Modifier.width(8.dp))
+                                        Text(
+                                            "No matching ball",
+                                            style = MaterialTheme.typography.titleSmall,
+                                            fontWeight = FontWeight.Bold,
+                                            color = contentColor
+                                        )
+                                    }
+                                } else {
+                                    Row(
+                                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.Center
+                                    ) {
+                                        Box(
+                                            modifier = Modifier
+                                                .size(24.dp)
+                                                .clip(CircleShape)
+                                                .background(com.mwarrc.pocketscore.ui.feature.settings.getBallColor(removedBall)),
+                                            contentAlignment = Alignment.Center
+                                        ) {
+                                            Box(
+                                                modifier = Modifier
+                                                    .size(14.dp)
+                                                    .clip(CircleShape)
+                                                    .background(Color.White),
+                                                contentAlignment = Alignment.Center
+                                            ) {
+                                                Text(
+                                                    text = removedBall.toString(),
+                                                    style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp),
+                                                    fontWeight = FontWeight.Bold,
+                                                    color = Color.Black
+                                                )
+                                            }
+                                        }
+                                        Spacer(Modifier.width(8.dp))
+                                        Text(
+                                            "Ball $removedBall Removed",
+                                            style = MaterialTheme.typography.titleSmall,
+                                            fontWeight = FontWeight.Bold,
+                                            color = contentColor
+                                        )
+                                    }
+                                }
+                            } else {
+                                Row(
+                                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.Center
+                                ) {
+                                    Icon(
+                                        painter = painterResource(id = R.drawable.ic_pool_balls),
+                                        contentDescription = "Quick Balls",
+                                        tint = contentColor,
+                                        modifier = Modifier.size(24.dp) // Slightly bigger icon
+                                    )
+                                    Spacer(Modifier.width(8.dp))
+                                    Text(
+                                        "$tableSum pts",
+                                        style = MaterialTheme.typography.titleMedium, // Larger text
+                                        fontWeight = FontWeight.Black,
+                                        color = contentColor
+                                    )
+                                }
+                            }
                         }
                     }
                 }

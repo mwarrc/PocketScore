@@ -458,7 +458,18 @@ class GameViewModel(
      * @param playerId The player's unique identifier
      * @param points Points to add (can be negative)
      */
-    fun updateScore(playerId: String, points: Int) {
+    /**
+     * Updates a player's score and optionally removes a pool ball, all in a single atomic state update.
+     *
+     * The ball removal is handled here — NOT in the UI layer — to avoid an async race condition
+     * where two sequential `updateGameState` calls (one for score, one for balls) could overwrite
+     * each other, causing the score to appear to revert.
+     *
+     * @param playerId The player's unique identifier
+     * @param points Points to add (can be negative)
+     * @param autoRemoveBallNumber Optional ball number to remove atomically with the score update
+     */
+    fun updateScore(playerId: String, points: Int, autoRemoveBallNumber: Int? = null) {
         val currentState = _state.value.gameState
         val settings = _state.value.settings
         val player = currentState.players.find { it.id == playerId }
@@ -501,23 +512,29 @@ class GameViewModel(
             previousPlayerId = currentState.currentPlayerId,
             isZeroInput = isZero,
             previousScore = player.score,
-            newScore = newScore
+            newScore = newScore,
+            autoRemovedBall = autoRemoveBallNumber
         )
         val updatedGlobalEvents = currentState.globalEvents + globalEvent
 
-        // Prepare context for turn calculation
+        // Atomically remove the ball in the same state update to avoid race conditions
+        val updatedBalls = if (autoRemoveBallNumber != null) {
+            currentState.ballsOnTable - autoRemoveBallNumber
+        } else {
+            currentState.ballsOnTable
+        }
+
+        // Prepare context for turn calculation (include updated balls for elim logic)
         val tempState = currentState.copy(
             players = updatedPlayers,
-            globalEvents = updatedGlobalEvents
+            globalEvents = updatedGlobalEvents,
+            ballsOnTable = updatedBalls
         )
 
         // Advance to next active player if enabled
         val nextPlayerId = if (settings.autoNextTurn) {
             calculateNextTurnId(tempState, settings, forceSkipCurrent = true) ?: tempState.currentPlayerId
         } else {
-            // Even if not auto-advancing, we should check if current player became eliminated
-            // and might need to be skipped if they can't input anymore.
-            // But usually autoNextTurn is the primary driver for this bug.
             tempState.currentPlayerId
         }
 
@@ -564,13 +581,21 @@ class GameViewModel(
             points = -lastScoreEvent.points,
             previousPlayerId = currentState.currentPlayerId,
             previousScore = currentState.players.find { it.id == lastScoreEvent.playerId }?.score,
-            newScore = currentState.players.find { it.id == lastScoreEvent.playerId }?.score?.minus(lastScoreEvent.points)
+            newScore = currentState.players.find { it.id == lastScoreEvent.playerId }?.score?.minus(lastScoreEvent.points),
+            autoRemovedBall = lastScoreEvent.autoRemovedBall // Restore context for history
         )
+
+        val updatedBalls = if (lastScoreEvent.autoRemovedBall != null) {
+            currentState.ballsOnTable + lastScoreEvent.autoRemovedBall
+        } else {
+            currentState.ballsOnTable
+        }
 
         updateGameState(currentState.copy(
             players = updatedPlayers,
             currentPlayerId = lastScoreEvent.previousPlayerId ?: currentState.currentPlayerId,
             globalEvents = currentState.globalEvents + undoEvent,
+            ballsOnTable = updatedBalls,
             lastUpdate = System.currentTimeMillis(),
             canUndo = false
         ))

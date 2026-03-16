@@ -241,23 +241,29 @@ class GameRepositoryImpl(private val context: Context) : GameRepository {
             val currentHistory = gameHistory.first()
             val currentSettings = appSettings.first()
 
+            // Normalize mappings for robust case-insensitive matching
+            val normalizedMappings = playerNameMappings.mapKeys { it.key.trim().lowercase() }
+            
+            fun getMappedName(rawName: String): String {
+                val trimmed = rawName.trim()
+                return normalizedMappings[trimmed.lowercase()] ?: trimmed
+            }
+
             // Apply name mappings and propagate device info
             val mappedGames = share.games.map { game ->
                 game.copy(
                     deviceInfo = game.deviceInfo ?: share.sourceDevice,
                     players = game.players.map { player ->
-                        val mappedName = playerNameMappings[player.name] ?: player.name
-                        player.copy(name = mappedName)
+                        player.copy(name = getMappedName(player.name))
                     },
                     globalEvents = game.globalEvents.map { event ->
-                        val mappedName = playerNameMappings[event.playerName] ?: event.playerName
-                        event.copy(playerName = mappedName)
+                        event.copy(playerName = getMappedName(event.playerName))
                     }
                 )
             }
             
             val mappedFriends = share.friends.map { name ->
-                playerNameMappings[name] ?: name
+                getMappedName(name)
             }
 
             // Smart merge games: avoid duplicates by ID

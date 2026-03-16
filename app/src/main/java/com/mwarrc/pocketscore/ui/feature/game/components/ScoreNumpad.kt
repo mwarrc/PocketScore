@@ -34,6 +34,7 @@ import com.mwarrc.pocketscore.domain.model.AppSettings
 import com.mwarrc.pocketscore.domain.model.KeyboardTheme
 import com.mwarrc.pocketscore.domain.model.KeyboardHeight
 import com.mwarrc.pocketscore.ui.theme.PocketScoreTheme
+import com.mwarrc.pocketscore.ui.util.ImmersiveMode
 import kotlinx.coroutines.launch
 import kotlin.math.roundToInt
 
@@ -317,6 +318,7 @@ private fun KeyboardSettingsSheet(
     onDismiss: () -> Unit
 ) {
     ModalBottomSheet(onDismissRequest = onDismiss) {
+        ImmersiveMode()
         Column(
             modifier = Modifier
                 .fillMaxWidth()

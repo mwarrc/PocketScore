@@ -43,6 +43,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
+import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.mwarrc.pocketscore.data.repository.GameRepositoryImpl
 import com.mwarrc.pocketscore.domain.model.AppState
@@ -84,6 +85,10 @@ class MainActivity : ComponentActivity() {
     // Holds data received from Intents (e.g. opening a .pscore file)
     private val pendingShareDataFlow = MutableStateFlow<PocketScoreShare?>(null)
 
+    // Tracks whether the game screen is currently shown
+    // Used by onWindowFocusChanged to re-apply immersive mode after dialogs close
+    private var isGameScreenActive = false
+
     /**
      * Called when the activity is starting.
      */
@@ -111,6 +116,22 @@ class MainActivity : ComponentActivity() {
     }
 
     /**
+     * Re-applies full immersive mode every time the window regains focus.
+     * This is critical because when a Dialog or BottomSheet closes, Android 
+     * shows the system bars temporarily. Overriding this ensures they are 
+     * re-hidden automatically on the game screen.
+     */
+    override fun onWindowFocusChanged(hasFocus: Boolean) {
+        super.onWindowFocusChanged(hasFocus)
+        if (hasFocus && isGameScreenActive) {
+            val insetsController = WindowCompat.getInsetsController(window, window.decorView)
+            insetsController.hide(WindowInsetsCompat.Type.systemBars())
+            insetsController.systemBarsBehavior =
+                WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+        }
+    }
+
+    /**
      * The main composable content of the application.
      * Sets up the ViewModel, Navigation Host, and handles global UI states like dialogs and overlays.
      */
@@ -121,6 +142,25 @@ class MainActivity : ComponentActivity() {
         val appState by viewModel.state.collectAsStateWithLifecycle()
         val navController = rememberNavController()
         val scope = rememberCoroutineScope()
+
+        // Track current route and apply full immersive mode on the game screen
+        val currentBackStackEntry by navController.currentBackStackEntryAsState()
+        val currentRoute = currentBackStackEntry?.destination?.route
+        LaunchedEffect(currentRoute) {
+            val insetsController = WindowCompat.getInsetsController(window, window.decorView)
+            if (currentRoute == "game") {
+                isGameScreenActive = true
+                // Full immersive: hide both status bar and navigation bar
+                insetsController.hide(WindowInsetsCompat.Type.systemBars())
+                insetsController.systemBarsBehavior =
+                    WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+            } else {
+                isGameScreenActive = false
+                // Restore: show navigation bar, keep status bar hidden (app default)
+                insetsController.show(WindowInsetsCompat.Type.navigationBars())
+                insetsController.hide(WindowInsetsCompat.Type.statusBars())
+            }
+        }
 
         // Local state
         var showSplash by remember { mutableStateOf(true) }
@@ -406,7 +446,7 @@ class MainActivity : ComponentActivity() {
                     settings = appState.settings,
                     globalEvents = appState.gameState.globalEvents,
                     canUndo = appState.gameState.canUndo,
-                    onUpdateScore = { id, pts -> viewModel.updateScore(id, pts) },
+                    onUpdateScore = { id, pts, ball -> viewModel.updateScore(id, pts, ball) },
                     onGlobalUndo = { viewModel.undoLastGlobalAction() },
                     onReset = { finalized, forceSave -> viewModel.resetGame(finalized, forceSave) },
                     onToggleLayout = {

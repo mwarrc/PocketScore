@@ -49,22 +49,42 @@ fun ImportPlayerMappingRow(
     onMappingChanged: (String?) -> Unit
 ) {
     var dropdownExpanded by remember { mutableStateOf(false) }
-    val isMerging = currentMapping != null
-    val isNewPlayer = !isMerging
+    val isCollision = remember(importedName, existingPlayers) {
+        existingPlayers.any { it.equals(importedName, ignoreCase = true) }
+    }
+    
+    // If currentMapping is null, we are in "Auto" mode:
+    // If collision exists, Auto mode = Merge with that name.
+    // If no collision, Auto mode = New Player with that name.
+    val isMerging = currentMapping != null || isCollision
+    val isAuto = currentMapping == null 
+    val isNewPlayer = (currentMapping == null && !isCollision) || (currentMapping != null && currentMapping !in existingPlayers)
+
+    // Validation for illegal characters
+    val currentTargetName = when {
+        isAuto -> importedName
+        else -> currentMapping ?: "New Player"
+    }
+    val hasIllegalChars = remember(currentTargetName) {
+        // Strictly ONLY letters and numbers (no spaces)
+        currentTargetName.any { !it.isLetterOrDigit() }
+    }
 
     val cardColor by animateColorAsState(
-        targetValue = if (isMerging)
-            MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f)
-        else
-            MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.25f),
+        targetValue = when {
+            hasIllegalChars -> MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.2f)
+            isMerging -> MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f)
+            else -> MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.25f)
+        },
         animationSpec = tween(300),
         label = "cardColor"
     )
     val borderColor by animateColorAsState(
-        targetValue = if (isMerging)
-            MaterialTheme.colorScheme.primary.copy(alpha = 0.35f)
-        else
-            MaterialTheme.colorScheme.secondary.copy(alpha = 0.25f),
+        targetValue = when {
+            hasIllegalChars -> MaterialTheme.colorScheme.error.copy(alpha = 0.5f)
+            isMerging -> MaterialTheme.colorScheme.primary.copy(alpha = 0.35f)
+            else -> MaterialTheme.colorScheme.secondary.copy(alpha = 0.25f)
+        },
         animationSpec = tween(300),
         label = "borderColor"
     )
@@ -145,11 +165,20 @@ fun ImportPlayerMappingRow(
                             horizontalArrangement = Arrangement.spacedBy(4.dp)
                         ) {
                             AnimatedContent(
-                                targetState = isMerging,
+                                targetState = when {
+                                    isAuto && !isCollision -> 0 // NEW (Auto)
+                                    isAuto && isCollision -> 1 // MERGE (Self)
+                                    currentMapping in existingPlayers -> 1 // MERGE (Manual)
+                                    else -> 2 // NEW (Custom)
+                                },
                                 transitionSpec = { fadeIn(tween(200)) togetherWith fadeOut(tween(200)) },
                                 label = "statusBadge"
-                            ) { merging ->
-                                if (merging) MergeBadge() else NewBadge()
+                            ) { state ->
+                                when (state) {
+                                    0 -> NewBadge()
+                                    1 -> MergeBadge()
+                                    else -> CustomBadge()
+                                }
                             }
                             if (isAutoMatched && isMerging) AutoBadge()
                         }
@@ -160,25 +189,37 @@ fun ImportPlayerMappingRow(
                             modifier = Modifier.fillMaxWidth()
                         ) {
                             Text(
-                                text = currentMapping ?: "New Player",
+                                text = currentTargetName,
                                 style = MaterialTheme.typography.bodyMedium,
                                 fontWeight = FontWeight.Bold,
-                                color = if (isMerging)
-                                    MaterialTheme.colorScheme.primary
-                                else
-                                    MaterialTheme.colorScheme.secondary,
+                                color = when {
+                                    hasIllegalChars -> MaterialTheme.colorScheme.error
+                                    isMerging && !isNewPlayer -> MaterialTheme.colorScheme.primary
+                                    else -> MaterialTheme.colorScheme.secondary
+                                },
                                 maxLines = 1,
                                 overflow = TextOverflow.Ellipsis,
                                 modifier = Modifier.weight(1f)
                             )
                             Icon(
-                                Icons.Default.ArrowDropDown,
+                                if (hasIllegalChars) Icons.Default.Warning else Icons.Default.ArrowDropDown,
                                 null,
                                 modifier = Modifier.size(18.dp),
-                                tint = if (isMerging)
-                                    MaterialTheme.colorScheme.primary
-                                else
-                                    MaterialTheme.colorScheme.secondary
+                                tint = when {
+                                    hasIllegalChars -> MaterialTheme.colorScheme.error
+                                    isMerging -> MaterialTheme.colorScheme.primary
+                                    else -> MaterialTheme.colorScheme.secondary
+                                }
+                            )
+                        }
+                        
+                        if (hasIllegalChars) {
+                            Text(
+                                "Only letters & numbers (no spaces)",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.error,
+                                fontSize = 8.sp,
+                                modifier = Modifier.padding(top = 2.dp)
                             )
                         }
                     }
@@ -186,22 +227,108 @@ fun ImportPlayerMappingRow(
             }
 
             // ── Dropdown ──
+            var showRenameDialog by remember { mutableStateOf(false) }
+
             ImportMappingDropdown(
                 expanded = dropdownExpanded,
                 onDismiss = { dropdownExpanded = false },
-                isNewPlayer = isNewPlayer,
+                isAuto = isAuto,
+                isCollision = isCollision,
                 currentMapping = currentMapping,
                 existingPlayers = existingPlayers,
                 unavailablePlayers = unavailablePlayers,
-                onMappingChanged = onMappingChanged
+                onMappingChanged = onMappingChanged,
+                onShowRenameDialog = { 
+                    showRenameDialog = true
+                    dropdownExpanded = false 
+                }
             )
+
+            if (showRenameDialog) {
+                RenamePlayerDialog(
+                    initialName = importedName,
+                    existingPlayers = existingPlayers,
+                    onDismiss = { showRenameDialog = false },
+                    onConfirm = { customName ->
+                        onMappingChanged(customName)
+                        showRenameDialog = false
+                    }
+                )
+            }
         }
     }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
+/**
+ * Dialog to enter a custom name for an imported player.
+ */
+@Composable
+fun RenamePlayerDialog(
+    initialName: String,
+    existingPlayers: List<String>,
+    onDismiss: () -> Unit,
+    onConfirm: (String) -> Unit
+) {
+    var name by remember { mutableStateOf(initialName) }
+    val isDuplicate = remember(name) { 
+        existingPlayers.any { it.equals(name.trim(), ignoreCase = true) } 
+    }
+    val hasSpecialChars = remember(name) {
+        // strictly ONLY letters and numbers (no spaces)
+        name.any { !it.isLetterOrDigit() }
+    }
+    
+    val isValid = name.isNotBlank() && !isDuplicate && !hasSpecialChars
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Custom Player Name") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text(
+                    "Only letters and numbers are allowed. No spaces or special characters.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                OutlinedTextField(
+                    value = name,
+                    onValueChange = { name = it },
+                    label = { Text("Player Name") },
+                    singleLine = true,
+                    isError = isDuplicate || hasSpecialChars,
+                    supportingText = {
+                        Column {
+                            if (isDuplicate) {
+                                Text("A player with this name already exists locally.")
+                            }
+                            if (hasSpecialChars) {
+                                Text("Use letters and numbers only (no spaces).")
+                            }
+                        }
+                    },
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = { onConfirm(name.trim()) },
+                enabled = isValid
+            ) {
+                Text("Confirm")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Cancel")
+            }
+        }
+    )
+}
+
+// --
 // Status Badges
-// ─────────────────────────────────────────────────────────────────────────────
+// --
 
 @Composable
 fun MergeBadge() {
@@ -275,19 +402,45 @@ fun AutoBadge() {
     }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
+@Composable
+fun CustomBadge() {
+    Surface(
+        shape = RoundedCornerShape(4.dp),
+        color = MaterialTheme.colorScheme.tertiary.copy(alpha = 0.15f)
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 5.dp, vertical = 2.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(3.dp)
+        ) {
+            Icon(Icons.Default.Edit, null, modifier = Modifier.size(9.dp), tint = MaterialTheme.colorScheme.tertiary)
+            Text(
+                "CUSTOM",
+                style = MaterialTheme.typography.labelSmall,
+                fontSize = 8.sp,
+                color = MaterialTheme.colorScheme.tertiary,
+                fontWeight = FontWeight.Bold,
+                letterSpacing = 0.5.sp
+            )
+        }
+    }
+}
+
+// --
 // Dropdown Menu
-// ─────────────────────────────────────────────────────────────────────────────
+// --
 
 @Composable
 private fun ImportMappingDropdown(
     expanded: Boolean,
     onDismiss: () -> Unit,
-    isNewPlayer: Boolean,
+    isAuto: Boolean,
+    isCollision: Boolean,
     currentMapping: String?,
     existingPlayers: List<String>,
     unavailablePlayers: Set<String>,
-    onMappingChanged: (String?) -> Unit
+    onMappingChanged: (String?) -> Unit,
+    onShowRenameDialog: () -> Unit
 ) {
     DropdownMenu(
         expanded = expanded,
@@ -296,29 +449,33 @@ private fun ImportMappingDropdown(
             .fillMaxWidth(0.75f)
             .background(MaterialTheme.colorScheme.surfaceContainerHighest)
     ) {
-        // Option: Create as new player
+        // Option: Auto (importedName)
         DropdownMenuItem(
             text = {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Surface(
                         shape = CircleShape,
-                        color = MaterialTheme.colorScheme.secondary.copy(alpha = 0.15f),
+                        color = if (isCollision)
+                            MaterialTheme.colorScheme.primary.copy(alpha = 0.15f)
+                        else
+                            MaterialTheme.colorScheme.secondary.copy(alpha = 0.15f),
                         modifier = Modifier.size(28.dp)
                     ) {
                         Icon(
-                            Icons.Default.PersonAdd, null,
+                            if (isCollision) Icons.AutoMirrored.Filled.MergeType else Icons.Default.PersonAdd,
+                            null,
                             modifier = Modifier.padding(6.dp),
-                            tint = MaterialTheme.colorScheme.secondary
+                            tint = if (isCollision) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.secondary
                         )
                     }
                     Spacer(Modifier.width(10.dp))
                     Column {
                         Text(
-                            "Create as New Player",
-                            fontWeight = if (isNewPlayer) FontWeight.Bold else FontWeight.Normal
+                            text = if (isCollision) "Merge with $currentMapping" else "Create as New Player",
+                            fontWeight = if (isAuto) FontWeight.Bold else FontWeight.Normal
                         )
                         Text(
-                            "Add to your roster",
+                            text = if (isCollision) "Identity match found locally" else "Add fresh to your roster",
                             style = MaterialTheme.typography.labelSmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -326,12 +483,53 @@ private fun ImportMappingDropdown(
                 }
             },
             onClick = { onMappingChanged(null); onDismiss() },
-            colors = if (isNewPlayer) MenuDefaults.itemColors(
-                textColor = MaterialTheme.colorScheme.secondary,
-                leadingIconColor = MaterialTheme.colorScheme.secondary
+            colors = MenuDefaults.itemColors(
+                textColor = if (isAuto) {
+                    if (isCollision) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.secondary
+                } else MaterialTheme.colorScheme.onSurface
+            ),
+            trailingIcon = if (isAuto) {
+                { Icon(Icons.Default.Check, null) }
+            } else null
+        )
+
+        // Option: New Identity (Rename)
+        DropdownMenuItem(
+            text = {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Surface(
+                        shape = CircleShape,
+                        color = MaterialTheme.colorScheme.tertiary.copy(alpha = 0.15f),
+                        modifier = Modifier.size(28.dp)
+                    ) {
+                        Icon(
+                            Icons.Default.Edit, null,
+                            modifier = Modifier.padding(6.dp),
+                            tint = MaterialTheme.colorScheme.tertiary
+                        )
+                    }
+                    Spacer(Modifier.width(10.dp))
+                    Column {
+                        val isCustom = !isAuto && currentMapping !in existingPlayers
+                        Text(
+                            "New Identity (Rename)",
+                            fontWeight = if (isCustom) FontWeight.Bold else FontWeight.Normal
+                        )
+                        Text(
+                            "Avoid collision / Custom name",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+            },
+            onClick = onShowRenameDialog,
+            colors = if (!isAuto && currentMapping !in existingPlayers) MenuDefaults.itemColors(
+                textColor = MaterialTheme.colorScheme.tertiary,
+                leadingIconColor = MaterialTheme.colorScheme.tertiary
             ) else MenuDefaults.itemColors(),
-            trailingIcon = if (isNewPlayer) {
-                { Icon(Icons.Default.Check, null, tint = MaterialTheme.colorScheme.secondary) }
+            trailingIcon = if (!isAuto && currentMapping !in existingPlayers) {
+                { Icon(Icons.Default.Check, null, tint = MaterialTheme.colorScheme.tertiary) }
             } else null
         )
 

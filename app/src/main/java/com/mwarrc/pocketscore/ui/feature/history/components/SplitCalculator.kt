@@ -35,43 +35,37 @@ object SplitCalculator {
         var totalAmount = 0.0
 
         games.forEach { game ->
-            if (game.players.isEmpty()) return@forEach
+            val excludedNames = settings.matchExcludedPlayers[game.id] ?: emptySet()
+            val availablePlayers = game.players.filter { it.name !in excludedNames }
+            
+            if (availablePlayers.isEmpty()) return@forEach
             
             totalAmount += settings.matchCost
             
             val payers = when (settings.settlementMethod) {
-                SettlementMethod.ALL_SPLIT -> game.players
+                SettlementMethod.ALL_SPLIT -> availablePlayers
                 
                 SettlementMethod.LOSERS_PAY -> {
-                    val allScores = game.players.map { it.score }.distinct()
+                    val allScores = availablePlayers.map { it.score }.distinct()
                     if (allScores.size == 1) {
-                        // All tied (or 0-0) -> Everyone pays
-                        game.players
+                        availablePlayers
                     } else {
                         val maxScore = allScores.maxOrNull() ?: 0
-                        game.players.filter { it.score != maxScore }
+                        availablePlayers.filter { it.score != maxScore }
                     }
                 }
                 
                 SettlementMethod.LAST_N_PAY -> {
-                    val allScores = game.players.map { it.score }.distinct()
+                    val allScores = availablePlayers.map { it.score }.distinct()
                     if (allScores.size == 1) {
-                        // All tied -> Everyone splits
-                        game.players
+                        availablePlayers
                     } else {
                         val maxScore = allScores.maxOrNull() ?: 0
-                        // Exclude winners from the pool of potential payers
-                        val potentialPayers = game.players.filter { it.score != maxScore }
-                        
-                        // Group remaining losers by score
+                        val potentialPayers = availablePlayers.filter { it.score != maxScore }
                         val scoreGroups = potentialPayers.groupBy { it.score }
-                        // Sort distinct loser scores ascending (lowest first)
                         val sortedLoserScores = potentialPayers.map { it.score }.distinct().sorted()
-                        
-                        // Take the bottom N groups (entities) from the losers
                         val targetScores = sortedLoserScores.take(settings.lastLosersCount)
                         
-                        // Collect all players belonging to those score groups
                         targetScores.flatMap { score -> 
                             scoreGroups[score] ?: emptyList() 
                         }
@@ -87,8 +81,15 @@ object SplitCalculator {
             }
         }
         
+        // Apply rounding
+        val roundedDebts = playerDebts.map { (name, amount) ->
+            val factor = Math.pow(10.0, settings.settlementRoundingDecimals.toDouble())
+            val roundedAmount = Math.round(amount * factor) / factor
+            name to roundedAmount
+        }
+        
         return SplitCalculationResult(
-            playerDebts = playerDebts.toList().sortedByDescending { it.second },
+            playerDebts = roundedDebts.sortedByDescending { it.second },
             totalAmount = totalAmount
         )
     }

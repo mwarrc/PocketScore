@@ -104,7 +104,7 @@ fun ActivePlayerCard(
     onFocus: () -> Unit = {},
     useCustomKeyboard: Boolean = true,
     modifier: Modifier = Modifier,
-    lastPoints: Int? = null,
+    lastPoints: Pair<Int, Boolean>? = null,
     alwaysShowControls: Boolean = false,
     leaderScore: Int = 0,
     tableSum: Int = 0,
@@ -198,46 +198,69 @@ fun ActivePlayerCard(
             if (isLeader && !isCurrentTurn && !isEliminated) {
                 val starTint = MaterialTheme.colorScheme.tertiary
                 Box(modifier = Modifier.matchParentSize()) {
+                    // Top Left Cluster
                     Icon(
                         Icons.Default.Star,
                         null,
-                        modifier = Modifier.size(28.dp).align(Alignment.TopStart)
-                            .offset(16.dp, 16.dp).alpha(0.18f).rotate(-15f),
+                        modifier = Modifier.size(26.dp).align(Alignment.TopStart)
+                            .offset(12.dp, 10.dp).alpha(0.18f).rotate(-20f),
                         tint = starTint
                     )
                     Icon(
                         Icons.Default.Star,
                         null,
-                        modifier = Modifier.size(20.dp).align(Alignment.TopEnd)
-                            .offset((-60).dp, 12.dp).alpha(0.12f).rotate(10f),
+                        modifier = Modifier.size(14.dp).align(Alignment.TopStart)
+                            .offset(46.dp, 8.dp).alpha(0.1f).rotate(15f),
+                        tint = starTint
+                    )
+                    
+                    // Top Right Cluster
+                    Icon(
+                        Icons.Default.Star,
+                        null,
+                        modifier = Modifier.size(30.dp).align(Alignment.TopEnd)
+                            .offset((-16).dp, 16.dp).alpha(0.15f).rotate(25f),
                         tint = starTint
                     )
                     Icon(
                         Icons.Default.Star,
                         null,
-                        modifier = Modifier.size(24.dp).align(Alignment.TopEnd)
-                            .offset((-12).dp, 20.dp).alpha(0.15f).rotate(25f),
+                        modifier = Modifier.size(18.dp).align(Alignment.TopEnd)
+                            .offset((-50).dp, 10.dp).alpha(0.12f).rotate(-10f),
+                        tint = starTint
+                    )
+
+                    // Center / Middle area 
+                    Icon(
+                        Icons.Default.Star,
+                        null,
+                        modifier = Modifier.size(18.dp).align(Alignment.CenterStart)
+                            .offset(30.dp, (-30).dp).alpha(0.1f).rotate(5f),
                         tint = starTint
                     )
                     Icon(
                         Icons.Default.Star,
                         null,
-                        modifier = Modifier.size(16.dp).align(Alignment.CenterStart)
-                            .offset(40.dp, (-20).dp).alpha(0.1f).rotate(5f),
+                        modifier = Modifier.size(20.dp).align(Alignment.CenterEnd)
+                            .offset((-80).dp, (-10).dp).alpha(0.08f).rotate(-25f),
                         tint = starTint
                     )
+
+                    // Bottom Left Cluster
                     Icon(
                         Icons.Default.Star,
                         null,
-                        modifier = Modifier.size(22.dp).align(Alignment.BottomStart)
-                            .offset(32.dp, (-16).dp).alpha(0.12f).rotate(-10f),
+                        modifier = Modifier.size(24.dp).align(Alignment.BottomStart)
+                            .offset(20.dp, (-20).dp).alpha(0.14f).rotate(18f),
                         tint = starTint
                     )
+
+                    // Bottom Right Cluster - Moved further left to avoid badge
                     Icon(
                         Icons.Default.Star,
                         null,
-                        modifier = Modifier.size(26.dp).align(Alignment.BottomEnd)
-                            .offset((-20).dp, (-12).dp).alpha(0.18f).rotate(-5f),
+                        modifier = Modifier.size(28.dp).align(Alignment.BottomEnd)
+                            .offset((-70).dp, (-12).dp).alpha(0.16f).rotate(-8f),
                         tint = starTint
                     )
                 }
@@ -255,9 +278,9 @@ fun ActivePlayerCard(
                                 val badgeColor = if (isLeader) MaterialTheme.colorScheme.tertiary else MaterialTheme.colorScheme.surfaceVariant
                                 val onBadgeColor = if (isLeader) MaterialTheme.colorScheme.onTertiary else MaterialTheme.colorScheme.onSurfaceVariant
                                 val label = when {
-                                    isLeader && isTie -> "TIED"
+                                    isLeader && isTie -> "TIED LEADER"
                                     isLeader -> "LEADER"
-                                    isLoser && isLoserTie -> "TIED"
+                                    isLoser && isLoserTie -> "TIED LOSER"
                                     else -> "LOSER"
                                 }
                                 val icon = when {
@@ -374,27 +397,33 @@ fun ActivePlayerCard(
 
                     Row(verticalAlignment = Alignment.Bottom) {
                         if (lastPoints != null) {
+                            val (pointsValue, isUndo) = lastPoints
+                            val actualValue = if (isUndo) -pointsValue else pointsValue
                             val pointsColor = when {
-                                lastPoints > 0 -> Color(0xFF4CAF50)
-                                lastPoints < 0 -> MaterialTheme.colorScheme.error
+                                pointsValue > 0 -> Color(0xFF4CAF50)
+                                pointsValue < 0 -> MaterialTheme.colorScheme.error
                                 else -> contentColor.copy(alpha = 0.5f)
                             }
                             val pointsText = when {
-                                lastPoints > 0 -> "+$lastPoints"
-                                lastPoints < 0 -> "$lastPoints"
+                                isUndo && actualValue > 0 -> "Undo +$actualValue"
+                                isUndo && actualValue < 0 -> "Undo $actualValue"
+                                isUndo -> "Undo 0"
+                                pointsValue > 0 -> "+$pointsValue"
+                                pointsValue < 0 -> "$pointsValue"
                                 else -> "0"
                             }
                             Surface(
-                                color = pointsColor.copy(alpha = 0.12f),
+                                color = pointsColor.copy(alpha = 0.18f), // Increased opacity for better visibility
                                 shape = RoundedCornerShape(6.dp),
+                                border = BorderStroke(1.dp, pointsColor.copy(alpha = 0.2f)), // Added subtle border
                                 modifier = Modifier.padding(bottom = 8.dp, end = 8.dp)
                             ) {
                                 Text(
                                     text = pointsText,
                                     style = MaterialTheme.typography.labelMedium,
-                                    fontWeight = FontWeight.Bold,
+                                    fontWeight = FontWeight.ExtraBold, // More emphasis
                                     color = pointsColor,
-                                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 4.dp)
+                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
                                 )
                             }
                         }

@@ -70,7 +70,7 @@ private fun IdentityProTip(onDismiss: () -> Unit) {
                     )
                     Spacer(Modifier.height(4.dp))
                     Text(
-                        text = "Use your unique 'Pro Name' for consistent match history and accurate stats across all your devices!",
+                        text = "Use your unique 'ScepticPlayer' for consistent match history and accurate stats across all your devices!",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         lineHeight = 18.sp

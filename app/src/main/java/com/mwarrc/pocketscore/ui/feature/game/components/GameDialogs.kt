@@ -103,17 +103,19 @@ fun ResetGameDialog(
 
     AlertDialog(
         onDismissRequest = onDismiss,
+        properties = androidx.compose.ui.window.DialogProperties(usePlatformDefaultWidth = false),
+        modifier = Modifier.fillMaxWidth(0.92f),
         icon = {
             Surface(
-                shape = RoundedCornerShape(16.dp),
+                shape = CircleShape,
                 color = if (isGuestRestricted) MaterialTheme.colorScheme.tertiaryContainer else MaterialTheme.colorScheme.primaryContainer,
-                modifier = Modifier.size(56.dp)
+                modifier = Modifier.size(64.dp)
             ) {
                 Box(contentAlignment = Alignment.Center) {
                     Icon(
-                        if (isGuestRestricted) Icons.Default.Groups else Icons.Default.CheckCircle,
+                        if (isGuestRestricted) Icons.Default.Groups else Icons.Default.Flag,
                         null,
-                        modifier = Modifier.size(28.dp),
+                        modifier = Modifier.size(32.dp),
                         tint = if (isGuestRestricted) MaterialTheme.colorScheme.onTertiaryContainer else MaterialTheme.colorScheme.onPrimaryContainer
                     )
                 }
@@ -121,27 +123,29 @@ fun ResetGameDialog(
         },
         title = {
             Text(
-                if (isGuestRestricted) "End Guest Session?" else "End This Match?",
-                style = MaterialTheme.typography.headlineSmall,
-                fontWeight = FontWeight.Bold
+                if (isGuestRestricted) "End Guest Session?" else "Conclude Match?",
+                style = MaterialTheme.typography.headlineMedium,
+                fontWeight = FontWeight.Black,
+                letterSpacing = (-0.5).sp
             )
         },
         text = {
-            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 Text(
                     if (isGuestRestricted) 
-                        "This session will not be saved to your History unless you log it now." 
+                        "Guest sessions do not save to History by default. Choose how to end this session." 
                     else 
-                        "This match is over. What's the next move?",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                        "This match is over. What would you like to do next?",
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(bottom = 8.dp)
                 )
 
                 if (isGuestRestricted) {
                     Surface(
                         onClick = { overrideGuest = !overrideGuest },
                         shape = RoundedCornerShape(12.dp),
-                        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                        color = if (overrideGuest) MaterialTheme.colorScheme.primaryContainer.copy(alpha=0.5f) else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
                         border = BorderStroke(1.dp, if (overrideGuest) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant)
                     ) {
                         Row(
@@ -157,68 +161,25 @@ fun ResetGameDialog(
                                 Text(
                                     "Log to History",
                                     style = MaterialTheme.typography.labelLarge,
-                                    fontWeight = FontWeight.Bold
+                                    fontWeight = FontWeight.Bold,
+                                    color = if (overrideGuest) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurfaceVariant
                                 )
                                 Text(
                                     "Override Guest Mode for this match",
-                                    style = MaterialTheme.typography.labelSmall
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = if (overrideGuest) MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha=0.8f) else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha=0.8f)
                                 )
                             }
                         }
                     }
+                    Spacer(Modifier.height(4.dp))
                 }
-
-                Spacer(Modifier.height(8.dp))
 
                 // Finish & Archive (PRIMARY ACTION)
                 Surface(
                     onClick = { onFinishAndArchive(overrideGuest) },
                     shape = RoundedCornerShape(20.dp),
-                    color = MaterialTheme.colorScheme.primaryContainer,
-                    shadowElevation = 2.dp,
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Row(
-                        modifier = Modifier.padding(20.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(16.dp)
-                    ) {
-                        Surface(
-                            shape = CircleShape,
-                            color = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.size(48.dp)
-                        ) {
-                            Box(contentAlignment = Alignment.Center) {
-                                Icon(
-                                    if (isGuestRestricted && !overrideGuest) Icons.Default.Close else Icons.Default.Lock,
-                                    null,
-                                    modifier = Modifier.size(24.dp),
-                                    tint = MaterialTheme.colorScheme.onPrimary
-                                )
-                            }
-                        }
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text(
-                                if (isGuestRestricted && !overrideGuest) "Discard Session" else "Finish & Archive",
-                                style = MaterialTheme.typography.titleMedium,
-                                fontWeight = FontWeight.ExtraBold,
-                                color = MaterialTheme.colorScheme.onPrimaryContainer
-                            )
-                            Text(
-                                if (isGuestRestricted && !overrideGuest) "Close without logging" else "Lock scores and return home",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f)
-                            )
-                        }
-                    }
-                }
-
-                // Save & Play Again (Secondary Action)
-                Surface(
-                    onClick = { onRestartMatch(overrideGuest) },
-                    shape = RoundedCornerShape(20.dp),
-                    color = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.6f),
-                    border = BorderStroke(1.dp, if (overrideGuest) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)),
+                    color = MaterialTheme.colorScheme.primary, // More prominent
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     Row(
@@ -228,39 +189,82 @@ fun ResetGameDialog(
                     ) {
                         Surface(
                             shape = CircleShape,
-                            color = MaterialTheme.colorScheme.secondary,
-                            modifier = Modifier.size(40.dp)
+                            color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.15f),
+                            modifier = Modifier.size(48.dp)
                         ) {
                             Box(contentAlignment = Alignment.Center) {
                                 Icon(
-                                    Icons.Default.Refresh,
+                                    if (isGuestRestricted && !overrideGuest) Icons.Default.Close else Icons.Default.Check,
                                     null,
-                                    modifier = Modifier.size(20.dp),
-                                    tint = MaterialTheme.colorScheme.onSecondary
+                                    modifier = Modifier.size(24.dp),
+                                    tint = MaterialTheme.colorScheme.onPrimary
                                 )
                             }
                         }
                         Column(modifier = Modifier.weight(1f)) {
                             Text(
-                                if (isGuestRestricted && !overrideGuest) "Restart Guest Session" else "Save & Play Again",
-                                style = MaterialTheme.typography.titleSmall,
-                                fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.onSecondaryContainer
+                                if (isGuestRestricted && !overrideGuest) "Discard Session" else "Finish Match",
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Black,
+                                color = MaterialTheme.colorScheme.onPrimary
                             )
                             Text(
-                                "Start next round immediately",
-                                style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.7f)
+                                if (isGuestRestricted && !overrideGuest) "Close without logging" else "Lock scores & return to home",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.8f)
                             )
                         }
                     }
                 }
-                // Resume Later (Prominent secondary action)
+
+                // Save & Play Again (Secondary Action)
+                Surface(
+                    onClick = { onRestartMatch(overrideGuest) },
+                    shape = RoundedCornerShape(20.dp),
+                    color = MaterialTheme.colorScheme.secondaryContainer,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Row(
+                        modifier = Modifier.padding(16.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(16.dp)
+                    ) {
+                        Surface(
+                            shape = CircleShape,
+                            color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.1f),
+                            modifier = Modifier.size(48.dp)
+                        ) {
+                            Box(contentAlignment = Alignment.Center) {
+                                Icon(
+                                    Icons.Default.Refresh,
+                                    null,
+                                    modifier = Modifier.size(24.dp),
+                                    tint = MaterialTheme.colorScheme.onSecondaryContainer
+                                )
+                            }
+                        }
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                "Play Again",
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onSecondaryContainer
+                            )
+                            Text(
+                                "Finish and start a new round",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.8f)
+                            )
+                        }
+                    }
+                }
+
+                // Resume Later (Tertiary / Outline action)
                 Surface(
                     onClick = onResumeLater,
                     shape = RoundedCornerShape(20.dp),
                     color = MaterialTheme.colorScheme.surface,
-                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.5f)),
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     Row(
@@ -271,27 +275,27 @@ fun ResetGameDialog(
                         Surface(
                             shape = CircleShape,
                             color = MaterialTheme.colorScheme.surfaceVariant,
-                            modifier = Modifier.size(40.dp)
+                            modifier = Modifier.size(48.dp)
                         ) {
                             Box(contentAlignment = Alignment.Center) {
                                 Icon(
-                                    Icons.Default.History,
+                                    Icons.Default.Pause,
                                     null,
-                                    modifier = Modifier.size(20.dp),
+                                    modifier = Modifier.size(24.dp),
                                     tint = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
                             }
                         }
                         Column(modifier = Modifier.weight(1f)) {
                             Text(
-                                "Pause & Resume Later",
-                                style = MaterialTheme.typography.titleSmall,
+                                "Pause & Exit",
+                                style = MaterialTheme.typography.titleMedium,
                                 fontWeight = FontWeight.Bold,
                                 color = MaterialTheme.colorScheme.onSurface
                             )
                             Text(
-                                "Keep Progress for another time",
-                                style = MaterialTheme.typography.labelSmall,
+                                "Keep current progress for later",
+                                style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                         }
@@ -301,13 +305,11 @@ fun ResetGameDialog(
         },
         confirmButton = {},
         dismissButton = {
-            Box(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp)) {
-                TextButton(
-                    onClick = onDismiss,
-                    modifier = Modifier.align(Alignment.CenterEnd)
-                ) {
-                    Text("Cancel", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f))
-                }
+            TextButton(
+                onClick = onDismiss,
+                modifier = Modifier.padding(end = 8.dp, bottom = 8.dp)
+            ) {
+                Text("Cancel", fontWeight = FontWeight.Bold)
             }
         },
         shape = RoundedCornerShape(28.dp)

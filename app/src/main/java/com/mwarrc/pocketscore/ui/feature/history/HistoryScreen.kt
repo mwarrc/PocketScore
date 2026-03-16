@@ -136,8 +136,8 @@ fun HistoryScreen(
             )
         })
 
-        // Tab 3: Pool
-        list.add(HistoryTabItem("Pool", Icons.Default.Group) {
+        // Tab 3: Players
+        list.add(HistoryTabItem("Players", Icons.Default.Group) {
             FriendsTab(
                 settings = settings,
                 history = history,

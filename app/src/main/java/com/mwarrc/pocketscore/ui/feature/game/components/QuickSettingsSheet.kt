@@ -32,6 +32,7 @@ import com.mwarrc.pocketscore.domain.model.AppSettings
 import com.mwarrc.pocketscore.domain.model.AppTheme
 import androidx.compose.foundation.isSystemInDarkTheme
 import com.mwarrc.pocketscore.domain.model.ScoreboardLayout
+import com.mwarrc.pocketscore.ui.util.ImmersiveMode
 
 /**
  * A bottom sheet for toggling common game-related settings mid-match.
@@ -57,6 +58,7 @@ fun QuickSettingsSheet(
         onDismissRequest = onDismiss,
         sheetState = sheetState
     ) {
+        ImmersiveMode()
         Column(
             modifier = Modifier
                 .fillMaxWidth()
@@ -317,6 +319,28 @@ fun QuickSettingsSheet(
                         onUpdateSettings { it.copy(poolBallManagementEnabled = enabled) }
                     }
                 )
+            }
+
+            if (settings.poolBallManagementEnabled) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text("Auto-Remove Pool Balls", style = MaterialTheme.typography.titleMedium)
+                        Text(
+                            "Removes matching ball upon positive score",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                    Switch(
+                        checked = settings.autoRemovePoolBalls,
+                        onCheckedChange = { enabled ->
+                            onUpdateSettings { it.copy(autoRemovePoolBalls = enabled) }
+                        }
+                    )
+                }
             }
 
             Row(

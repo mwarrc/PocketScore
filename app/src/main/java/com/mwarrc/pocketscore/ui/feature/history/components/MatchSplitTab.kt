@@ -37,11 +37,24 @@ fun MatchSplitTab(
     onSelectMatches: (Set<String>) -> Unit,
     onUpdateSettings: ((AppSettings) -> AppSettings) -> Unit
 ) {
-
-    // Prepare display data
-    val displayGames = remember(history) {
-        history.pastGames.filter { it.isFinalized }
+    // View state for history length
+    var showAllHistory by remember { mutableStateOf(false) }
+    
+    // Prepare display data with 7-day filter
+    val (displayGames, hasOlderGames) = remember(history, showAllHistory) {
+        val allFinalized = history.pastGames.filter { it.isFinalized }
             .sortedByDescending { it.endTime ?: it.startTime }
+            
+        if (showAllHistory) {
+            allFinalized to false
+        } else {
+            val sevenDaysAgo = System.currentTimeMillis() - (7L * 24 * 60 * 60 * 1000)
+            val recentGames = allFinalized.filter { 
+                val time = it.endTime ?: it.startTime
+                time > sevenDaysAgo 
+            }
+            recentGames to (allFinalized.size > recentGames.size)
+        }
     }
 
     // Perform calculations for selected matches
@@ -82,13 +95,17 @@ fun MatchSplitTab(
 
             items(calculation.playerDebts, key = { it.first }) { (name, amount) ->
                 val selectedGames = displayGames.filter { it.id in selectedMatchIds }
-                val participationCount = selectedGames.count { g -> g.players.any { it.name == name } }
+                val participationCount = selectedGames.count { g -> 
+                    val excluded = settings.matchExcludedPlayers[g.id] ?: emptySet()
+                    g.players.any { it.name == name } && name !in excluded
+                }
                 
                 SplitResultCard(
                     name = name,
                     amount = amount,
                     matchCount = participationCount,
-                    currencySymbol = settings.currencySymbol
+                    currencySymbol = settings.currencySymbol,
+                    decimals = settings.settlementRoundingDecimals
                 )
             }
         }
@@ -118,6 +135,7 @@ fun MatchSplitTab(
                 SplitMatchItem(
                     game = game,
                     isSelected = isSelected,
+                    excludedPlayers = settings.matchExcludedPlayers[game.id] ?: emptySet(),
                     onToggle = {
                         val nextSelection = if (isSelected) {
                             selectedMatchIds - game.id 
@@ -125,6 +143,11 @@ fun MatchSplitTab(
                             selectedMatchIds + game.id
                         }
                         onSelectMatches(nextSelection)
+                    },
+                    onTogglePlayer = { playerName ->
+                        onUpdateSettings { s ->
+                            s.toggleMatchPlayerExclusion(game.id, playerName)
+                        }
                     }
                 )
             }
@@ -134,6 +157,17 @@ fun MatchSplitTab(
         if (displayGames.isEmpty()) {
             item {
                 EmptyMatchesState()
+            }
+        } else if (hasOlderGames && !showAllHistory) {
+            // "Show All" Button at the bottom
+            item {
+                TextButton(
+                    onClick = { showAllHistory = true },
+                    modifier = Modifier.fillMaxWidth().padding(vertical = 16.dp),
+                    colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.primary)
+                ) {
+                    Text("Show older records", fontWeight = FontWeight.Bold)
+                }
             }
         }
         

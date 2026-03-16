@@ -120,7 +120,8 @@ fun SettingsScreen(
         ) {
             BackupVaultWarningBanner(
                 backupsFolderUri = settings.backupsFolderUri,
-                onLinkBackupsFolder = onLinkBackupsFolder
+                onLinkBackupsFolder = onLinkBackupsFolder,
+                onNavigateToBackups = onNavigateToBackups
             )
 
             GameplaySection(

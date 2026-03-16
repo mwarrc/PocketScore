@@ -28,6 +28,7 @@ import com.mwarrc.pocketscore.ui.theme.getMaterialPlayerColor
 import com.mwarrc.pocketscore.core.time.formatTimeAgo
 import com.mwarrc.pocketscore.domain.model.GameEvent
 import com.mwarrc.pocketscore.domain.model.GameEventType
+import com.mwarrc.pocketscore.ui.util.ImmersiveMode
 
 /**
  * An audit dialog showing the chronological log of game events.
@@ -60,6 +61,7 @@ fun GameHistoryDialog(
                 .fillMaxWidth(0.92f)
                 .fillMaxHeight(0.8f)
         ) {
+            ImmersiveMode()
             Column(modifier = Modifier.fillMaxSize()) {
                 // Header
                 Row(
@@ -93,32 +95,72 @@ fun GameHistoryDialog(
                 }
 
                 // Modern Tab Row
-                ScrollableTabRow(
-                    selectedTabIndex = selectedTab,
-                    containerColor = Color.Transparent,
-                    contentColor = MaterialTheme.colorScheme.primary,
-                    edgePadding = 24.dp,
-                    divider = {},
-                    indicator = { tabPositions ->
-                        TabRowDefaults.SecondaryIndicator(
-                            modifier = Modifier.tabIndicatorOffset(tabPositions[selectedTab]),
-                            height = 3.dp,
-                            color = MaterialTheme.colorScheme.primary
-                        )
-                    }
+                Surface(
+                    color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f),
+                    modifier = Modifier.fillMaxWidth()
                 ) {
-                    tabs.forEachIndexed { index, name ->
-                        Tab(
-                            selected = selectedTab == index,
-                            onClick = { selectedTab = index },
-                            text = {
-                                Text(
-                                    name,
-                                    style = MaterialTheme.typography.titleSmall,
-                                    fontWeight = if (selectedTab == index) FontWeight.Bold else FontWeight.Medium
+                    Column {
+                        // Helper text to indicate scrollability
+                        Text(
+                            "Swipe for player history",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+                            modifier = Modifier.padding(start = 24.dp, top = 8.dp, bottom = 4.dp)
+                        )
+                        
+                        ScrollableTabRow(
+                            selectedTabIndex = selectedTab,
+                            containerColor = Color.Transparent,
+                            contentColor = MaterialTheme.colorScheme.primary,
+                            edgePadding = 24.dp,
+                            divider = {},
+                            indicator = { tabPositions ->
+                                TabRowDefaults.SecondaryIndicator(
+                                    modifier = Modifier.tabIndicatorOffset(tabPositions[selectedTab]),
+                                    height = 3.dp,
+                                    color = MaterialTheme.colorScheme.primary
                                 )
                             }
-                        )
+                        ) {
+                            tabs.forEachIndexed { index, name ->
+                                val isSelected = selectedTab == index
+                                Tab(
+                                    selected = isSelected,
+                                    onClick = { selectedTab = index },
+                                    text = {
+                                        Row(
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                        ) {
+                                            if (index == 0) {
+                                                Icon(
+                                                    Icons.Default.History,
+                                                    contentDescription = null,
+                                                    modifier = Modifier.size(16.dp),
+                                                    tint = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
+                                                )
+                                            } else {
+                                                Box(
+                                                    modifier = Modifier
+                                                        .size(8.dp)
+                                                        .clip(CircleShape)
+                                                        .background(
+                                                            getMaterialPlayerColor(name)
+                                                                .copy(alpha = if (isSelected) 1f else 0.5f)
+                                                        )
+                                                )
+                                            }
+                                            Text(
+                                                name,
+                                                style = MaterialTheme.typography.titleSmall,
+                                                fontWeight = if (isSelected) FontWeight.Black else FontWeight.Medium,
+                                                color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
+                                            )
+                                        }
+                                    }
+                                )
+                            }
+                        }
                     }
                 }
 

@@ -86,6 +86,15 @@ fun ImportPreviewScreen(
         }
     }
 
+    // ── Validation ──
+    val hasValidationErrors = remember(shareData.friends, playerMappings) {
+        shareData.friends.any { importedName ->
+            val mappedName = playerMappings[importedName] ?: importedName
+            // Strictly ONLY letters and numbers (no spaces)
+            mappedName.any { !it.isLetterOrDigit() }
+        }
+    }
+
     // ── UI ──
     Column(modifier = Modifier.background(MaterialTheme.colorScheme.surface)) {
         Spacer(Modifier.statusBarsPadding())
@@ -102,9 +111,9 @@ fun ImportPreviewScreen(
                                 style = MaterialTheme.typography.titleLarge
                             )
                             Text(
-                                text = "Review before merging",
+                                text = if (hasValidationErrors) "Resolve naming errors to continue" else "Review before merging",
                                 style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                color = if (hasValidationErrors) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant
                             )
                         }
                     },
@@ -127,7 +136,8 @@ fun ImportPreviewScreen(
                     },
                     isProcessing = isProcessing,
                     newGamesCount = newGamesCount,
-                    duplicateCount = duplicateGameIds.size
+                    duplicateCount = duplicateGameIds.size,
+                    confirmEnabled = !hasValidationErrors
                 )
             }
         ) { padding ->
@@ -195,9 +205,9 @@ fun ImportPreviewScreen(
     }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
+// --
 // Private helpers
-// ─────────────────────────────────────────────────────────────────────────────
+// --
 
 /**
  * Finds the best local player name for an imported name.

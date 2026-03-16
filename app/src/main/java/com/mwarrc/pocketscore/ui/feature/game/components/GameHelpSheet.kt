@@ -18,6 +18,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.mwarrc.pocketscore.ui.util.ImmersiveMode
 
 /**
  * An educational bottom sheet that explains the game's unique features.
@@ -40,6 +41,7 @@ fun GameHelpSheet(
         containerColor = MaterialTheme.colorScheme.surface,
         shape = RoundedCornerShape(topStart = 32.dp, topEnd = 32.dp)
     ) {
+        ImmersiveMode()
         Column(
             modifier = Modifier
                 .fillMaxWidth()

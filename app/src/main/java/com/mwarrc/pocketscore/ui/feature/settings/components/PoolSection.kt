@@ -14,6 +14,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Analytics
+import androidx.compose.material.icons.filled.EmojiEvents
 import androidx.compose.material.icons.filled.Extension
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material3.Icon
@@ -86,6 +87,20 @@ fun PoolSection(
         )
 
         if (settings.poolBallManagementEnabled) {
+            SettingsItem(
+                title = "End Game Celebrations",
+                subtitle = "Show winner screen when the table is cleared",
+                icon = Icons.Default.EmojiEvents,
+                trailing = {
+                    Switch(
+                        checked = settings.endGameCelebrationEnabled,
+                        onCheckedChange = { enabled ->
+                            onUpdateSettings { it.copy(endGameCelebrationEnabled = enabled) }
+                        }
+                    )
+                }
+            )
+
             Surface(
                 onClick = onNavigateToBallValues,
                 modifier = Modifier

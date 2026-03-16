@@ -31,6 +31,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -42,7 +43,9 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import com.mwarrc.pocketscore.domain.model.AppSettings
 import com.mwarrc.pocketscore.domain.model.Player
+import com.mwarrc.pocketscore.ui.util.ImmersiveMode
 
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 
@@ -55,7 +58,8 @@ import androidx.compose.foundation.layout.ExperimentalLayoutApi
  * 
  * @param players List of players in the game
  * @param ballsOnTable Set of ball numbers (1-15) currently remaining
- * @param ballValues Map of ball numbers to their respective point values
+ * @param settings Application settings including pool config
+ * @param onUpdateSettings Callback to update settings
  * @param onBallsOnTableChange Callback when the table state is updated
  * @param onDismiss Callback to close the sheet
  */
@@ -64,10 +68,12 @@ import androidx.compose.foundation.layout.ExperimentalLayoutApi
 fun PoolProbabilitySheet(
     players: List<Player>,
     ballsOnTable: Set<Int>,
-    ballValues: Map<Int, Int>,
+    settings: AppSettings,
+    onUpdateSettings: ((AppSettings) -> AppSettings) -> Unit,
     onBallsOnTableChange: (Set<Int>) -> Unit,
     onDismiss: () -> Unit
 ) {
+    val ballValues = settings.ballValues
     val tableSum = remember(ballsOnTable, ballValues) {
         ballsOnTable.sumOf { ballValues[it] ?: 0 }
     }
@@ -102,6 +108,7 @@ fun PoolProbabilitySheet(
         },
         containerColor = MaterialTheme.colorScheme.surface
     ) {
+        ImmersiveMode()
         Column(
             modifier = Modifier
                 .fillMaxWidth()
@@ -155,11 +162,56 @@ fun PoolProbabilitySheet(
                                 color = MaterialTheme.colorScheme.onPrimaryContainer
                             )
                             Text(
-                                "pts left",
+                                "Remaining pts",
                                 style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f)
+                                color = MaterialTheme.colorScheme.onPrimaryContainer
                             )
                         }
+                    }
+                }
+                
+                Spacer(modifier = Modifier.height(12.dp))
+
+                // Auto-Remove Banner
+                Surface(
+                    shape = RoundedCornerShape(12.dp),
+                    color = if (settings.autoRemovePoolBalls) MaterialTheme.colorScheme.primaryContainer.copy(alpha=0.6f) 
+                            else MaterialTheme.colorScheme.surfaceVariant,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable { onUpdateSettings { it.copy(autoRemovePoolBalls = !it.autoRemovePoolBalls) } }
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp, vertical = 10.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            if (settings.autoRemovePoolBalls) Icons.Default.CheckCircle else Icons.Default.Block,
+                            contentDescription = null,
+                            tint = if (settings.autoRemovePoolBalls) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.size(20.dp)
+                        )
+                        Spacer(modifier = Modifier.width(12.dp))
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                "Auto-Remove Balls",
+                                style = MaterialTheme.typography.labelLarge,
+                                fontWeight = FontWeight.Bold,
+                                color = if (settings.autoRemovePoolBalls) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            Text(
+                                if (settings.autoRemovePoolBalls) "Enabled: Numpad scores will remove balls" else "Disabled: Balls remain on table",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = if (settings.autoRemovePoolBalls) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                        Switch(
+                            checked = settings.autoRemovePoolBalls,
+                            onCheckedChange = { isChecked -> onUpdateSettings { it.copy(autoRemovePoolBalls = isChecked) } },
+                            modifier = Modifier.scale(0.8f)
+                        )
                     }
                 }
 

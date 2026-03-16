@@ -17,6 +17,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.mwarrc.pocketscore.domain.model.AppSettings
 import com.mwarrc.pocketscore.domain.model.Player
+import com.mwarrc.pocketscore.ui.util.ImmersiveMode
 
 /**
  * Bottom sheet allowing mid-match roster adjustments.
@@ -48,6 +49,7 @@ fun ManagePlayersSheet(
         onDismissRequest = onDismiss,
         sheetState = sheetState
     ) {
+        ImmersiveMode()
         Column(
             modifier = Modifier
                 .fillMaxWidth()

@@ -23,7 +23,8 @@ fun SplitResultCard(
     name: String,
     amount: Double,
     matchCount: Int,
-    currencySymbol: String
+    currencySymbol: String,
+    decimals: Int = 2
 ) {
     Surface(
         shape = RoundedCornerShape(24.dp),
@@ -67,8 +68,9 @@ fun SplitResultCard(
             }
             
             // Amount
+            val formatString = if (decimals == 0) "%.0f" else "%.${decimals}f"
             Text(
-                text = "$currencySymbol ${String.format("%.0f", amount)}",
+                text = "$currencySymbol ${String.format(formatString, amount)}",
                 style = MaterialTheme.typography.titleLarge,
                 fontWeight = FontWeight.Black,
                 color = MaterialTheme.colorScheme.primary

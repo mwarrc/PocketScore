@@ -126,7 +126,7 @@ fun HelpScreen(
     }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
+// --
 // Category card
 //
 // Design decisions:
@@ -134,7 +134,7 @@ fun HelpScreen(
 //    the surface background without any outline artifact.
 //  • Zero elevation — avoids shadow clutter in a list context.
 //  • Chevron rotates via spring animation; no icon swap avoids visual jump.
-// ─────────────────────────────────────────────────────────────────────────────
+// --
 
 @Composable
 private fun HelpCategoryCard(
@@ -259,12 +259,12 @@ private fun HelpCategoryCard(
     }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
+// --
 // Individual help entry
 //
 // Uses M3 ListItem for correct internal spacing and slot semantics.
 // Transparent container inherits the card background.
-// ─────────────────────────────────────────────────────────────────────────────
+// --
 
 @Composable
 private fun HelpEntryRow(

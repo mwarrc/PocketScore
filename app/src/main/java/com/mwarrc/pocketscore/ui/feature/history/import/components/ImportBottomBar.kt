@@ -30,7 +30,8 @@ fun ImportBottomBar(
     onConfirm: () -> Unit,
     isProcessing: Boolean,
     newGamesCount: Int,
-    duplicateCount: Int
+    duplicateCount: Int,
+    confirmEnabled: Boolean = true
 ) {
     Surface(tonalElevation = 3.dp, shadowElevation = 8.dp) {
         Column(
@@ -74,7 +75,7 @@ fun ImportBottomBar(
                     contentPadding = PaddingValues(vertical = 14.dp),
                     shape = RoundedCornerShape(14.dp),
                     elevation = ButtonDefaults.buttonElevation(defaultElevation = 2.dp),
-                    enabled = !isProcessing
+                    enabled = !isProcessing && confirmEnabled
                 ) {
                     if (isProcessing) {
                         CircularProgressIndicator(

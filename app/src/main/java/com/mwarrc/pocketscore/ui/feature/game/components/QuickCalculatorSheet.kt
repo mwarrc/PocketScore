@@ -63,6 +63,7 @@ import kotlinx.coroutines.launch
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import com.mwarrc.pocketscore.domain.model.Player
+import com.mwarrc.pocketscore.ui.util.ImmersiveMode
 
 /**
  * Expression Calculator overlay.
@@ -86,7 +87,7 @@ fun QuickCalculatorSheet(
     expression: TextFieldValue,
     onExpressionChange: (TextFieldValue) -> Unit,
     players: List<Player>,
-    onAddScore: (String, Int) -> Unit,
+    onAddScore: (String, Int, Int?) -> Unit,
     onUpdateSettings: ((AppSettings) -> AppSettings) -> Unit,
     onDismiss: () -> Unit
 ) {
@@ -121,6 +122,7 @@ fun QuickCalculatorSheet(
         dragHandle = { BottomSheetDefaults.DragHandle() },
         containerColor = MaterialTheme.colorScheme.surface
     ) {
+        ImmersiveMode()
         Column(
             modifier = Modifier
                 .fillMaxWidth()
