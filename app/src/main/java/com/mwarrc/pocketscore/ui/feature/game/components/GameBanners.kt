@@ -106,7 +106,11 @@ fun StrictModeBanner(
                     )
                     Spacer(Modifier.width(8.dp))
                     Text(
-                        "Free Edit Mode: Anyone can score",
+                        text = if (settings.poolBallManagementEnabled && settings.allowEliminatedInput) {
+                            "Free Edit Mode: Anyone can score • Eliminated Input On"
+                        } else {
+                            "Free Edit Mode: Anyone can score"
+                        },
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSecondaryContainer
                     )

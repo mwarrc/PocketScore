@@ -3,6 +3,7 @@ package com.mwarrc.pocketscore.ui.feature.game.components
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
@@ -13,11 +14,21 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.Velocity
 import androidx.compose.ui.unit.dp
 import com.mwarrc.pocketscore.domain.model.AppSettings
 import com.mwarrc.pocketscore.domain.model.Player
 import com.mwarrc.pocketscore.ui.util.ImmersiveMode
+import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
+import androidx.compose.ui.input.nestedscroll.NestedScrollSource
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.runtime.remember
+import androidx.compose.foundation.background
+import androidx.compose.ui.draw.clip
 
 /**
  * Bottom sheet allowing mid-match roster adjustments.
@@ -41,24 +52,70 @@ fun ManagePlayersSheet(
     onDismiss: () -> Unit
 ) {
     val currentTurnPlayer = players.find { it.id == currentPlayerId }
-    
+
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val scrollState = rememberScrollState()
 
+    // True screen height via DisplayMetrics — unaffected by immersive mode / inset changes
+    val density = LocalDensity.current
+    val context = LocalContext.current
+    val trueScreenHeightDp = with(density) {
+        context.resources.displayMetrics.heightPixels.toDp()
+    }
+    val maxContentHeight = trueScreenHeightDp - 64.dp
+
+    // displayCutout inset remains valid even in immersive mode (statusBars returns 0)
+    val statusBarTop = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
+    val cutoutTop = WindowInsets.displayCutout.asPaddingValues().calculateTopPadding()
+    val topInset = maxOf(statusBarTop, cutoutTop)
+
     ModalBottomSheet(
         onDismissRequest = onDismiss,
-        sheetState = sheetState
+        sheetState = sheetState,
+        dragHandle = {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = topInset + 20.dp, bottom = 20.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                Box(
+                    modifier = Modifier
+                        .width(56.dp)
+                        .height(5.dp)
+                        .clip(CircleShape)
+                        .background(MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.75f))
+                )
+            }
+        }
     ) {
         ImmersiveMode()
+
+        val nestedScrollConnection = remember {
+            object : NestedScrollConnection {
+                override fun onPostScroll(
+                    consumed: Offset,
+                    available: Offset,
+                    source: NestedScrollSource
+                ): Offset = available
+
+                override suspend fun onPostFling(
+                    consumed: Velocity,
+                    available: Velocity
+                ): Velocity = available
+            }
+        }
+
+        // heightIn(max) on the content Column caps the sheet's expanded anchor.
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .statusBarsPadding()
-                .systemBarsPadding()
-                .displayCutoutPadding()
+                .heightIn(max = maxContentHeight)
                 .navigationBarsPadding()
+                .nestedScroll(nestedScrollConnection)
                 .verticalScroll(scrollState)
-                .padding(16.dp)
+                .padding(horizontal = 24.dp)
+                .padding(bottom = 32.dp)
         ) {
             Row(
                 modifier = Modifier.fillMaxWidth(),

@@ -78,42 +78,26 @@ fun GameplaySection(
         )
 
         SettingsItem(
-            title = "Leader Spotlight",
-            subtitle = "Highlight player with highest points",
+            title = "Spotlights",
+            subtitle = "Highlight players with highest/lowest points",
             icon = Icons.Default.Palette,
             onIconClick = {
                 infoDialogContent = InfoContent(
-                    title = "Leader Spotlight",
-                    description = "Visually distinguishes the current leader in the scoreboard with a persistent 'LEADER' badge and a high-contrast background. Perfect for keeping track of the front-runner at a glance.",
+                    title = "Spotlights",
+                    description = "Visually distinguishes the current leader and loser in the scoreboard. Perfect for keeping track of the front-runner and who is following the 'loser starts' rule at a glance.",
                     icon = Icons.Default.Palette
                 )
             },
             trailing = {
                 Switch(
-                    checked = settings.leaderSpotlightEnabled,
+                    checked = settings.leaderSpotlightEnabled || settings.loserSpotlightEnabled,
                     onCheckedChange = { enabled ->
-                        onUpdateSettings { it.copy(leaderSpotlightEnabled = enabled) }
-                    }
-                )
-            }
-        )
-
-        SettingsItem(
-            title = "Loser Spotlight",
-            subtitle = "Highlight player with lowest points",
-            icon = Icons.Default.Palette,
-            onIconClick = {
-                infoDialogContent = InfoContent(
-                    title = "Loser Spotlight",
-                    description = "Adds a subtle highlight to the player with the lowest score. Useful for identifying who needs to catch up or who is following the 'loser starts' rule.",
-                    icon = Icons.Default.Palette
-                )
-            },
-            trailing = {
-                Switch(
-                    checked = settings.loserSpotlightEnabled,
-                    onCheckedChange = { enabled ->
-                        onUpdateSettings { it.copy(loserSpotlightEnabled = enabled) }
+                        onUpdateSettings { 
+                            it.copy(
+                                leaderSpotlightEnabled = enabled,
+                                loserSpotlightEnabled = enabled
+                            ) 
+                        }
                     }
                 )
             }

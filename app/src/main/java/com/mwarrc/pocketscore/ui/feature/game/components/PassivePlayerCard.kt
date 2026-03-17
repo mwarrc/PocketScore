@@ -73,9 +73,11 @@ fun PassivePlayerCard(
     tableSum: Int = 0,
     poolBallManagementEnabled: Boolean = true
 ) {
-    // Calculate if player is eliminated - Only if pool management is enabled
+    // Calculate if player is eliminated - Only if pool management is enabled.
+    // When tableSum == 0, the game is over - no more points can be scored.
+    // potentialMax == player.score in that case, so the check still holds correctly.
     val potentialMax = player.score + tableSum
-    val isEliminated = poolBallManagementEnabled && !isLeader && potentialMax < leaderScore && tableSum > 0
+    val isEliminated = poolBallManagementEnabled && !isLeader && potentialMax < leaderScore
     
     val containerColor = when {
         isEliminated -> MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.2f)

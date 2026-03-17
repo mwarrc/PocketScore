@@ -292,7 +292,7 @@ class MainActivity : ComponentActivity() {
             PocketScoreTheme(darkTheme = darkTheme) {
                 Box(modifier = Modifier.fillMaxSize()) {
                     when {
-                        showSplash -> {
+                        showSplash && !appState.settings.hasSeenOnboarding -> {
                             SplashScreen(
                                 onTimeout = {
                                     showSplash = false

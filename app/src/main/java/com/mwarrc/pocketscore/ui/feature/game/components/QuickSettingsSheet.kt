@@ -9,9 +9,16 @@ import androidx.compose.material.icons.filled.CenterFocusStrong
 import androidx.compose.material.icons.filled.DarkMode
 import androidx.compose.material.icons.filled.LightMode
 import androidx.compose.material.icons.filled.Lock
+import androidx.compose.material.icons.filled.Palette
+import androidx.compose.material.icons.filled.Keyboard
+import androidx.compose.material.icons.filled.Help
+import androidx.compose.material.icons.filled.FastForward
+import androidx.compose.material.icons.filled.AutoAwesome
+import androidx.compose.material.icons.filled.SportsEsports
 import androidx.compose.material.icons.outlined.GridView
 import androidx.compose.material.icons.outlined.ViewAgenda
 import androidx.compose.material3.Button
+import com.mwarrc.pocketscore.ui.feature.settings.components.SettingsItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -26,13 +33,24 @@ import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.Velocity
 import androidx.compose.ui.unit.dp
 import com.mwarrc.pocketscore.domain.model.AppSettings
 import com.mwarrc.pocketscore.domain.model.AppTheme
 import androidx.compose.foundation.isSystemInDarkTheme
 import com.mwarrc.pocketscore.domain.model.ScoreboardLayout
 import com.mwarrc.pocketscore.ui.util.ImmersiveMode
+import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
+import androidx.compose.ui.input.nestedscroll.NestedScrollSource
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.runtime.remember
+import androidx.compose.foundation.background
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.ui.draw.clip
 
 /**
  * A bottom sheet for toggling common game-related settings mid-match.
@@ -54,20 +72,79 @@ fun QuickSettingsSheet(
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val scrollState = rememberScrollState()
 
+    // --- Height calculation ---
+    // In immersive mode, WindowInsets.statusBars reports 0 (system bars are hidden).
+    // LocalConfiguration.screenHeightDp can also exclude system bar areas on some devices.
+    // The only RELIABLE source for the true physical screen height is DisplayMetrics.heightPixels.
+    val density = LocalDensity.current
+    val context = LocalContext.current
+    val trueScreenHeightDp = with(density) {
+        context.resources.displayMetrics.heightPixels.toDp()
+    }
+    // We want ~64dp of game screen visible above the sheet top edge.
+    val maxContentHeight = trueScreenHeightDp - 64.dp
+
+    // --- Drag handle offset ---
+    // statusBars inset is 0 in immersive mode, but displayCutout inset still
+    // correctly describes the notch/punch-hole area even when bars are hidden.
+    val statusBarTop = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
+    val cutoutTop = WindowInsets.displayCutout.asPaddingValues().calculateTopPadding()
+    // Use whichever is larger so we always clear the camera hardware
+    val topInset = maxOf(statusBarTop, cutoutTop)
+
     ModalBottomSheet(
         onDismissRequest = onDismiss,
-        sheetState = sheetState
+        sheetState = sheetState,
+        // NOTE: Do NOT apply heightIn here. ModalBottomSheet calculates its expanded
+        // anchor from the CONTENT's measured height. Applying heightIn to the sheet
+        // itself only constraints the composable layout, not the drag anchor — this
+        // causes an empty gap at the bottom rather than a gap at the top.
+        dragHandle = {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = topInset + 20.dp, bottom = 20.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                Box(
+                    modifier = Modifier
+                        .width(56.dp)
+                        .height(5.dp)
+                        .clip(CircleShape)
+                        .background(MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.75f))
+                )
+            }
+        },
+        containerColor = MaterialTheme.colorScheme.surfaceContainerLow
     ) {
         ImmersiveMode()
+
+        val nestedScrollConnection = remember {
+            object : NestedScrollConnection {
+                override fun onPostScroll(
+                    consumed: Offset,
+                    available: Offset,
+                    source: NestedScrollSource
+                ): Offset = available
+
+                override suspend fun onPostFling(
+                    consumed: Velocity,
+                    available: Velocity
+                ): Velocity = available
+            }
+        }
+
+        // heightIn(max) on the CONTENT Column is what actually caps the sheet's
+        // expanded anchor position. The sheet sizes itself to fit its content,
+        // so capping content height = capping sheet height = gap visible at the top.
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .statusBarsPadding() // Avoid punch hole/status icons
-                .systemBarsPadding()
-                .displayCutoutPadding()
+                .heightIn(max = maxContentHeight)
                 .navigationBarsPadding()
-                .verticalScroll(scrollState) // Make it scrollable for small screens
-                .padding(16.dp)
+                .nestedScroll(nestedScrollConnection)
+                .verticalScroll(scrollState)
+                .padding(horizontal = 24.dp)
                 .padding(bottom = 32.dp),
             verticalArrangement = Arrangement.spacedBy(20.dp)
         ) {
@@ -104,8 +181,114 @@ fun QuickSettingsSheet(
                 }
             }
 
+            // --- Game Rules & Flow ---
+            Text(
+                text = "Game Rules & Flow",
+                style = MaterialTheme.typography.labelLarge,
+                color = MaterialTheme.colorScheme.primary,
+                fontWeight = FontWeight.Bold,
+                modifier = Modifier.padding(start = 4.dp, top = 8.dp)
+            )
+
+            SettingsItem(
+                title = "Strict Turn Mode",
+                subtitle = if (settings.enforceStrictMode) "Rules Locked (In Settings)" 
+                           else if (settings.strictTurnMode) "Security Active" 
+                           else "Quick play enabled",
+                icon = Icons.Default.Lock,
+                trailing = {
+                    Switch(
+                        enabled = !settings.enforceStrictMode,
+                        checked = settings.strictTurnMode,
+                        onCheckedChange = { enabled ->
+                            onUpdateSettings { 
+                                var newSettings = it.copy(strictTurnMode = enabled)
+                                if (enabled) {
+                                    newSettings = newSettings.copy(autoNextTurn = true)
+                                }
+                                newSettings
+                            }
+                        },
+                        colors = SwitchDefaults.colors(
+                            checkedThumbColor = MaterialTheme.colorScheme.error,
+                            checkedTrackColor = MaterialTheme.colorScheme.errorContainer,
+                        )
+                    )
+                }
+            )
+
+            SettingsItem(
+                title = "Auto-Advance Turn",
+                subtitle = "Switch player after scoring",
+                icon = Icons.Default.FastForward,
+                trailing = {
+                    Switch(
+                        enabled = !settings.strictTurnMode, 
+                        checked = settings.autoNextTurn || settings.strictTurnMode,
+                        onCheckedChange = { enabled ->
+                            onUpdateSettings { it.copy(autoNextTurn = enabled) }
+                        }
+                    )
+                }
+            )
+
+            SettingsItem(
+                title = "Pool Ball Management",
+                subtitle = "Insights & elimination for billiards",
+                icon = Icons.Default.SportsEsports, // Can use another icon if imported
+                trailing = {
+                    Switch(
+                        checked = settings.poolBallManagementEnabled,
+                        onCheckedChange = { enabled ->
+                            onUpdateSettings { it.copy(poolBallManagementEnabled = enabled) }
+                        }
+                    )
+                }
+            )
+
+            if (settings.poolBallManagementEnabled) {
+                SettingsItem(
+                    title = "Auto-Remove Pool Balls",
+                    subtitle = "Removes matching ball upon positive score",
+                    icon = Icons.Default.AutoAwesome,
+                    trailing = {
+                        Switch(
+                            checked = settings.autoRemovePoolBalls,
+                            onCheckedChange = { enabled ->
+                                onUpdateSettings { it.copy(autoRemovePoolBalls = enabled) }
+                            }
+                        )
+                    }
+                )
+
+                if (!settings.strictTurnMode) {
+                    SettingsItem(
+                        title = "Allow Eliminated Input",
+                        subtitle = "Eliminated players keep their turns",
+                        icon = Icons.Default.Help,
+                        trailing = {
+                            Switch(
+                                checked = settings.allowEliminatedInput,
+                                onCheckedChange = { enabled ->
+                                    onUpdateSettings { it.copy(allowEliminatedInput = enabled) }
+                                }
+                            )
+                        }
+                    )
+                }
+            }
+
+            // --- Display & Interface ---
+            Text(
+                text = "Display & Interface",
+                style = MaterialTheme.typography.labelLarge,
+                color = MaterialTheme.colorScheme.primary,
+                fontWeight = FontWeight.Bold,
+                modifier = Modifier.padding(start = 4.dp, top = 8.dp)
+            )
+
             Column(
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp, vertical = 8.dp),
                 verticalArrangement = Arrangement.spacedBy(10.dp)
             ) {
                 Text("Scoreboard Layout", style = MaterialTheme.typography.titleMedium)
@@ -113,7 +296,6 @@ fun QuickSettingsSheet(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    // List View Toggle
                     if (settings.defaultLayout == ScoreboardLayout.LIST) {
                         Button(
                             modifier = Modifier.weight(1f),
@@ -122,7 +304,7 @@ fun QuickSettingsSheet(
                         ) {
                             Icon(Icons.Outlined.ViewAgenda, null)
                             Spacer(Modifier.width(8.dp))
-                            Text("List View")
+                            Text("List")
                         }
                     } else {
                         OutlinedButton(
@@ -134,11 +316,10 @@ fun QuickSettingsSheet(
                         ) {
                             Icon(Icons.Outlined.ViewAgenda, null)
                             Spacer(Modifier.width(8.dp))
-                            Text("List View")
+                            Text("List")
                         }
                     }
 
-                    // Grid View Toggle
                     if (settings.defaultLayout == ScoreboardLayout.GRID) {
                         Button(
                             modifier = Modifier.weight(1f),
@@ -147,7 +328,7 @@ fun QuickSettingsSheet(
                         ) {
                             Icon(Icons.Outlined.GridView, null)
                             Spacer(Modifier.width(8.dp))
-                            Text("Grid View")
+                            Text("Grid")
                         }
                     } else {
                         OutlinedButton(
@@ -159,231 +340,72 @@ fun QuickSettingsSheet(
                         ) {
                             Icon(Icons.Outlined.GridView, null)
                             Spacer(Modifier.width(8.dp))
-                            Text("Grid View")
+                            Text("Grid")
                         }
                     }
                 }
             }
 
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Text("Leader Spotlight", style = MaterialTheme.typography.titleMedium)
-                    Text(
-                        "Highlight the current winner",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-                Switch(
-                    checked = settings.leaderSpotlightEnabled,
-                    onCheckedChange = { enabled ->
-                        onUpdateSettings { it.copy(leaderSpotlightEnabled = enabled) }
-                    }
-                )
-            }
-
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Text("Loser Spotlight", style = MaterialTheme.typography.titleMedium)
-                    Text(
-                        "Highlight the current loser",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-                Switch(
-                    checked = settings.loserSpotlightEnabled,
-                    onCheckedChange = { enabled ->
-                        onUpdateSettings { it.copy(loserSpotlightEnabled = enabled) }
-                    }
-                )
-            }
-
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Text("Custom Numpad", style = MaterialTheme.typography.titleMedium)
-                    Text(
-                        "Use minimal keyboard for scoring",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-                Switch(
-                    checked = settings.useCustomKeyboard,
-                    onCheckedChange = { enabled ->
-                        onUpdateSettings { it.copy(useCustomKeyboard = enabled) }
-                    }
-                )
-            }
-
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Text("Strict Turn Mode", style = MaterialTheme.typography.titleMedium)
-                    Text(
-                        if (settings.enforceStrictMode) "Rules Locked (In Settings)" 
-                        else if (settings.strictTurnMode) "Security Active" 
-                        else "Quick play enabled",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-                Switch(
-                    enabled = !settings.enforceStrictMode,
-                    checked = settings.strictTurnMode,
-                    onCheckedChange = { enabled ->
-                        onUpdateSettings { 
-                            var newSettings = it.copy(strictTurnMode = enabled)
-                            // Strict Mode requires Auto-Advance to be ON
-                            if (enabled) {
-                                newSettings = newSettings.copy(autoNextTurn = true)
+            SettingsItem(
+                title = "Spotlights",
+                subtitle = "Highlight leader and loser",
+                icon = Icons.Default.Palette,
+                trailing = {
+                    Switch(
+                        checked = settings.leaderSpotlightEnabled || settings.loserSpotlightEnabled,
+                        onCheckedChange = { enabled ->
+                            onUpdateSettings { 
+                                it.copy(
+                                    leaderSpotlightEnabled = enabled,
+                                    loserSpotlightEnabled = enabled
+                                ) 
                             }
-                            newSettings
                         }
-                    },
-                    colors = SwitchDefaults.colors(
-                        checkedThumbColor = MaterialTheme.colorScheme.error,
-                        checkedTrackColor = MaterialTheme.colorScheme.errorContainer,
                     )
-                )
-            }
+                }
+            )
 
-            if (!settings.strictTurnMode && settings.poolBallManagementEnabled) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text("Allow Eliminated Input", style = MaterialTheme.typography.titleMedium)
-                        Text(
-                            "Eliminated players keep their turns",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
+            SettingsItem(
+                title = "Auto-Scroll to Active",
+                subtitle = "Keep current player in view",
+                icon = Icons.Default.FastForward,
+                trailing = {
                     Switch(
-                        checked = settings.allowEliminatedInput,
+                        checked = settings.autoScrollToActivePlayer,
                         onCheckedChange = { enabled ->
-                            onUpdateSettings { it.copy(allowEliminatedInput = enabled) }
+                            onUpdateSettings { it.copy(autoScrollToActivePlayer = enabled) }
                         }
                     )
                 }
-            }
+            )
 
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Text("Auto-Scroll to Active", style = MaterialTheme.typography.titleMedium)
-                    Text(
-                        "Keep current player in view",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-                Switch(
-                    checked = settings.autoScrollToActivePlayer,
-                    onCheckedChange = { enabled ->
-                        onUpdateSettings { it.copy(autoScrollToActivePlayer = enabled) }
-                    }
-                )
-            }
-
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Text("Pool Ball Management", style = MaterialTheme.typography.titleMedium)
-                    Text(
-                        "Insights & elimination for billiards",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-                Switch(
-                    checked = settings.poolBallManagementEnabled,
-                    onCheckedChange = { enabled ->
-                        onUpdateSettings { it.copy(poolBallManagementEnabled = enabled) }
-                    }
-                )
-            }
-
-            if (settings.poolBallManagementEnabled) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text("Auto-Remove Pool Balls", style = MaterialTheme.typography.titleMedium)
-                        Text(
-                            "Removes matching ball upon positive score",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
+            SettingsItem(
+                title = "Custom Numpad",
+                subtitle = "Use minimal keyboard for scoring",
+                icon = Icons.Default.Keyboard,
+                trailing = {
                     Switch(
-                        checked = settings.autoRemovePoolBalls,
+                        checked = settings.useCustomKeyboard,
                         onCheckedChange = { enabled ->
-                            onUpdateSettings { it.copy(autoRemovePoolBalls = enabled) }
+                            onUpdateSettings { it.copy(useCustomKeyboard = enabled) }
                         }
                     )
                 }
-            }
+            )
 
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Text("Auto-Advance Turn", style = MaterialTheme.typography.titleMedium)
-                    Text(
-                        "Switch player after scoring",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+            SettingsItem(
+                title = "Show Help Link",
+                subtitle = "Toggle Help icon in the bottom bar",
+                icon = Icons.Default.Help,
+                trailing = {
+                    Switch(
+                        checked = settings.showHelpInNavBar,
+                        onCheckedChange = { enabled ->
+                            onUpdateSettings { it.copy(showHelpInNavBar = enabled) }
+                        }
                     )
                 }
-                Switch(
-                    // Lock this setting to ON if Strict Turn Mode is active
-                    enabled = !settings.strictTurnMode, 
-                    checked = settings.autoNextTurn || settings.strictTurnMode,
-                    onCheckedChange = { enabled ->
-                        onUpdateSettings { it.copy(autoNextTurn = enabled) }
-                    }
-                )
-            }
- 
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Text("Show Help Link", style = MaterialTheme.typography.titleMedium)
-                    Text(
-                        "Toggle Help icon in the bottom bar",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-                Switch(
-                    checked = settings.showHelpInNavBar,
-                    onCheckedChange = { enabled ->
-                        onUpdateSettings { it.copy(showHelpInNavBar = enabled) }
-                    }
-                )
-            }
+            )
         }
     }
 }

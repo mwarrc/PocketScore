@@ -260,10 +260,11 @@ fun GameScreen(
         
         // Last man standing: every player except the leader(s) is mathematically eliminated
         // (their score + all remaining table value still can't beat the leader)
+        val leaders = activePlayers.filter { it.score == maxScore }
         val nonLeaders = activePlayers.filter { it.score < maxScore }
         val allOthersEliminated = nonLeaders.isNotEmpty() &&
             nonLeaders.all { it.score + tableSum < maxScore }
-        val lastManStanding = allOthersEliminated && activePlayers.size >= 2
+        val lastManStanding = leaders.size == 1 && allOthersEliminated && activePlayers.size >= 2
 
         if (tableCleared || lastManStanding) {
             focusManager.clearFocus(force = true)
@@ -508,19 +509,28 @@ fun GameScreen(
         if (showCelebration) {
             val maxScore = players.maxOfOrNull { it.score } ?: 0
             val winners = players.filter { it.score == maxScore && it.isActive }
-            WinnerCelebrationOverlay(
-                winners = winners,
-                onDismiss = { showCelebration = false },
-                onRestart = {
+
+            LaunchedEffect(winners.size) {
+                if (winners.isEmpty()) {
                     showCelebration = false
-                    tempForceSave = false // Normal save & play again
-                    showQuickRestart = true
-                },
-                onArchive = {
-                    showCelebration = false
-                    onReset(true, false)
                 }
-            )
+            }
+
+            if (winners.isNotEmpty()) {
+                WinnerCelebrationOverlay(
+                    winners = winners,
+                    onDismiss = { showCelebration = false },
+                    onRestart = {
+                        showCelebration = false
+                        tempForceSave = false // Normal save & play again
+                        showQuickRestart = true
+                    },
+                    onArchive = {
+                        showCelebration = false
+                        onReset(true, false)
+                    }
+                )
+            }
         }
     }
 }

@@ -1,5 +1,6 @@
 package com.mwarrc.pocketscore.ui.feature.game.components
 
+import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
@@ -42,7 +43,10 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
@@ -55,7 +59,9 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import com.mwarrc.pocketscore.domain.model.Player
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
-
+import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import kotlinx.coroutines.delay
 
 /**
  * Interactive card for a player whose score can be currently modified.
@@ -113,9 +119,11 @@ fun ActivePlayerCard(
     val focusRequester = remember { FocusRequester() }
     val keyboardController = LocalSoftwareKeyboardController.current
     
-    // Calculate if player is eliminated - Only if pool management is enabled
+    // Calculate if player is eliminated - Only if pool management is enabled.
+    // When tableSum == 0, the game is over - no more points can be scored.
+    // potentialMax == player.score in that case, so the check still holds correctly.
     val potentialMax = player.score + tableSum
-    val isEliminated = poolBallManagementEnabled && !isLeader && potentialMax < leaderScore && tableSum > 0
+    val isEliminated = poolBallManagementEnabled && !isLeader && potentialMax < leaderScore
     
     // Logic for editing:
     // 1. In Strict Mode: Must be current turn AND not eliminated.
@@ -451,6 +459,27 @@ fun ActivePlayerCard(
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.spacedBy(12.dp)
                         ) {
+                            val haptic = LocalHapticFeedback.current
+                            var isInputError by remember { mutableStateOf(false) }
+
+                            LaunchedEffect(isInputError) {
+                                if (isInputError) {
+                                    delay(350)
+                                    isInputError = false
+                                }
+                            }
+
+                            val borderColor by animateColorAsState(
+                                targetValue = if (isInputError) MaterialTheme.colorScheme.error
+                                              else MaterialTheme.colorScheme.outline.copy(alpha = 0.15f),
+                                label = "borderColorFlash"
+                            )
+                            val backgroundColor by animateColorAsState(
+                                targetValue = if (isInputError) MaterialTheme.colorScheme.error.copy(alpha = 0.08f)
+                                              else MaterialTheme.colorScheme.surfaceContainerLow.copy(alpha = if (canEdit) 1f else 0.5f),
+                                label = "backgroundColorFlash"
+                            )
+
                             Surface(
                                 modifier = Modifier
                                     .weight(1f)
@@ -464,16 +493,21 @@ fun ActivePlayerCard(
                                             keyboardController?.show()
                                         }
                                     },
-                                color = MaterialTheme.colorScheme.surfaceContainerLow.copy(alpha = if (canEdit) 1f else 0.5f),
-                                border = BorderStroke(
-                                    1.dp,
-                                    MaterialTheme.colorScheme.outline.copy(alpha = 0.15f)
-                                )
+                                color = backgroundColor,
+                                border = BorderStroke(1.dp, borderColor)
                             ) {
                                 if (!useCustomKeyboard && canEdit) {
                                     BasicTextField(
                                         value = scoreInput,
-                                        onValueChange = onScoreInputChange,
+                                        onValueChange = { newValue: String ->
+                                            if (newValue.isEmpty() || newValue.all { it.isDigit() }) {
+                                                onScoreInputChange(newValue)
+                                                isInputError = false
+                                            } else {
+                                                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                                isInputError = true
+                                            }
+                                        },
                                         modifier = Modifier
                                             .fillMaxSize()
                                             .focusRequester(focusRequester),
@@ -494,11 +528,10 @@ fun ActivePlayerCard(
                                             ) {
                                                 if (scoreInput.isEmpty()) {
                                                     Text(
-                                                        "+ pts",
+                                                        if (isInputError) "Numbers only" else "+ pts",
                                                         style = MaterialTheme.typography.bodyMedium,
-                                                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(
-                                                            alpha = 0.5f
-                                                        )
+                                                        color = if (isInputError) MaterialTheme.colorScheme.error
+                                                                else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
                                                     )
                                                 }
                                                 innerTextField()

@@ -91,6 +91,13 @@ fun PoolSection(
                 title = "End Game Celebrations",
                 subtitle = "Show winner screen when the table is cleared",
                 icon = Icons.Default.EmojiEvents,
+                onIconClick = {
+                    infoDialogContent = InfoContent(
+                        title = "End Game Celebrations",
+                        description = "Displays a celebratory screen when the game ends - when a player reaches the highest score compared to the ball values.",
+                        icon = Icons.Default.EmojiEvents
+                    )
+                },
                 trailing = {
                     Switch(
                         checked = settings.endGameCelebrationEnabled,

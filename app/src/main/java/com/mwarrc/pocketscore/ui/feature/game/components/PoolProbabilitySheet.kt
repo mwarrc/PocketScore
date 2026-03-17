@@ -5,12 +5,14 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
-import androidx.compose.foundation.lazy.grid.items
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
-import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.lazy.grid.items as gridItems
+import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.unit.Velocity
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -33,6 +35,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -82,351 +86,277 @@ fun PoolProbabilitySheet(
     val leaderScore = remember(activePlayers) { activePlayers.maxOfOrNull { it.score } ?: 0 }
     val hasLeader = remember(activePlayers) { activePlayers.any { it.score != 0 } }
 
-    // KEY FIX: Allow partial expansion for better gesture control
-    val sheetState = rememberModalBottomSheetState(
-        skipPartiallyExpanded = false
-    )
+    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+
+    // True screen height via DisplayMetrics — unaffected by immersive mode / inset changes
+    val density = LocalDensity.current
+    val context = LocalContext.current
+    val trueScreenHeightDp = with(density) {
+        context.resources.displayMetrics.heightPixels.toDp()
+    }
+    val maxContentHeight = trueScreenHeightDp - 64.dp
+
+    // displayCutout inset remains valid even in immersive mode (statusBars returns 0)
+    val statusBarTop = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
+    val cutoutTop = WindowInsets.displayCutout.asPaddingValues().calculateTopPadding()
+    val topInset = maxOf(statusBarTop, cutoutTop)
 
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = sheetState,
-        dragHandle = { 
-            // M3 Expressive drag handle
+        dragHandle = {
             Column(
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = topInset + 20.dp, bottom = 20.dp),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
                 Box(
                     modifier = Modifier
-                        .padding(vertical = 12.dp)
-                        .width(32.dp)
-                        .height(4.dp)
-                        .clip(RoundedCornerShape(2.dp))
-                        .background(MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f))
+                        .width(56.dp)
+                        .height(5.dp)
+                        .clip(CircleShape)
+                        .background(MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.75f))
                 )
             }
         },
-        containerColor = MaterialTheme.colorScheme.surface
+        containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
+        tonalElevation = 0.dp,
+        scrimColor = Color.Black.copy(alpha = 0.32f)
     ) {
         ImmersiveMode()
+        // heightIn(max) on the content Column caps the sheet's expanded anchor.
+        // The sheet sizes itself to its content — so this IS what limits sheet height.
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .statusBarsPadding() // Keep content below punch hole
-                .systemBarsPadding()
-                .displayCutoutPadding()
+                .heightIn(max = maxContentHeight)
                 .navigationBarsPadding()
         ) {
             var showRules by remember { mutableStateOf(false) }
 
-            // Compact Header Section
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp)
-            ) {
-                // Title Row - More compact
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(
-                            "Pool Probability",
-                            style = MaterialTheme.typography.titleLarge,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.onSurface
-                        )
-                        Text(
-                            "Match insights & elimination tracking",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-                    
-                    // Points Badge - M3 Expressive
-                    Surface(
-                        shape = RoundedCornerShape(12.dp),
-                        color = MaterialTheme.colorScheme.primaryContainer,
-                        tonalElevation = 2.dp
-                    ) {
-                        Column(
-                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
-                            horizontalAlignment = Alignment.CenterHorizontally
-                        ) {
-                            Text(
-                                "$tableSum",
-                                style = MaterialTheme.typography.headlineMedium,
-                                fontWeight = FontWeight.Black,
-                                color = MaterialTheme.colorScheme.onPrimaryContainer
-                            )
-                            Text(
-                                "Remaining pts",
-                                style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.onPrimaryContainer
-                            )
-                        }
-                    }
-                }
-                
-                Spacer(modifier = Modifier.height(12.dp))
+            // Scroll protection: consume ALL leftover scroll AND fling velocity so
+            // neither a slow drag nor a fast fling can accidentally dismiss the sheet.
+            val nestedScrollConnection = remember {
+                object : androidx.compose.ui.input.nestedscroll.NestedScrollConnection {
+                    override fun onPostScroll(
+                        consumed: androidx.compose.ui.geometry.Offset,
+                        available: androidx.compose.ui.geometry.Offset,
+                        source: androidx.compose.ui.input.nestedscroll.NestedScrollSource
+                    ): androidx.compose.ui.geometry.Offset = available
 
-                // Auto-Remove Banner
-                Surface(
-                    shape = RoundedCornerShape(12.dp),
-                    color = if (settings.autoRemovePoolBalls) MaterialTheme.colorScheme.primaryContainer.copy(alpha=0.6f) 
-                            else MaterialTheme.colorScheme.surfaceVariant,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clickable { onUpdateSettings { it.copy(autoRemovePoolBalls = !it.autoRemovePoolBalls) } }
-                ) {
+                    override suspend fun onPostFling(
+                        consumed: Velocity,
+                        available: Velocity
+                    ): Velocity = available // absorb remaining velocity → no accidental dismiss
+                }
+            }
+
+            androidx.compose.foundation.lazy.LazyColumn(
+                modifier = Modifier
+                    .weight(1f)
+                    .nestedScroll(nestedScrollConnection),
+                contentPadding = PaddingValues(bottom = 24.dp)
+            ) {
+                // ── Header Section ──────────────────────────────────────────
+                item {
                     Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 16.dp, vertical = 10.dp),
+                        modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 16.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Icon(
-                            if (settings.autoRemovePoolBalls) Icons.Default.CheckCircle else Icons.Default.Block,
-                            contentDescription = null,
-                            tint = if (settings.autoRemovePoolBalls) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.size(20.dp)
-                        )
-                        Spacer(modifier = Modifier.width(12.dp))
                         Column(modifier = Modifier.weight(1f)) {
                             Text(
-                                "Auto-Remove Balls",
-                                style = MaterialTheme.typography.labelLarge,
-                                fontWeight = FontWeight.Bold,
-                                color = if (settings.autoRemovePoolBalls) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
+                                "Pool Probability",
+                                style = MaterialTheme.typography.headlineSmall,
+                                fontWeight = FontWeight.Black,
+                                letterSpacing = (-0.5).sp,
+                                color = MaterialTheme.colorScheme.onSurface
                             )
                             Text(
-                                if (settings.autoRemovePoolBalls) "Enabled: Numpad scores will remove balls" else "Disabled: Balls remain on table",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = if (settings.autoRemovePoolBalls) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurfaceVariant
+                                "Live match analytics",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                         }
-                        Switch(
-                            checked = settings.autoRemovePoolBalls,
-                            onCheckedChange = { isChecked -> onUpdateSettings { it.copy(autoRemovePoolBalls = isChecked) } },
-                            modifier = Modifier.scale(0.8f)
-                        )
+
+                        Surface(
+                            shape = RoundedCornerShape(20.dp),
+                            color = MaterialTheme.colorScheme.primaryContainer,
+                            border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.1f))
+                        ) {
+                            Column(
+                                modifier = Modifier.padding(horizontal = 20.dp, vertical = 10.dp),
+                                horizontalAlignment = Alignment.CenterHorizontally
+                            ) {
+                                Text(
+                                    "$tableSum",
+                                    style = MaterialTheme.typography.headlineSmall,
+                                    fontWeight = FontWeight.Black,
+                                    color = MaterialTheme.colorScheme.onPrimaryContainer
+                                )
+                                Text(
+                                    "PTS LEFT",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.primary,
+                                    letterSpacing = 0.5.sp
+                                )
+                            }
+                        }
                     }
                 }
 
-                Spacer(Modifier.height(12.dp))
-
-                // Compact Ball Selection - M3 Expressive
-                Surface(
-                    modifier = Modifier.fillMaxWidth(),
-                    color = MaterialTheme.colorScheme.surfaceContainerHighest,
-                    shape = RoundedCornerShape(16.dp)
-                ) {
-                    Column(modifier = Modifier.padding(12.dp)) {
+                // ── Settings Quick Toggle ──────────────────────────────────
+                item {
+                    Surface(
+                        modifier = Modifier.padding(horizontal = 24.dp).fillMaxWidth(),
+                        color = MaterialTheme.colorScheme.surfaceContainer,
+                        shape = RoundedCornerShape(24.dp),
+                        onClick = { onUpdateSettings { it.copy(autoRemovePoolBalls = !it.autoRemovePoolBalls) } }
+                    ) {
                         Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
+                            modifier = Modifier.padding(16.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Text(
-                                "Table State",
-                                style = MaterialTheme.typography.labelLarge,
-                                fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.onSurface
-                            )
-                            
-                            Spacer(Modifier.width(8.dp))
                             Surface(
-                                onClick = { showRules = !showRules },
-                                color = if (showRules) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surface,
-                                shape = RoundedCornerShape(12.dp),
-                                border = BorderStroke(1.dp, if (showRules) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)),
-                                tonalElevation = if (showRules) 2.dp else 0.dp
+                                shape = CircleShape,
+                                color = if (settings.autoRemovePoolBalls) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant,
+                                modifier = Modifier.size(40.dp)
                             ) {
-                                Row(
-                                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.spacedBy(6.dp)
-                                ) {
+                                Box(contentAlignment = Alignment.Center) {
                                     Icon(
-                                        if (showRules) Icons.Default.Info else Icons.Default.ArrowDropDown, 
-                                        null, 
-                                        modifier = Modifier.size(16.dp),
-                                        tint = if (showRules) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.primary
-                                    )
-                                    Text(
-                                        "Ball Values",
-                                        style = MaterialTheme.typography.labelMedium,
-                                        fontWeight = FontWeight.ExtraBold,
-                                        color = if (showRules) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface
+                                        if (settings.autoRemovePoolBalls) Icons.Default.CheckCircle else Icons.Default.Block,
+                                        null,
+                                        modifier = Modifier.size(20.dp),
+                                        tint = if (settings.autoRemovePoolBalls) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant
                                     )
                                 }
                             }
-                            
-                            Spacer(Modifier.weight(1f))
-                            
-                            // Compact action buttons
-                            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                                FilledTonalButton(
+                            Spacer(Modifier.width(16.dp))
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    "Automatic removal",
+                                    style = MaterialTheme.typography.titleSmall,
+                                    fontWeight = FontWeight.Bold
+                                )
+                                Text(
+                                    if (settings.autoRemovePoolBalls) "Syncs with score input" else "Manual selection only",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                            Switch(
+                                checked = settings.autoRemovePoolBalls,
+                                onCheckedChange = { onUpdateSettings { s -> s.copy(autoRemovePoolBalls = it) } },
+                                modifier = Modifier.scale(0.85f)
+                            )
+                        }
+                    }
+                    Spacer(Modifier.height(24.dp))
+                }
+
+                // ── Ball Selection Table ─────────────────────────────────────
+                item {
+                    Column(modifier = Modifier.padding(horizontal = 24.dp)) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Text(
+                                "TABLE STATE",
+                                style = MaterialTheme.typography.labelMedium,
+                                fontWeight = FontWeight.Black,
+                                letterSpacing = 1.sp,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+
+                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                TextButton(
                                     onClick = { onBallsOnTableChange((1..15).toSet()) },
-                                    contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp),
-                                    shape = RoundedCornerShape(8.dp),
-                                    modifier = Modifier.height(32.dp)
+                                    shape = RoundedCornerShape(12.dp)
                                 ) {
-                                    Icon(
-                                        Icons.Default.Refresh, 
-                                        null, 
-                                        modifier = Modifier.size(16.dp)
-                                    )
+                                    Icon(Icons.Default.Refresh, null, modifier = Modifier.size(16.dp))
                                     Spacer(Modifier.width(4.dp))
-                                    Text("Reset", style = MaterialTheme.typography.labelSmall)
+                                    Text("Reset", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold)
                                 }
-                                
-                                OutlinedButton(
+                                TextButton(
                                     onClick = { onBallsOnTableChange(emptySet()) },
-                                    contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp),
-                                    shape = RoundedCornerShape(8.dp),
-                                    modifier = Modifier.height(32.dp),
-                                    colors = ButtonDefaults.outlinedButtonColors(
-                                        contentColor = MaterialTheme.colorScheme.error
-                                    ),
-                                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.error.copy(alpha = 0.5f))
+                                    shape = RoundedCornerShape(12.dp),
+                                    colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error)
                                 ) {
-                                    Icon(
-                                        Icons.Default.ClearAll, 
-                                        null, 
-                                        modifier = Modifier.size(16.dp)
-                                    )
+                                    Icon(Icons.Default.ClearAll, null, modifier = Modifier.size(16.dp))
                                     Spacer(Modifier.width(4.dp))
-                                    Text("Clear", style = MaterialTheme.typography.labelSmall)
+                                    Text("Clear", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold)
                                 }
                             }
                         }
-                        
-                        // New Collapsible Scoring Guide
-                        androidx.compose.animation.AnimatedVisibility(
-                            visible = showRules,
-                            enter = androidx.compose.animation.expandVertically() + androidx.compose.animation.fadeIn(),
-                            exit = androidx.compose.animation.shrinkVertically() + androidx.compose.animation.fadeOut()
+
+                        Surface(
+                            modifier = Modifier.fillMaxWidth(),
+                            color = MaterialTheme.colorScheme.surfaceContainerHigh,
+                            shape = RoundedCornerShape(24.dp),
+                            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
                         ) {
-                            Column(
-                                modifier = Modifier
-                                    .padding(top = 12.dp)
-                                    .fillMaxWidth()
-                                    .background(MaterialTheme.colorScheme.surface, RoundedCornerShape(12.dp))
-                                    .padding(12.dp)
-                            ) {
-                                Text(
-                                    "Scoring Reference",
-                                    style = MaterialTheme.typography.labelSmall,
-                                    fontWeight = FontWeight.Black,
-                                    color = MaterialTheme.colorScheme.primary
-                                )
-                                Spacer(Modifier.height(8.dp))
-                                
-                                // Clean, wrap-based list of values
-                                androidx.compose.foundation.layout.FlowRow(
+                            Column(modifier = Modifier.padding(16.dp)) {
+                                FlowRow(
                                     modifier = Modifier.fillMaxWidth(),
-                                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalArrangement = Arrangement.spacedBy(12.dp),
+                                    maxItemsInEachRow = 5
                                 ) {
-                                    (1..15).forEach { num ->
-                                        Row(
-                                            verticalAlignment = Alignment.CenterVertically,
-                                            horizontalArrangement = Arrangement.spacedBy(4.dp)
-                                        ) {
-                                            Box(
-                                                modifier = Modifier
-                                                    .size(12.dp)
-                                                    .clip(CircleShape)
-                                                    .background(com.mwarrc.pocketscore.ui.feature.settings.getBallColor(num))
-                                            )
-                                            Text(
-                                                "$num = ${ballValues[num]}",
-                                                style = MaterialTheme.typography.labelSmall,
-                                                fontWeight = FontWeight.Bold
-                                            )
-                                        }
+                                    (1..15).forEach { ball ->
+                                        BallItem(
+                                            number = ball,
+                                            value = ballValues[ball] ?: 0,
+                                            isOnTable = ballsOnTable.contains(ball),
+                                            onClick = {
+                                                val isOn = ballsOnTable.contains(ball)
+                                                onBallsOnTableChange(if (isOn) ballsOnTable - ball else ballsOnTable + ball)
+                                            },
+                                            size = 48.dp
+                                        )
                                     }
                                 }
                             }
                         }
+                    }
+                    Spacer(Modifier.height(32.dp))
+                }
 
-                        Spacer(Modifier.height(8.dp))
-                        
-                        // Compact ball grid
-                        LazyVerticalGrid(
-                            columns = GridCells.Fixed(5),
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(160.dp),
-                            horizontalArrangement = Arrangement.spacedBy(8.dp),
-                            verticalArrangement = Arrangement.spacedBy(8.dp)
+                // ── Win Probabilities ───────────────────────────────────────
+                item {
+                    Row(
+                        modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 8.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            "PLAYER STANDINGS",
+                            style = MaterialTheme.typography.labelMedium,
+                            fontWeight = FontWeight.Black,
+                            letterSpacing = 1.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Surface(
+                            shape = CircleShape,
+                            color = MaterialTheme.colorScheme.secondaryContainer
                         ) {
-                            items((1..15).toList()) { ball ->
-                                val isOnTable = ballsOnTable.contains(ball)
-                                val value = ballValues[ball] ?: 0
-                                
-                                BallItem(
-                                    number = ball,
-                                    value = value,
-                                    isOnTable = isOnTable,
-                                    onClick = {
-                                        onBallsOnTableChange(
-                                            if (isOnTable) ballsOnTable - ball else ballsOnTable + ball
-                                        )
-                                    },
-                                    size = 46.dp
-                                )
-                            }
+                            Text(
+                                "${activePlayers.size} ACTIVE",
+                                style = MaterialTheme.typography.labelSmall,
+                                fontWeight = FontWeight.Black,
+                                color = MaterialTheme.colorScheme.onSecondaryContainer,
+                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
+                            )
                         }
                     }
                 }
 
-                Spacer(Modifier.height(12.dp))
-
-                // Player list header
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(
-                        "Win Probabilities",
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold
-                    )
-                    Surface(
-                        shape = RoundedCornerShape(8.dp),
-                        color = MaterialTheme.colorScheme.secondaryContainer
-                    ) {
-                        Text(
-                            "${activePlayers.size} active",
-                            style = MaterialTheme.typography.labelSmall,
-                            fontWeight = FontWeight.Medium,
-                            color = MaterialTheme.colorScheme.onSecondaryContainer,
-                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
-                        )
-                    }
-                }
-
-                Spacer(Modifier.height(8.dp))
-            }
-
-            // CRITICAL FIX: Scrollable player list with gesture isolation
-            // This prevents the sheet from closing when scrolling
-            LazyVerticalGrid(
-                columns = GridCells.Fixed(2),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .weight(1f),
-                contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
+                // Use single column list for high-density analytics
                 items(activePlayers.sortedByDescending { it.score }) { player ->
-                    CompactPlayerStatusCard(
+                    PlayerStatusRow(
                         player = player,
                         isLeader = hasLeader && player.score == leaderScore,
                         leaderScore = leaderScore,
@@ -435,30 +365,19 @@ fun PoolProbabilitySheet(
                 }
             }
 
-            // Bottom action bar - M3 Expressive
+            // ── Done Button ───────────────────────────────────────────────
             Surface(
                 modifier = Modifier.fillMaxWidth(),
-                color = MaterialTheme.colorScheme.surfaceContainerHighest,
-                tonalElevation = 3.dp
+                color = MaterialTheme.colorScheme.surfaceContainerLow,
+                tonalElevation = 8.dp
             ) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(16.dp),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                Button(
+                    onClick = onDismiss,
+                    modifier = Modifier.fillMaxWidth().padding(24.dp).height(56.dp),
+                    shape = RoundedCornerShape(16.dp),
+                    elevation = ButtonDefaults.buttonElevation(defaultElevation = 0.dp)
                 ) {
-                    Button(
-                        onClick = onDismiss,
-                        modifier = Modifier.weight(1f),
-                        shape = RoundedCornerShape(12.dp),
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = MaterialTheme.colorScheme.primary
-                        )
-                    ) {
-                        Icon(Icons.Default.CheckCircle, null, modifier = Modifier.size(18.dp))
-                        Spacer(Modifier.width(8.dp))
-                        Text("Done", fontWeight = FontWeight.Bold)
-                    }
+                    Text("Done", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
                 }
             }
         }
@@ -467,15 +386,9 @@ fun PoolProbabilitySheet(
 
 /**
  * Interactive pool ball icon.
- * 
- * Renders as a colored sphere with 3D-like shading when on table, 
+ *
+ * Renders as a colored sphere with 3D-like shading when on table,
  * or a desaturated/crossed-out icon when pocketed.
- * 
- * @param number The ball number (1-15)
- * @param value The point value assigned to this ball
- * @param isOnTable Whether the ball is still in play
- * @param onClick Toggle callback
- * @param size Display size
  */
 @Composable
 fun BallItem(
@@ -508,8 +421,8 @@ fun BallItem(
     val needsDarkText = number in listOf(1, 2, 13)
 
     Surface(
-        onClick = { 
-            onClick() 
+        onClick = {
+            onClick()
             haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
         },
         modifier = Modifier
@@ -527,7 +440,6 @@ fun BallItem(
             modifier = Modifier.fillMaxSize(),
             contentAlignment = Alignment.Center
         ) {
-            // Ball Gradient for 3D effect
             if (isOnTable) {
                 Box(
                     modifier = Modifier
@@ -548,7 +460,7 @@ fun BallItem(
                 number.toString(),
                 style = MaterialTheme.typography.titleMedium.copy(
                     fontWeight = FontWeight.ExtraBold,
-                    fontSize = (size.value * 0.4f).sp, // Scale font with size
+                    fontSize = (size.value * 0.4f).sp,
                     shadow = if (isOnTable && !needsDarkText) Shadow(
                         color = Color.Black.copy(alpha = 0.5f),
                         offset = Offset(2f, 2f),
@@ -575,166 +487,102 @@ fun BallItem(
 }
 
 /**
- * Compact status indicator for a player within the Pool overlay.
- * 
- * Shows their current score, leader status, or elimination status/distance.
+ * High-density player status row for Pool analytics.
+ * Premium M3 list-based design instead of bulky cards.
  */
 @Composable
-fun CompactPlayerStatusCard(
+fun PlayerStatusRow(
     player: Player,
     isLeader: Boolean,
     leaderScore: Int,
     tableSum: Int
 ) {
     val potentialMax = player.score + tableSum
+    // When tableSum == 0 the game is over; potentialMax == score, check still holds.
     val isOut = potentialMax < leaderScore
-    
+
     val statusColor = when {
         isLeader -> MaterialTheme.colorScheme.primary
         isOut -> MaterialTheme.colorScheme.error
-        else -> Color(0xFF4CAF50)
-    }
-    
-    val containerColor = when {
-        isLeader -> MaterialTheme.colorScheme.primaryContainer
-        isOut -> MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.3f)
-        else -> MaterialTheme.colorScheme.tertiaryContainer
+        else -> MaterialTheme.colorScheme.secondary
     }
 
-    // M3 Expressive compact card
     Surface(
-        modifier = Modifier
-            .fillMaxWidth()
-            .height(120.dp),
-        color = containerColor,
-        shape = RoundedCornerShape(12.dp),
-        tonalElevation = if (isLeader) 3.dp else 1.dp,
-        border = if (isOut) BorderStroke(1.dp, statusColor.copy(alpha = 0.3f)) else null
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 4.dp),
+        color = Color.Transparent
     ) {
-        Column(
+        Row(
             modifier = Modifier
-                .fillMaxSize()
-                .padding(12.dp),
-            verticalArrangement = Arrangement.SpaceBetween
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(16.dp))
+                .background(if (isLeader) statusColor.copy(alpha = 0.08f) else Color.Transparent)
+                .padding(vertical = 8.dp, horizontal = 12.dp),
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            // Header Row
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        player.name,
-                        style = MaterialTheme.typography.titleSmall,
-                        fontWeight = FontWeight.Bold,
-                        maxLines = 1,
-                        color = MaterialTheme.colorScheme.onSurface
-                    )
-                    Text(
-                        "Score: ${player.score}",
-                        style = MaterialTheme.typography.bodyMedium,
-                        fontWeight = FontWeight.ExtraBold,
-                        color = MaterialTheme.colorScheme.onSurface
-                    )
-                }
-                
-                // Status badge
-                if (isLeader) {
-                    Surface(
-                        shape = CircleShape,
-                        color = statusColor,
-                        modifier = Modifier.size(28.dp)
-                    ) {
-                        Box(
-                            modifier = Modifier.fillMaxSize(),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Icon(
-                                Icons.Default.CheckCircle, 
-                                null, 
-                                tint = MaterialTheme.colorScheme.onPrimary,
-                                modifier = Modifier.size(16.dp)
-                            )
-                        }
-                    }
-                } else if (isOut) {
-                    Surface(
-                        shape = CircleShape,
-                        color = statusColor.copy(alpha = 0.2f),
-                        modifier = Modifier.size(28.dp)
-                    ) {
-                        Box(
-                            modifier = Modifier.fillMaxSize(),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Icon(
-                                Icons.Default.Block, 
-                                null, 
-                                tint = statusColor,
-                                modifier = Modifier.size(16.dp)
-                            )
-                        }
-                    }
-                }
+            // Player Color Indicator
+            Box(
+                modifier = Modifier
+                    .size(width = 4.dp, height = 32.dp)
+                    .clip(CircleShape)
+                    .background(com.mwarrc.pocketscore.ui.theme.getMaterialPlayerColor(player.id))
+            )
+
+            Spacer(Modifier.width(16.dp))
+
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    player.name,
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+                Text(
+                    "Current Score: ${player.score}",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
             }
 
-            // Status info
             Column(
-                modifier = Modifier.fillMaxWidth(),
+                horizontalAlignment = Alignment.End,
                 verticalArrangement = Arrangement.spacedBy(2.dp)
             ) {
-                when {
-                    isOut -> {
-                        val dist = leaderScore - potentialMax
-                        Text(
-                            "ELIMINATED",
-                            style = MaterialTheme.typography.labelSmall,
-                            fontWeight = FontWeight.Black,
-                            color = statusColor,
-                            letterSpacing = 0.5.sp
-                        )
-                        Text(
-                            "Behind by $dist pts",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
+                Surface(
+                    shape = RoundedCornerShape(8.dp),
+                    color = when {
+                        isLeader -> statusColor.copy(alpha = 0.15f)
+                        isOut -> MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.5f)
+                        else -> MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.5f)
                     }
-                    isLeader -> {
-                        Text(
-                            "LEADING",
-                            style = MaterialTheme.typography.labelSmall,
-                            fontWeight = FontWeight.Black,
-                            color = statusColor,
-                            letterSpacing = 0.5.sp
-                        )
-                        Text(
-                            "Max potential: $potentialMax",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-                    else -> {
-                        val needed = leaderScore - player.score
-                        Text(
-                            "IN CONTENTION",
-                            style = MaterialTheme.typography.labelSmall,
-                            fontWeight = FontWeight.Black,
-                            color = statusColor,
-                            letterSpacing = 0.5.sp
-                        )
-                        Text(
-                            "Need $needed to tie",
-                            style = MaterialTheme.typography.bodySmall,
-                            fontWeight = FontWeight.Bold,
-                            color = statusColor
-                        )
-                    }
+                ) {
+                    Text(
+                        text = when {
+                            isLeader -> "LEADER"
+                            isOut -> "ELIMINATED"
+                            else -> "CONTENDER"
+                        },
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp),
+                        style = MaterialTheme.typography.labelSmall,
+                        fontWeight = FontWeight.Black,
+                        color = if (isOut) MaterialTheme.colorScheme.error else statusColor
+                    )
                 }
+
+                Text(
+                    text = when {
+                        isLeader -> "Potential: $potentialMax"
+                        isOut -> "-${leaderScore - potentialMax} from lead"
+                        else -> "Need ${leaderScore - player.score} to tie"
+                    },
+                    style = MaterialTheme.typography.labelSmall,
+                    fontWeight = FontWeight.Bold,
+                    color = if (isLeader || isOut) statusColor else MaterialTheme.colorScheme.onSurfaceVariant
+                )
             }
         }
     }
 }
+
 
 /**
  * Simplified dialog version of the pool ball selection.
@@ -804,7 +652,7 @@ fun QuickBallSelectDialog(
                         verticalArrangement = Arrangement.spacedBy(16.dp),
                         modifier = Modifier.fillMaxWidth()
                     ) {
-                        items((1..15).toList()) { ball ->
+                        gridItems((1..15).toList()) { ball ->
                             val isOnTable = ballsOnTable.contains(ball)
                             BallItem(
                                 number = ball,

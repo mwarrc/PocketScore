@@ -72,21 +72,20 @@ import com.mwarrc.pocketscore.domain.model.RosterSortOption
 import androidx.compose.material3.surfaceColorAtElevation
 
 /**
- * Dialog shown when the user wants to end or reset the current game session.
- * 
- * Offers options to:
- * 1. Finish & Archive: Save to history and return home.
- * 2. Save & Play Again: Save current match and start a new one with the same roster.
- * 3. Pause & Resume Later: Keep state and return home.
- * 
- * Handles Guest Mode restrictions by warning the user if records won't be saved.
- * 
- * @param settings Current application settings
- * @param onDismiss Callback to close the dialog
- * @param onFinishAndArchive Callback to end session and save (with override flag)
- * @param onRestartMatch Callback to archive and start fresh with same players
- * @param onResumeLater Callback to return home without finalizing
- * @param onModifyRoster Callback to change players before restart
+ * Expressive M3 end-of-match dialog triggered from the End Game button.
+ *
+ * Design principles:
+ *  - Hero block at the top anchors the dialog with a tonal icon + match-end headline
+ *  - Each action is a full-width Card with a bold icon, title, and subtitle
+ *  - Colors are dynamic: primary for finish, secondary for play again, surface for pause
+ *  - Guest mode checkbox integrates inline without a separate row
+ *
+ * @param settings          Current application settings
+ * @param onDismiss         Callback to close the dialog without action
+ * @param onFinishAndArchive Callback to end session and save (with guest-override flag)
+ * @param onRestartMatch    Callback to archive and start fresh with same players
+ * @param onResumeLater     Callback to return home without finalizing
+ * @param onModifyRoster    Callback to open the player roster manager
  */
 @Composable
 fun ResetGameDialog(
@@ -97,223 +96,229 @@ fun ResetGameDialog(
     onResumeLater: () -> Unit,
     onModifyRoster: () -> Unit
 ) {
-    // Only relevant if Guest Mode is ON and automatic saving is OFF
     val isGuestRestricted = settings.isGuestSession && !settings.guestSaveRecords
     var overrideGuest by remember { mutableStateOf(false) }
 
     AlertDialog(
         onDismissRequest = onDismiss,
         properties = androidx.compose.ui.window.DialogProperties(usePlatformDefaultWidth = false),
-        modifier = Modifier.fillMaxWidth(0.92f),
-        icon = {
-            Surface(
-                shape = CircleShape,
-                color = if (isGuestRestricted) MaterialTheme.colorScheme.tertiaryContainer else MaterialTheme.colorScheme.primaryContainer,
-                modifier = Modifier.size(64.dp)
+        modifier = Modifier.fillMaxWidth(0.93f),
+        shape = RoundedCornerShape(32.dp),
+        containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+        confirmButton = {},
+        dismissButton = {},
+        title = null,
+        icon = null,
+        text = {
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                verticalArrangement = Arrangement.spacedBy(0.dp)
             ) {
-                Box(contentAlignment = Alignment.Center) {
-                    Icon(
-                        if (isGuestRestricted) Icons.Default.Groups else Icons.Default.Flag,
-                        null,
-                        modifier = Modifier.size(32.dp),
-                        tint = if (isGuestRestricted) MaterialTheme.colorScheme.onTertiaryContainer else MaterialTheme.colorScheme.onPrimaryContainer
+                // ── Hero Block ────────────────────────────────────────────────
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = 8.dp, bottom = 20.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    Surface(
+                        shape = CircleShape,
+                        color = if (isGuestRestricted)
+                            MaterialTheme.colorScheme.tertiaryContainer
+                        else
+                            MaterialTheme.colorScheme.primaryContainer,
+                        modifier = Modifier.size(72.dp)
+                    ) {
+                        Box(contentAlignment = Alignment.Center) {
+                            Icon(
+                                imageVector = if (isGuestRestricted) Icons.Default.Groups else Icons.Default.EmojiEvents,
+                                contentDescription = null,
+                                modifier = Modifier.size(36.dp),
+                                tint = if (isGuestRestricted)
+                                    MaterialTheme.colorScheme.onTertiaryContainer
+                                else
+                                    MaterialTheme.colorScheme.onPrimaryContainer
+                            )
+                        }
+                    }
+                    Text(
+                        text = if (isGuestRestricted) "End Guest Session?" else "Match Complete!",
+                        style = MaterialTheme.typography.headlineSmall,
+                        fontWeight = FontWeight.Black,
+                        letterSpacing = (-0.5).sp
+                    )
+                    Text(
+                        text = if (isGuestRestricted)
+                            "Guest sessions don't save to History by default."
+                        else
+                            "What would you like to do next?",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
-            }
-        },
-        title = {
-            Text(
-                if (isGuestRestricted) "End Guest Session?" else "Conclude Match?",
-                style = MaterialTheme.typography.headlineMedium,
-                fontWeight = FontWeight.Black,
-                letterSpacing = (-0.5).sp
-            )
-        },
-        text = {
-            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                Text(
-                    if (isGuestRestricted) 
-                        "Guest sessions do not save to History by default. Choose how to end this session." 
-                    else 
-                        "This match is over. What would you like to do next?",
-                    style = MaterialTheme.typography.bodyLarge,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(bottom = 8.dp)
-                )
 
+                // ── Guest override toggle ─────────────────────────────────────
                 if (isGuestRestricted) {
                     Surface(
                         onClick = { overrideGuest = !overrideGuest },
-                        shape = RoundedCornerShape(12.dp),
-                        color = if (overrideGuest) MaterialTheme.colorScheme.primaryContainer.copy(alpha=0.5f) else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
-                        border = BorderStroke(1.dp, if (overrideGuest) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant)
+                        shape = RoundedCornerShape(16.dp),
+                        color = if (overrideGuest)
+                            MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f)
+                        else
+                            MaterialTheme.colorScheme.surfaceContainerHighest,
+                        border = BorderStroke(
+                            1.dp,
+                            if (overrideGuest) MaterialTheme.colorScheme.primary
+                            else MaterialTheme.colorScheme.outlineVariant
+                        ),
+                        modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp)
                     ) {
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
-                            modifier = Modifier.padding(12.dp).fillMaxWidth()
+                            modifier = Modifier.padding(12.dp)
                         ) {
-                            Checkbox(
-                                checked = overrideGuest,
-                                onCheckedChange = { overrideGuest = it }
-                            )
+                            Checkbox(checked = overrideGuest, onCheckedChange = { overrideGuest = it })
                             Spacer(Modifier.width(8.dp))
                             Column {
                                 Text(
-                                    "Log to History",
+                                    "Save this match to History",
                                     style = MaterialTheme.typography.labelLarge,
                                     fontWeight = FontWeight.Bold,
-                                    color = if (overrideGuest) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurfaceVariant
+                                    color = if (overrideGuest) MaterialTheme.colorScheme.onPrimaryContainer
+                                    else MaterialTheme.colorScheme.onSurfaceVariant
                                 )
                                 Text(
-                                    "Override Guest Mode for this match",
+                                    "Override Guest Mode for this match only",
                                     style = MaterialTheme.typography.labelSmall,
-                                    color = if (overrideGuest) MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha=0.8f) else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha=0.8f)
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
                                 )
                             }
                         }
                     }
-                    Spacer(Modifier.height(4.dp))
                 }
 
-                // Finish & Archive (PRIMARY ACTION)
-                Surface(
-                    onClick = { onFinishAndArchive(overrideGuest) },
-                    shape = RoundedCornerShape(20.dp),
-                    color = MaterialTheme.colorScheme.primary, // More prominent
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Row(
-                        modifier = Modifier.padding(16.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(16.dp)
-                    ) {
-                        Surface(
-                            shape = CircleShape,
-                            color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.15f),
-                            modifier = Modifier.size(48.dp)
-                        ) {
-                            Box(contentAlignment = Alignment.Center) {
-                                Icon(
-                                    if (isGuestRestricted && !overrideGuest) Icons.Default.Close else Icons.Default.Check,
-                                    null,
-                                    modifier = Modifier.size(24.dp),
-                                    tint = MaterialTheme.colorScheme.onPrimary
-                                )
-                            }
-                        }
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text(
-                                if (isGuestRestricted && !overrideGuest) "Discard Session" else "Finish Match",
-                                style = MaterialTheme.typography.titleMedium,
-                                fontWeight = FontWeight.Black,
-                                color = MaterialTheme.colorScheme.onPrimary
-                            )
-                            Text(
-                                if (isGuestRestricted && !overrideGuest) "Close without logging" else "Lock scores & return to home",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.8f)
-                            )
-                        }
-                    }
-                }
+                // ── Action Cards ──────────────────────────────────────────────
 
-                // Save & Play Again (Secondary Action)
-                Surface(
-                    onClick = { onRestartMatch(overrideGuest) },
-                    shape = RoundedCornerShape(20.dp),
-                    color = MaterialTheme.colorScheme.secondaryContainer,
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Row(
-                        modifier = Modifier.padding(16.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(16.dp)
-                    ) {
-                        Surface(
-                            shape = CircleShape,
-                            color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.1f),
-                            modifier = Modifier.size(48.dp)
-                        ) {
-                            Box(contentAlignment = Alignment.Center) {
-                                Icon(
-                                    Icons.Default.Refresh,
-                                    null,
-                                    modifier = Modifier.size(24.dp),
-                                    tint = MaterialTheme.colorScheme.onSecondaryContainer
-                                )
-                            }
-                        }
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text(
-                                "Play Again",
-                                style = MaterialTheme.typography.titleMedium,
-                                fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.onSecondaryContainer
-                            )
-                            Text(
-                                "Finish and start a new round",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.8f)
-                            )
-                        }
-                    }
-                }
+                // 1. Finish Match (PRIMARY)
+                EndGameActionCard(
+                    icon = if (isGuestRestricted && !overrideGuest) Icons.Default.Close else Icons.Default.Check,
+                    title = if (isGuestRestricted && !overrideGuest) "Discard Session" else "Finish Match",
+                    subtitle = if (isGuestRestricted && !overrideGuest) "Close without logging" else "Lock scores & return home",
+                    containerColor = MaterialTheme.colorScheme.primary,
+                    contentColor = MaterialTheme.colorScheme.onPrimary,
+                    iconBgColor = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.15f),
+                    onClick = { onFinishAndArchive(overrideGuest) }
+                )
 
-                // Resume Later (Tertiary / Outline action)
-                Surface(
-                    onClick = onResumeLater,
-                    shape = RoundedCornerShape(20.dp),
-                    color = MaterialTheme.colorScheme.surface,
+                Spacer(Modifier.height(10.dp))
+
+                // 2. Play Again (SECONDARY)
+                EndGameActionCard(
+                    icon = Icons.Default.Refresh,
+                    title = "Play Again",
+                    subtitle = "Archive this match & start a new round",
+                    containerColor = MaterialTheme.colorScheme.secondaryContainer,
+                    contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
+                    iconBgColor = MaterialTheme.colorScheme.secondary.copy(alpha = 0.15f),
+                    onClick = { onRestartMatch(overrideGuest) }
+                )
+
+                Spacer(Modifier.height(10.dp))
+
+                // 3. Pause & Exit (SURFACE / OUTLINE)
+                EndGameActionCard(
+                    icon = Icons.Default.Pause,
+                    title = "Pause & Exit",
+                    subtitle = "Save progress and come back later",
+                    containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
+                    contentColor = MaterialTheme.colorScheme.onSurface,
+                    iconBgColor = MaterialTheme.colorScheme.surfaceVariant,
                     border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
-                    modifier = Modifier.fillMaxWidth()
+                    onClick = onResumeLater
+                )
+
+                // ── Dismiss link ──────────────────────────────────────────────
+                TextButton(
+                    onClick = onDismiss,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = 8.dp)
                 ) {
-                    Row(
-                        modifier = Modifier.padding(16.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(16.dp)
-                    ) {
-                        Surface(
-                            shape = CircleShape,
-                            color = MaterialTheme.colorScheme.surfaceVariant,
-                            modifier = Modifier.size(48.dp)
-                        ) {
-                            Box(contentAlignment = Alignment.Center) {
-                                Icon(
-                                    Icons.Default.Pause,
-                                    null,
-                                    modifier = Modifier.size(24.dp),
-                                    tint = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                            }
-                        }
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text(
-                                "Pause & Exit",
-                                style = MaterialTheme.typography.titleMedium,
-                                fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.onSurface
-                            )
-                            Text(
-                                "Keep current progress for later",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
-                    }
+                    Text(
+                        "Cancel",
+                        style = MaterialTheme.typography.labelLarge,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
+                    )
                 }
             }
-        },
-        confirmButton = {},
-        dismissButton = {
-            TextButton(
-                onClick = onDismiss,
-                modifier = Modifier.padding(end = 8.dp, bottom = 8.dp)
-            ) {
-                Text("Cancel", fontWeight = FontWeight.Bold)
-            }
-        },
-        shape = RoundedCornerShape(28.dp)
+        }
     )
+}
+
+/**
+ * Reusable expressive action card used inside [ResetGameDialog].
+ * Full-width, filled container color, icon on the left, title+subtitle stacked.
+ */
+@Composable
+private fun EndGameActionCard(
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    title: String,
+    subtitle: String,
+    containerColor: androidx.compose.ui.graphics.Color,
+    contentColor: androidx.compose.ui.graphics.Color,
+    iconBgColor: androidx.compose.ui.graphics.Color,
+    border: BorderStroke? = null,
+    onClick: () -> Unit
+) {
+    Surface(
+        onClick = onClick,
+        shape = RoundedCornerShape(20.dp),
+        color = containerColor,
+        border = border,
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Row(
+            modifier = Modifier.padding(16.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            Surface(
+                shape = CircleShape,
+                color = iconBgColor,
+                modifier = Modifier.size(52.dp)
+            ) {
+                Box(contentAlignment = Alignment.Center) {
+                    Icon(
+                        imageVector = icon,
+                        contentDescription = null,
+                        modifier = Modifier.size(26.dp),
+                        tint = contentColor
+                    )
+                }
+            }
+            Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                Text(
+                    title,
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Black,
+                    color = contentColor
+                )
+                Text(
+                    subtitle,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = contentColor.copy(alpha = 0.75f)
+                )
+            }
+            Icon(
+                Icons.AutoMirrored.Filled.ArrowForward,
+                contentDescription = null,
+                modifier = Modifier.size(18.dp),
+                tint = contentColor.copy(alpha = 0.6f)
+            )
+        }
+    }
 }
 
 /**
@@ -517,42 +522,41 @@ fun QuickRestartDialog(
         modifier = Modifier
             .fillMaxWidth(0.95f)
             .padding(vertical = 24.dp),
+        shape = RoundedCornerShape(32.dp),
+        containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
         title = {
-            Column(modifier = Modifier.fillMaxWidth()) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween
+            // ── Hero Header ───────────────────────────────────────────────
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                Surface(
+                    shape = CircleShape,
+                    color = MaterialTheme.colorScheme.primaryContainer,
+                    modifier = Modifier.size(60.dp)
                 ) {
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(
-                            "Next Session",
-                            style = MaterialTheme.typography.headlineMedium,
-                            fontWeight = FontWeight.Black,
-                            letterSpacing = (-0.5).sp
-                        )
-                        Text(
-                            "Select players for the next round",
-                            style = MaterialTheme.typography.labelLarge,
-                            color = MaterialTheme.colorScheme.primary,
-                            fontWeight = FontWeight.Bold
+                    Box(contentAlignment = Alignment.Center) {
+                        Icon(
+                            Icons.Default.Refresh,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                            modifier = Modifier.size(30.dp)
                         )
                     }
-                    
-                    Surface(
-                        color = MaterialTheme.colorScheme.primary.copy(alpha = 0.1f),
-                        shape = CircleShape,
-                        modifier = Modifier.size(52.dp)
-                    ) {
-                        Box(contentAlignment = Alignment.Center) {
-                            Icon(
-                                Icons.Default.Refresh, 
-                                null, 
-                                tint = MaterialTheme.colorScheme.primary,
-                                modifier = Modifier.size(28.dp)
-                            )
-                        }
-                    }
+                }
+                Column {
+                    Text(
+                        "Next Session",
+                        style = MaterialTheme.typography.headlineSmall,
+                        fontWeight = FontWeight.Black,
+                        letterSpacing = (-0.5).sp
+                    )
+                    Text(
+                        "Pick your players for the next round",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
                 }
             }
         },
@@ -561,9 +565,9 @@ fun QuickRestartDialog(
                 modifier = Modifier
                     .fillMaxWidth()
                     .verticalScroll(scrollState),
-                verticalArrangement = Arrangement.spacedBy(24.dp)
+                verticalArrangement = Arrangement.spacedBy(20.dp)
             ) {
-                // Search & Quick Add
+                // ── Search & Quick Add ────────────────────────────────────────
                 OutlinedTextField(
                     value = searchInput,
                     onValueChange = { searchInput = it },
@@ -572,18 +576,18 @@ fun QuickRestartDialog(
                     singleLine = true,
                     shape = RoundedCornerShape(20.dp),
                     colors = androidx.compose.material3.TextFieldDefaults.colors(
-                        focusedContainerColor = MaterialTheme.colorScheme.surface,
-                        unfocusedContainerColor = MaterialTheme.colorScheme.surface,
+                        focusedContainerColor = MaterialTheme.colorScheme.surfaceContainerLow,
+                        unfocusedContainerColor = MaterialTheme.colorScheme.surfaceContainerLow,
                         focusedIndicatorColor = MaterialTheme.colorScheme.primary,
                         unfocusedIndicatorColor = MaterialTheme.colorScheme.outlineVariant
                     ),
-                    leadingIcon = { 
+                    leadingIcon = {
                         Icon(
-                            Icons.Default.PersonAdd, 
-                            null, 
+                            Icons.Default.PersonAdd,
+                            null,
                             modifier = Modifier.size(22.dp),
                             tint = MaterialTheme.colorScheme.primary
-                        ) 
+                        )
                     },
                     trailingIcon = {
                         if (searchInput.isNotBlank() && !selectedNames.contains(searchInput.trim())) {
@@ -598,8 +602,8 @@ fun QuickRestartDialog(
                                     .size(32.dp)
                             ) {
                                 Icon(
-                                    Icons.Default.Add, 
-                                    null, 
+                                    Icons.Default.Add,
+                                    null,
                                     modifier = Modifier.size(18.dp),
                                     tint = MaterialTheme.colorScheme.onPrimary
                                 )
@@ -608,44 +612,44 @@ fun QuickRestartDialog(
                     }
                 )
 
-                // Selection Summary / Ribbon Cards Group 1: Recent Match
-                Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
+                // ── Recent Match Players ──────────────────────────────────────
+                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
                         Icon(
-                            Icons.Default.CheckCircle, 
-                            null, 
-                            modifier = Modifier.size(16.dp),
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant
+                            Icons.Default.CheckCircle,
+                            null,
+                            modifier = Modifier.size(15.dp),
+                            tint = MaterialTheme.colorScheme.primary
                         )
                         Text(
                             "RECENT MATCH",
-                            style = MaterialTheme.typography.labelLarge,
+                            style = MaterialTheme.typography.labelMedium,
                             fontWeight = FontWeight.Black,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            color = MaterialTheme.colorScheme.primary,
                             letterSpacing = 1.sp
                         )
-                        
-                        // Dropdown Sort Menu
-                        Spacer(Modifier.width(8.dp))
+
+                        // Sort dropdown
+                        Spacer(Modifier.width(4.dp))
                         Box {
                             FilterChip(
                                 selected = true,
                                 onClick = { showSortMenu = true },
-                                label = { 
+                                label = {
                                     Text(
                                         when (sortOption) {
                                             RosterSortOption.LOSERS_FIRST -> "Losers Start"
                                             RosterSortOption.WINNERS_FIRST -> "Winners Start"
                                             RosterSortOption.RANDOM -> "Random"
                                             else -> "Default"
-                                        }, 
+                                        },
                                         style = MaterialTheme.typography.labelSmall,
                                         fontWeight = FontWeight.Black
-                                    ) 
+                                    )
                                 },
                                 trailingIcon = {
                                     Icon(Icons.Default.ArrowDropDown, null, modifier = Modifier.size(16.dp))
@@ -669,34 +673,25 @@ fun QuickRestartDialog(
                                 expanded = showSortMenu,
                                 onDismissRequest = { showSortMenu = false },
                                 shape = RoundedCornerShape(16.dp),
-                                modifier = Modifier.background(MaterialTheme.colorScheme.surface)
+                                modifier = Modifier.background(MaterialTheme.colorScheme.surfaceContainerHigh)
                             ) {
                                 SortMenuItem(
                                     text = "Losers Start",
                                     icon = Icons.Default.History,
                                     selected = sortOption == RosterSortOption.LOSERS_FIRST,
-                                    onClick = {
-                                        sortOption = RosterSortOption.LOSERS_FIRST
-                                        showSortMenu = false
-                                    }
+                                    onClick = { sortOption = RosterSortOption.LOSERS_FIRST; showSortMenu = false }
                                 )
                                 SortMenuItem(
                                     text = "Winners Start",
                                     icon = Icons.Default.EmojiEvents,
                                     selected = sortOption == RosterSortOption.WINNERS_FIRST,
-                                    onClick = {
-                                        sortOption = RosterSortOption.WINNERS_FIRST
-                                        showSortMenu = false
-                                    }
+                                    onClick = { sortOption = RosterSortOption.WINNERS_FIRST; showSortMenu = false }
                                 )
                                 SortMenuItem(
                                     text = "Random Shuffle",
                                     icon = Icons.Default.Shuffle,
                                     selected = sortOption == RosterSortOption.RANDOM,
-                                    onClick = {
-                                        sortOption = RosterSortOption.RANDOM
-                                        showSortMenu = false
-                                    }
+                                    onClick = { sortOption = RosterSortOption.RANDOM; showSortMenu = false }
                                 )
                             }
                         }
@@ -704,12 +699,18 @@ fun QuickRestartDialog(
                         Spacer(Modifier.weight(1f))
                         val activeMatchCount = sortedCurrentMatchPlayers.count { it.name in selectedNames }
                         if (activeMatchCount > 0) {
-                            Text(
-                                "$activeMatchCount selected",
-                                style = MaterialTheme.typography.labelSmall,
-                                fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.primary
-                            )
+                            Surface(
+                                shape = CircleShape,
+                                color = MaterialTheme.colorScheme.primaryContainer
+                            ) {
+                                Text(
+                                    "$activeMatchCount",
+                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp),
+                                    style = MaterialTheme.typography.labelSmall,
+                                    fontWeight = FontWeight.Black,
+                                    color = MaterialTheme.colorScheme.primary
+                                )
+                            }
                         }
                     }
 
@@ -735,25 +736,25 @@ fun QuickRestartDialog(
                     }
                 }
 
-                // Ribbon Cards Group 2: Saved Library
+                // ── Saved Library ─────────────────────────────────────────────
                 if (filteredSavedNames.isNotEmpty() || selectedNames.any { name -> currentPlayers.none { it.name == name } }) {
-                    Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
+                    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                         Row(
                             modifier = Modifier.fillMaxWidth(),
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
                             Icon(
-                                Icons.Default.History, 
-                                null, 
-                                modifier = Modifier.size(16.dp),
-                                tint = MaterialTheme.colorScheme.onSurfaceVariant
+                                Icons.Default.History,
+                                null,
+                                modifier = Modifier.size(15.dp),
+                                tint = MaterialTheme.colorScheme.secondary
                             )
                             Text(
                                 "SAVED LIBRARY",
-                                style = MaterialTheme.typography.labelLarge,
+                                style = MaterialTheme.typography.labelMedium,
                                 fontWeight = FontWeight.Black,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                color = MaterialTheme.colorScheme.secondary,
                                 letterSpacing = 1.sp
                             )
                         }
@@ -763,7 +764,6 @@ fun QuickRestartDialog(
                             horizontalArrangement = Arrangement.spacedBy(10.dp),
                             verticalArrangement = Arrangement.spacedBy(10.dp)
                         ) {
-                            // First show names that were added as guests or selected from saved
                             val extraSelections = selectedNames.filter { name -> currentPlayers.none { it.name == name } }
                             extraSelections.forEach { name ->
                                 RosterRibbonCard(
@@ -772,8 +772,6 @@ fun QuickRestartDialog(
                                     onClick = { selectedNames = selectedNames - name }
                                 )
                             }
-                            
-                            // Then show other saved names that are not selected
                             filteredSavedNames.filter { it !in selectedNames }.forEach { name ->
                                 RosterRibbonCard(
                                     name = name,
@@ -784,59 +782,71 @@ fun QuickRestartDialog(
                         }
                     }
                 }
-                
-                Spacer(Modifier.height(8.dp))
+
+                Spacer(Modifier.height(4.dp))
             }
         },
         confirmButton = {
-            Button(
+            // ── Start Button ──────────────────────────────────────────────────
+            Surface(
                 onClick = {
                     if (selectedNames.size >= 2) {
-                        // Preserve order: first match players in their relative order, then extras
                         val finalRoster = (currentPlayers.map { it.name } + selectedNames.toList())
                             .distinct()
                             .filter { it in selectedNames }
-                            
                         onStartGame(finalRoster)
                     }
                 },
                 enabled = selectedNames.size >= 2,
                 shape = RoundedCornerShape(20.dp),
+                color = if (selectedNames.size >= 2)
+                    MaterialTheme.colorScheme.primary
+                else
+                    MaterialTheme.colorScheme.surfaceVariant,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(60.dp),
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = MaterialTheme.colorScheme.primary,
-                    disabledContainerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)
-                ),
-                elevation = ButtonDefaults.buttonElevation(defaultElevation = 0.6.dp)
+                    .height(60.dp)
             ) {
-                Icon(Icons.Default.CheckCircle, null, modifier = Modifier.size(20.dp))
-                Spacer(Modifier.width(12.dp))
-                Text(
-                    "Archive & Start New Round", 
-                    style = MaterialTheme.typography.titleMedium, 
-                    fontWeight = FontWeight.ExtraBold
-                )
-            }
-        },
-        dismissButton = {
-            Box(modifier = Modifier.padding(top = 8.dp)) {
-                TextButton(
-                    onClick = onDismiss,
-                    modifier = Modifier.fillMaxWidth()
+                Row(
+                    modifier = Modifier.padding(horizontal = 20.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.Center
                 ) {
+                    Icon(
+                        Icons.Default.PlayArrow,
+                        null,
+                        modifier = Modifier.size(24.dp),
+                        tint = if (selectedNames.size >= 2)
+                            MaterialTheme.colorScheme.onPrimary
+                        else
+                            MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Spacer(Modifier.width(10.dp))
                     Text(
-                        "Cancel", 
-                        style = MaterialTheme.typography.labelLarge,
-                        fontWeight = FontWeight.Bold, 
-                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
+                        if (selectedNames.size >= 2) "Start with ${selectedNames.size} Players" else "Select at least 2 players",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.ExtraBold,
+                        color = if (selectedNames.size >= 2)
+                            MaterialTheme.colorScheme.onPrimary
+                        else
+                            MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
             }
         },
-        shape = RoundedCornerShape(32.dp),
-        containerColor = MaterialTheme.colorScheme.surface
+        dismissButton = {
+            TextButton(
+                onClick = onDismiss,
+                modifier = Modifier.fillMaxWidth().padding(top = 4.dp)
+            ) {
+                Text(
+                    "Cancel",
+                    style = MaterialTheme.typography.labelLarge,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
+                )
+            }
+        }
     )
 }
 
