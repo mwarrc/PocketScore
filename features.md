@@ -74,8 +74,6 @@ The core of the PocketScore experience is the Game Screen—a high-fidelity, rea
 
 *   **Appearance & UX Tuning**
     *   **Material You Synergy:** System-wide themes that adapt to your device's wallpaper and accents.
-    *   **OLED Deep Black:** Optimized high-contrast dark mode for battery savings.
-    *   **Auto-Center Camera:** Intelligent camera tracking that follows the active turn.
 *   **Snapshot Architecture**
     *   **Manual Restoration Points:** Create named snapshots of your entire database.
     *   **Automated Daily Preservation:** Silent background backups ensuring zero data loss.
