@@ -4,7 +4,10 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
+import androidx.compose.material.icons.filled.Archive
 import androidx.compose.material.icons.filled.History
+import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -75,18 +78,72 @@ fun GameHistoryTab(
     }
 
     // Main UI
-    if (history.pastGames.isEmpty()) {
-        EmptyHistoryPlaceholder()
-    } else {
-        // Group games by date categories for better readability
-        val groupedGames = remember(history.pastGames) {
-            groupGamesByDate(history.pastGames)
+        // Filter for active (non-archived) games
+        val activeGames = remember(history.pastGames) {
+            history.pastGames.filter { !it.isArchived }
         }
+        
+        val archivedGames = remember(history.pastGames) {
+            history.pastGames.filter { it.isArchived }
+        }
+
+        if (activeGames.isEmpty() && archivedGames.isEmpty()) {
+            EmptyHistoryPlaceholder()
+        } else {
+            // Group games by date categories for better readability
+            val groupedGames = remember(activeGames) {
+                groupGamesByDate(activeGames)
+            }
+            
+            var showArchived by remember { mutableStateOf(false) }
 
         LazyColumn(
             modifier = Modifier.fillMaxSize(),
             contentPadding = PaddingValues(top = 8.dp, bottom = 100.dp)
         ) {
+            // Archived Section Header (Telegram-style)
+            if (archivedGames.isNotEmpty() && !selectionMode) {
+                item {
+                    ArchivedMatchesHeader(
+                        count = archivedGames.size,
+                        isExpanded = showArchived,
+                        onToggle = { showArchived = !showArchived }
+                    )
+                }
+
+                if (showArchived) {
+                    items(archivedGames.sortedByDescending { it.endTime ?: it.startTime }, key = { "archived_${it.id}" }) { game ->
+                        GameHistoryCard(
+                            game = game,
+                            onDelete = { gameToDelete = game },
+                            onArchive = { onArchiveGame(game.id) },
+                            onResume = { gameToResume = game },
+                            onShare = { onShareGame(game.id) },
+                            onViewDetails = { onViewDetails(game.id) },
+                            selectionMode = selectionMode,
+                            isSelected = game.id in selectedIds,
+                            onToggleSelection = { onToggleSelection(game.id) },
+                            onEnterSelectionMode = { onEnterSelectionMode(game.id) }
+                        )
+                    }
+                    
+                    item {
+                        HorizontalDivider(
+                            modifier = Modifier.padding(vertical = 8.dp, horizontal = 16.dp),
+                            color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
+                        )
+                    }
+                }
+            }
+
+            if (activeGames.isEmpty() && !showArchived) {
+                item {
+                    Box(Modifier.fillParentMaxHeight(0.7f).fillMaxWidth(), contentAlignment = Alignment.Center) {
+                        Text("No active matches", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                }
+            }
+
             groupedGames.forEach { (dateHeader, games) ->
                 // Section Header
                 item(key = dateHeader) {
@@ -116,6 +173,86 @@ fun GameHistoryTab(
                     )
                 }
             }
+        }
+    }
+}
+
+/**
+ * Header for the archived matches section.
+ */
+@Composable
+private fun ArchivedMatchesHeader(
+    count: Int,
+    isExpanded: Boolean,
+    onToggle: () -> Unit
+) {
+    Surface(
+        onClick = onToggle,
+        modifier = Modifier.fillMaxWidth(),
+        color = androidx.compose.ui.graphics.Color.Transparent
+    ) {
+        Row(
+            modifier = Modifier
+                .padding(horizontal = 20.dp, vertical = 10.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            // Circular icon container like a chat avatar
+            Surface(
+                shape = androidx.compose.foundation.shape.CircleShape,
+                color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f),
+                modifier = Modifier.size(48.dp)
+            ) {
+                Box(contentAlignment = Alignment.Center) {
+                    Icon(
+                        imageVector = Icons.Default.Archive,
+                        contentDescription = null,
+                        modifier = Modifier.size(24.dp),
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+            
+            Spacer(Modifier.width(16.dp))
+            
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = "Archived Matches",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+                if (isExpanded) {
+                    Text(
+                        text = "$count records",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+            
+            // Subtle badge when collapsed
+            if (!isExpanded && count > 0) {
+                Surface(
+                    shape = androidx.compose.foundation.shape.CircleShape,
+                    color = MaterialTheme.colorScheme.surfaceVariant,
+                    modifier = Modifier.padding(end = 12.dp)
+                ) {
+                    Text(
+                        text = "$count",
+                        style = MaterialTheme.typography.labelMedium,
+                        fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold,
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp),
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+            
+            Icon(
+                imageVector = if (isExpanded) Icons.Default.KeyboardArrowDown else Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                contentDescription = if (isExpanded) "Collapse" else "Expand",
+                tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
+                modifier = Modifier.size(20.dp)
+            )
         }
     }
 }

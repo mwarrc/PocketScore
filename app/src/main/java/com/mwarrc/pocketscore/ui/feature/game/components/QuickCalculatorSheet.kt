@@ -1,6 +1,8 @@
 package com.mwarrc.pocketscore.ui.feature.game.components
 
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.*
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.shrinkVertically
 
@@ -10,8 +12,15 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.border
+import androidx.compose.foundation.background
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.ui.draw.alpha
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.Close
@@ -56,6 +65,7 @@ import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.TextFieldValue
+import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.launch
@@ -192,21 +202,23 @@ fun QuickCalculatorSheet(
                     }
                 }
 
-                Spacer(Modifier.height(16.dp))
+                val calculatorTransformation = remember {
+                    VisualTransformation { text ->
+                        val transformed = text.text
+                            .replace("*", "×")
+                            .replace("/", "÷")
+                        androidx.compose.ui.text.input.TransformedText(
+                            androidx.compose.ui.text.AnnotatedString(transformed),
+                            androidx.compose.ui.text.input.OffsetMapping.Identity
+                        )
+                    }
+                }
 
-                val visualExpression = expression.text
-                    .replace("*", "×")
-                    .replace("/", "÷")
-
-                OutlinedTextField(
-                    value = expression.copy(text = visualExpression),
+                BasicTextField(
+                    value = expression,
                     onValueChange = { newValue ->
-                        val rawText = newValue.text
-                            .replace("×", "*")
-                            .replace("÷", "/")
-                        
-                        if (rawText.all { it.isDigit() || "+-*/. ()".contains(it) }) {
-                            onExpressionChange(newValue.copy(text = rawText))
+                        if (newValue.text.all { it.isDigit() || "+-*/. ()".contains(it) || it == '\n' }) {
+                            onExpressionChange(newValue)
                         }
                     },
                     modifier = Modifier
@@ -217,26 +229,65 @@ fun QuickCalculatorSheet(
                                 showNumpad = true
                             }
                         },
-                    placeholder = { 
-                        Text(
-                            "Enter sum (12 + 4)...", 
-                            style = MaterialTheme.typography.bodyMedium.copy(
-                                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
-                            )
-                        ) 
-                    },
-                    singleLine = true,
                     readOnly = settings.useCustomKeyboard,
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                    shape = RoundedCornerShape(16.dp),
-                    trailingIcon = {
-                        if (expression.text.isNotEmpty()) {
-                            IconButton(onClick = { onExpressionChange(TextFieldValue("")) }) {
-                                Icon(Icons.Default.Clear, "Clear")
+                    keyboardOptions = KeyboardOptions(
+                        keyboardType = KeyboardType.Number,
+                        imeAction = androidx.compose.ui.text.input.ImeAction.Done
+                    ),
+                    visualTransformation = calculatorTransformation,
+                    textStyle = MaterialTheme.typography.titleLarge.copy(
+                        color = MaterialTheme.colorScheme.onSurface
+                    ),
+                    cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
+                    decorationBox = { innerTextField ->
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(56.dp)
+                                .border(
+                                    1.dp, 
+                                    if (showNumpad) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline, 
+                                    RoundedCornerShape(16.dp)
+                                )
+                                .padding(horizontal = 16.dp),
+                            contentAlignment = Alignment.CenterStart
+                        ) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.SpaceBetween
+                            ) {
+                                Row(
+                                    modifier = Modifier.weight(1f),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    if (expression.text.isEmpty()) {
+                                        Text(
+                                            "Enter sum (12 + 4)...",
+                                            style = MaterialTheme.typography.bodyLarge,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
+                                        )
+                                    } else {
+                                        innerTextField()
+                                    }
+                                }
+
+                                if (expression.text.isNotEmpty()) {
+                                    IconButton(
+                                        onClick = { onExpressionChange(TextFieldValue("")) },
+                                        modifier = Modifier.size(24.dp)
+                                    ) {
+                                        Icon(
+                                            Icons.Default.Clear, 
+                                            "Clear",
+                                            modifier = Modifier.size(18.dp),
+                                            tint = MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                    }
+                                }
                             }
                         }
-                    },
-                    textStyle = MaterialTheme.typography.titleLarge
+                    }
                 )
 
                 Spacer(Modifier.height(12.dp))
@@ -409,6 +460,7 @@ fun QuickCalculatorSheet(
                             ))
                         }
                     },
+                    onClearClick = { onExpressionChange(TextFieldValue("")) },
                     onDismiss = { showNumpad = false },
                     isPinned = false,
                     onTogglePin = {},

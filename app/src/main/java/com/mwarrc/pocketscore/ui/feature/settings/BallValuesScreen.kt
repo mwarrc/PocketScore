@@ -89,7 +89,7 @@ fun BallValuesScreen(
     onUpdateSettings: ((AppSettings) -> AppSettings) -> Unit,
     onBack: () -> Unit
 ) {
-    // ── State ────────────────────────────────────────────────────────────────
+    // ── State --──────────────────
     /** Working copy of ball values as strings for the editors. */
     var editingValues by remember {
         mutableStateOf(settings.ballValues.mapValues { it.value.toString() })
@@ -107,7 +107,7 @@ fun BallValuesScreen(
     var showDeleteConfirm by remember { mutableStateOf<BallValuePreset?>(null) }
     var newPresetName by remember { mutableStateOf("") }
 
-    // ── Helpers ──────────────────────────────────────────────────────────────
+    // ── Helpers --────────────────
 
     /** Converts the current [editingValues] to a typed map and persists it. */
     fun applyChanges() {
@@ -115,7 +115,7 @@ fun BallValuesScreen(
         onUpdateSettings { it.copy(ballValues = finalValues) }
     }
 
-    // ── UI ───────────────────────────────────────────────────────────────────
+    // ── UI --─────────────────────
     Box(modifier = Modifier.fillMaxSize()) {
         Scaffold(
             modifier = Modifier
@@ -212,7 +212,7 @@ fun BallValuesScreen(
             }
         }
 
-        // ── Sticky action bar ────────────────────────────────────────────────
+        // ── Sticky action bar --──
         AnimatedVisibility(
             visible = hasUnsavedChanges,
             enter = slideInVertically(initialOffsetY = { it }) + fadeIn(),
@@ -263,7 +263,7 @@ fun BallValuesScreen(
         }
     }
 
-    // ── Dialogs ──────────────────────────────────────────────────────────────
+    // ── Dialogs --────────────────
     if (showSavePresetDialog) {
         SavePresetDialog(
             presetName = newPresetName,
@@ -303,9 +303,9 @@ fun BallValuesScreen(
     }
 }
 
-// ────────────────────────────────────────────────────────────────────────────
+// --──────────────────────────────
 // Private sub-composables
-// ────────────────────────────────────────────────────────────────────────────
+// --──────────────────────────────
 
 /**
  * Horizontally scrollable row of [FilterChip]s for selecting a ball-value preset.

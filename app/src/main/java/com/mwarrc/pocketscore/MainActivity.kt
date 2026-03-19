@@ -27,6 +27,9 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.unit.Density
+import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.core.content.IntentCompat
@@ -85,9 +88,9 @@ class MainActivity : ComponentActivity() {
     // Holds data received from Intents (e.g. opening a .pscore file)
     private val pendingShareDataFlow = MutableStateFlow<PocketScoreShare?>(null)
 
-    // Tracks whether the game screen is currently shown
-    // Used by onWindowFocusChanged to re-apply immersive mode after dialogs close
-    private var isGameScreenActive = false
+    // Tracks whether we should stay in full immersive mode
+    // Used by onWindowFocusChanged to re-hide system bars after interactions
+    private var isImmersiveRequested = false
 
     /**
      * Called when the activity is starting.
@@ -123,7 +126,7 @@ class MainActivity : ComponentActivity() {
      */
     override fun onWindowFocusChanged(hasFocus: Boolean) {
         super.onWindowFocusChanged(hasFocus)
-        if (hasFocus && isGameScreenActive) {
+        if (hasFocus && isImmersiveRequested) {
             val insetsController = WindowCompat.getInsetsController(window, window.decorView)
             insetsController.hide(WindowInsetsCompat.Type.systemBars())
             insetsController.systemBarsBehavior =
@@ -143,22 +146,24 @@ class MainActivity : ComponentActivity() {
         val navController = rememberNavController()
         val scope = rememberCoroutineScope()
 
-        // Track current route and apply full immersive mode on the game screen
+        // Track current route and apply full immersive mode
         val currentBackStackEntry by navController.currentBackStackEntryAsState()
         val currentRoute = currentBackStackEntry?.destination?.route
         LaunchedEffect(currentRoute) {
             val insetsController = WindowCompat.getInsetsController(window, window.decorView)
-            if (currentRoute == "game") {
-                isGameScreenActive = true
-                // Full immersive: hide both status bar and navigation bar
+            
+            if (currentRoute == "setup" || currentRoute == null) {
+                // Home Screen (setup): Show UI bars
+                isImmersiveRequested = false
+                insetsController.show(WindowInsetsCompat.Type.navigationBars())
+                insetsController.hide(WindowInsetsCompat.Type.statusBars()) // Keep status bar hidden app-wide
+                insetsController.systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_DEFAULT
+            } else {
+                // All other screens (Game, History, Settings): Full Immersive
+                isImmersiveRequested = true
                 insetsController.hide(WindowInsetsCompat.Type.systemBars())
                 insetsController.systemBarsBehavior =
                     WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
-            } else {
-                isGameScreenActive = false
-                // Restore: show navigation bar, keep status bar hidden (app default)
-                insetsController.show(WindowInsetsCompat.Type.navigationBars())
-                insetsController.hide(WindowInsetsCompat.Type.statusBars())
             }
         }
 
@@ -289,6 +294,14 @@ class MainActivity : ComponentActivity() {
 
         val startDestination = if (appState.gameState.isGameActive) "game" else "setup"
 
+        val currentDensity = LocalDensity.current
+        val scaleFactor = appState.settings.globalScale
+        val customDensity = Density(
+            density = currentDensity.density * scaleFactor,
+            fontScale = currentDensity.fontScale * scaleFactor
+        )
+
+        CompositionLocalProvider(LocalDensity provides customDensity) {
             PocketScoreTheme(darkTheme = darkTheme) {
                 Box(modifier = Modifier.fillMaxSize()) {
                     when {
@@ -394,6 +407,7 @@ class MainActivity : ComponentActivity() {
                     )
                 }
             }
+        }
     }
 
     /**
@@ -469,7 +483,9 @@ class MainActivity : ComponentActivity() {
                     },
                     onUpdateSettings = { update -> viewModel.updateSettings(update) },
                     ballsOnTable = appState.gameState.ballsOnTable,
-                    onUpdateBallsOnTable = { balls -> viewModel.updateBallsOnTable(balls) }
+                    onUpdateBallsOnTable = { balls -> viewModel.updateBallsOnTable(balls) },
+                    isLoading = appState.isLoading,
+                    loadingMessage = appState.loadingMessage
                 )
             }
 
@@ -577,6 +593,7 @@ class MainActivity : ComponentActivity() {
                 BackupManagementScreen(
                     onBack = { navController.popBackStack() },
                     snapshots = snapshots,
+                    isLoading = appState.isLoading,
                     onRestore = { name ->
                         scope.launch {
                             val data = viewModel.getSnapshotContent(name)

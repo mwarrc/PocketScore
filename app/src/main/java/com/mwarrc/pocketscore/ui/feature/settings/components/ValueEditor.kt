@@ -91,7 +91,7 @@ fun ValueEditor(
                 )
             }
 
-            // ── Stepper row ──────────────────────────────────────────────
+            // ── Stepper row --
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically,
@@ -151,7 +151,7 @@ fun ValueEditor(
                 }
             }
 
-            // ── "pts" label ──────────────────────────────────────────────
+            // ── "pts" label --
             Text(
                 text = "pts",
                 style = MaterialTheme.typography.labelSmall,

@@ -114,7 +114,7 @@ fun ResetGameDialog(
                 modifier = Modifier.fillMaxWidth(),
                 verticalArrangement = Arrangement.spacedBy(0.dp)
             ) {
-                // ── Hero Block ────────────────────────────────────────────────
+                // ── Hero Block --──
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -198,7 +198,7 @@ fun ResetGameDialog(
                     }
                 }
 
-                // ── Action Cards ──────────────────────────────────────────────
+                // ── Action Cards --
 
                 // 1. Finish Match (PRIMARY)
                 EndGameActionCard(
@@ -238,7 +238,7 @@ fun ResetGameDialog(
                     onClick = onResumeLater
                 )
 
-                // ── Dismiss link ──────────────────────────────────────────────
+                // ── Dismiss link --
                 TextButton(
                     onClick = onDismiss,
                     modifier = Modifier
@@ -525,7 +525,7 @@ fun QuickRestartDialog(
         shape = RoundedCornerShape(32.dp),
         containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
         title = {
-            // ── Hero Header ───────────────────────────────────────────────
+            // ── Hero Header --─
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically,
@@ -567,7 +567,6 @@ fun QuickRestartDialog(
                     .verticalScroll(scrollState),
                 verticalArrangement = Arrangement.spacedBy(20.dp)
             ) {
-                // ── Search & Quick Add ────────────────────────────────────────
                 OutlinedTextField(
                     value = searchInput,
                     onValueChange = { searchInput = it },
@@ -787,7 +786,7 @@ fun QuickRestartDialog(
             }
         },
         confirmButton = {
-            // ── Start Button ──────────────────────────────────────────────────
+            // ── Start Button --────
             Surface(
                 onClick = {
                     if (selectedNames.size >= 2) {

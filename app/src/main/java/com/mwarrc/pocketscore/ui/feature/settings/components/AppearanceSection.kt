@@ -21,11 +21,14 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SegmentedButton
 import androidx.compose.material3.SegmentedButtonDefaults
 import androidx.compose.material3.SingleChoiceSegmentedButtonRow
+import androidx.compose.material3.Slider
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.ui.graphics.Color
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -60,6 +63,47 @@ fun AppearanceSection(
             fontWeight = FontWeight.Bold,
             modifier = Modifier.padding(start = 4.dp)
         )
+
+        Column(modifier = Modifier.fillMaxWidth()) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text("Global App Scale (Zoom)", style = MaterialTheme.typography.titleMedium)
+                    Text(
+                        "Adjust the overall size of the user interface.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                
+                val displayValue = String.format(java.util.Locale.US, "%.1fx", settings.globalScale)
+                val isDefault = kotlin.math.abs(settings.globalScale - 1.0f) < 0.05f
+                
+                TextButton(
+                    onClick = { onUpdateSettings { it.copy(globalScale = 1.0f) } },
+                    enabled = !isDefault
+                ) {
+                    Text(if (isDefault) "Default" else "Reset ($displayValue)")
+                }
+            }
+            Spacer(Modifier.height(8.dp))
+            
+            // Local state to prevent full-app layout recalculations (jank) during continuous drag
+            var localSliderValue by remember(settings.globalScale) { mutableFloatStateOf(settings.globalScale) }
+            
+            Slider(
+                value = localSliderValue,
+                onValueChange = { localSliderValue = it },
+                onValueChangeFinished = { 
+                    onUpdateSettings { it.copy(globalScale = localSliderValue) }
+                },
+                valueRange = AppSettings.MIN_GLOBAL_SCALE..AppSettings.MAX_GLOBAL_SCALE,
+                modifier = Modifier.fillMaxWidth()
+            )
+        }
 
         Column(modifier = Modifier.fillMaxWidth()) {
             Row(

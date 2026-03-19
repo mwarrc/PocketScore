@@ -67,6 +67,7 @@ fun FriendsTab(
             if (!selectionMode) {
                 ExtendedFloatingActionButton(
                     onClick = { showAddDialog = true },
+                    modifier = Modifier.padding(bottom = 110.dp),
                     icon = { Icon(Icons.Default.Add, contentDescription = null) },
                     text = { Text("New Player") },
                     containerColor = MaterialTheme.colorScheme.primaryContainer,

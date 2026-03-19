@@ -42,7 +42,7 @@ fun MatchSplitTab(
     
     // Prepare display data with 7-day filter
     val (displayGames, hasOlderGames) = remember(history, showAllHistory) {
-        val allFinalized = history.pastGames.filter { it.isFinalized }
+        val allFinalized = history.pastGames.filter { it.isFinalized && !it.isArchived }
             .sortedByDescending { it.endTime ?: it.startTime }
             
         if (showAllHistory) {

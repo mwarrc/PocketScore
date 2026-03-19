@@ -6,11 +6,14 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import kotlinx.coroutines.launch
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
@@ -46,19 +49,20 @@ fun MatchDetailsScreen(
     game: GameState,
     onBack: () -> Unit
 ) {
-    var selectedTabIndex by remember { mutableIntStateOf(0) }
     val tabs = listOf("Overview", "Insights", "Timeline")
+    val pagerState = rememberPagerState(pageCount = { tabs.size })
+    val coroutineScope = rememberCoroutineScope()
     
     val scrollBehavior = TopAppBarDefaults.pinnedScrollBehavior()
 
     Scaffold(
-        modifier = Modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
+        modifier = Modifier
+            .nestedScroll(scrollBehavior.nestedScrollConnection)
+            .displayCutoutPadding(),
         topBar = {
             Column(modifier = Modifier
                 .background(MaterialTheme.colorScheme.surface)
-                .statusBarsPadding()
             ) {
-                Spacer(Modifier.height(30.dp))
                 CenterAlignedTopAppBar(
                     title = {
                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
@@ -82,18 +86,18 @@ fun MatchDetailsScreen(
                         }
                     },
                     scrollBehavior = scrollBehavior,
-                    windowInsets = WindowInsets(top = 0.dp)
+                    windowInsets = WindowInsets.safeDrawing
                 )
                 
                 TabRow(
-                    selectedTabIndex = selectedTabIndex,
+                    selectedTabIndex = pagerState.currentPage,
                     containerColor = MaterialTheme.colorScheme.surface,
                     contentColor = MaterialTheme.colorScheme.primary,
                     divider = {},
                     indicator = { tabPositions ->
-                        if (selectedTabIndex < tabPositions.size) {
+                        if (pagerState.currentPage < tabPositions.size) {
                             TabRowDefaults.SecondaryIndicator(
-                                Modifier.tabIndicatorOffset(tabPositions[selectedTabIndex]),
+                                Modifier.tabIndicatorOffset(tabPositions[pagerState.currentPage]),
                                 color = MaterialTheme.colorScheme.primary
                             )
                         }
@@ -101,12 +105,16 @@ fun MatchDetailsScreen(
                 ) {
                     tabs.forEachIndexed { index, title ->
                         Tab(
-                            selected = selectedTabIndex == index,
-                            onClick = { selectedTabIndex = index },
+                            selected = pagerState.currentPage == index,
+                            onClick = { 
+                                coroutineScope.launch {
+                                    pagerState.animateScrollToPage(index)
+                                }
+                            },
                             text = { 
                                 Text(
                                     title,
-                                    fontWeight = if (selectedTabIndex == index) FontWeight.Bold else FontWeight.Medium
+                                    fontWeight = if (pagerState.currentPage == index) FontWeight.Bold else FontWeight.Medium
                                 )
                             }
                         )
@@ -120,10 +128,15 @@ fun MatchDetailsScreen(
             .padding(padding)
             .background(MaterialTheme.colorScheme.surface)
         ) {
-            when (selectedTabIndex) {
-                0 -> MatchOverviewTab(game)
-                1 -> MatchInsightsTab(game)
-                2 -> MatchTimelineTab(game)
+            HorizontalPager(
+                state = pagerState,
+                modifier = Modifier.fillMaxSize()
+            ) { page ->
+                when (page) {
+                    0 -> MatchOverviewTab(game)
+                    1 -> MatchInsightsTab(game)
+                    2 -> MatchTimelineTab(game)
+                }
             }
         }
     }

@@ -79,7 +79,7 @@ fun BallPreviewItem(
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(6.dp)
     ) {
-        // ── Ball shell ──────────────────────────────────────────────────
+        // ── Ball shell --────
         Surface(
             modifier = Modifier.size(ballSize),
             shape = CircleShape,

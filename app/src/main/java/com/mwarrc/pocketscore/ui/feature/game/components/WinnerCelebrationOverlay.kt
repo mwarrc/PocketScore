@@ -59,7 +59,7 @@ fun WinnerCelebrationOverlay(
     val isTie = winners.size > 1
     val colorScheme = MaterialTheme.colorScheme
 
-    // ── Entrance spring ───────────────────────────────────────────────────────
+    // ── Entrance spring --─────────
     var visible by remember { mutableStateOf(false) }
     LaunchedEffect(Unit) { visible = true }
 
@@ -89,7 +89,7 @@ fun WinnerCelebrationOverlay(
         label = "wavePhase"
     )
 
-    // ── Root ──────────────────────────────────────────────────────────────────
+    // ── Root --────────────────────
     Box(
         modifier = Modifier
             .fillMaxSize()
@@ -116,7 +116,7 @@ fun WinnerCelebrationOverlay(
             )
         }
 
-        // ── Card content ──────────────────────────────────────────────────────
+        // ── Card content --────────
         Column(
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(0.dp),
@@ -301,9 +301,9 @@ fun WinnerCelebrationOverlay(
     }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
+// --───────────────────────────────
 // Animated sine wave background
-// ─────────────────────────────────────────────────────────────────────────────
+// --───────────────────────────────
 
 /**
  * Draws three layered sine waves as filled paths that rise from the bottom of
@@ -416,7 +416,7 @@ private fun DrawScope.drawTrophyMark(
     val cx = center.x
     val cy = center.y
 
-    // ── Cup body ──────────────────────────────────────────────────────────────
+    // ── Cup body --────────────────
     val cupPath = Path().apply {
         val left       = cx - h * 0.54f
         val right      = cx + h * 0.54f
@@ -442,7 +442,7 @@ private fun DrawScope.drawTrophyMark(
     }
     drawPath(cupPath, color = color)
 
-    // ── Handles ───────────────────────────────────────────────────────────────
+    // ── Handles --─────────────────
     val handleStroke = Stroke(width = sizePx * 0.072f, cap = StrokeCap.Round)
     val handleTop    = cy - h * 0.54f
     val handleBottom = cy - h * 0.06f
@@ -469,7 +469,7 @@ private fun DrawScope.drawTrophyMark(
         style = handleStroke
     )
 
-    // ── Stem ──────────────────────────────────────────────────────────────────
+    // ── Stem --────────────────────
     val stemTop    = cy + h * 0.34f
     val stemBottom = cy + h * 0.60f
     val stemW      = h * 0.13f
@@ -479,7 +479,7 @@ private fun DrawScope.drawTrophyMark(
         size = Size(stemW * 2f, stemBottom - stemTop)
     )
 
-    // ── Base ──────────────────────────────────────────────────────────────────
+    // ── Base --────────────────────
     val baseH = h * 0.14f
     val baseW = h * 0.78f
     drawRoundRect(

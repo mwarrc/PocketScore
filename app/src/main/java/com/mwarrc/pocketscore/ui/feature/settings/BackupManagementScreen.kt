@@ -45,6 +45,9 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.FilterChip
+import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
@@ -54,6 +57,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -94,6 +98,7 @@ import kotlinx.coroutines.launch
 @Composable
 fun BackupManagementScreen(
     snapshots: List<Pair<String, Long>>,
+    isLoading: Boolean = false,
     onBack: () -> Unit,
     onCreateManualSnapshot: (String) -> Unit,
     onRestore: (String) -> Unit,
@@ -145,6 +150,23 @@ fun BackupManagementScreen(
             },
             onDismiss = { snapshotToDelete = null }
         )
+    }
+
+    var selectedFilter by remember { mutableStateOf("All") }
+    val filters = listOf("All", "Auto", "Pulse", "Manual")
+    var itemsToShow by remember(selectedFilter) { mutableIntStateOf(20) }
+
+    val filteredSnapshots = remember(snapshots, selectedFilter) {
+        when (selectedFilter) {
+            "Auto" -> snapshots.filter { it.first.contains("Auto", ignoreCase = true) }
+            "Pulse" -> snapshots.filter { it.first.contains("Pulse", ignoreCase = true) || it.first.contains("Random", ignoreCase = true) }
+            "Manual" -> snapshots.filter { 
+                !it.first.contains("Auto", ignoreCase = true) && 
+                !it.first.contains("Pulse", ignoreCase = true) && 
+                !it.first.contains("Random", ignoreCase = true) 
+            }
+            else -> snapshots
+        }
     }
 
     Scaffold(
@@ -433,27 +455,58 @@ fun BackupManagementScreen(
                 SettingsDivider(alpha = 0.5f)
             }
 
-            // History Section
+            // History Section Header & Filter
             item {
-                Text(
-                    "History",
-                    style = MaterialTheme.typography.labelLarge,
-                    color = MaterialTheme.colorScheme.primary,
-                    fontWeight = FontWeight.Bold,
-                    modifier = Modifier.padding(start = 4.dp, top = 8.dp)
-                )
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(
+                        "History",
+                        style = MaterialTheme.typography.labelLarge,
+                        color = MaterialTheme.colorScheme.primary,
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.padding(start = 4.dp, top = 8.dp)
+                    )
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        filters.forEach { filter ->
+                            FilterChip(
+                                selected = selectedFilter == filter,
+                                onClick = { selectedFilter = filter },
+                                label = { Text(filter) },
+                                shape = RoundedCornerShape(12.dp),
+                                colors = FilterChipDefaults.filterChipColors(
+                                    selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
+                                    selectedLabelColor = MaterialTheme.colorScheme.primary
+                                )
+                            )
+                        }
+                    }
+                }
             }
 
-            item {
-                Text(
-                    "${snapshots.size} saved snapshot${if (snapshots.size != 1) "s" else ""}",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(start = 4.dp, bottom = 4.dp)
-                )
-            }
-
-            if (snapshots.isEmpty()) {
+            // Performance Fix: Standalone Loading State
+            if (isLoading) {
+                item {
+                    Column(
+                        modifier = Modifier.fillMaxWidth().padding(vertical = 40.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(28.dp),
+                            strokeWidth = 3.dp,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                        Spacer(Modifier.height(16.dp))
+                        Text(
+                            "Scanning Vault...",
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+            } else if (filteredSnapshots.isEmpty()) {
                 item {
                     Column(
                         modifier = Modifier
@@ -469,7 +522,7 @@ fun BackupManagementScreen(
                             tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f)
                         )
                         Text(
-                            "No snapshots yet",
+                            if (selectedFilter == "All") "No snapshots yet" else "No matching $selectedFilter backups",
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -477,7 +530,10 @@ fun BackupManagementScreen(
                 }
             }
 
-            items(snapshots) { (name, timestamp) ->
+            // Correct items() DSL to ensure viewport recycling
+            val displayList = filteredSnapshots.take(itemsToShow)
+
+            items(displayList, key = { it.first + it.second }) { (name, timestamp) ->
                 SnapshotItem(
                     name = name,
                     date = dateFormat.format(Date(timestamp)),
@@ -490,6 +546,34 @@ fun BackupManagementScreen(
                     onDelete = { snapshotToDelete = name },
                     onShare = { onShare(name) }
                 )
+            }
+
+            if (filteredSnapshots.size > itemsToShow) {
+                item {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 16.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        androidx.compose.material3.TextButton(
+                            onClick = { itemsToShow += 30 },
+                            shape = RoundedCornerShape(12.dp)
+                        ) {
+                            Text(
+                                "Load More (+${minOf(30, filteredSnapshots.size - itemsToShow)})",
+                                style = MaterialTheme.typography.labelLarge,
+                                color = MaterialTheme.colorScheme.primary,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+                        Text(
+                            "Showing $itemsToShow of ${filteredSnapshots.size} backups",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
+                        )
+                    }
+                }
             }
         }
     }

@@ -240,6 +240,7 @@ private fun GridScoreboard(
                     leaderScore = leaderScore,
                     tableSum = tableSum,
                     poolBallManagementEnabled = settings.poolBallManagementEnabled,
+                    scoreInput = if (isSelected) scoreInput else "",
                     onClick = {
                         onHeaderSelection(player.id)
                         if (!settings.strictTurnMode) {

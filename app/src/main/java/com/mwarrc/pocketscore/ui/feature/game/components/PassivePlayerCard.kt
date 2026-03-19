@@ -71,7 +71,8 @@ fun PassivePlayerCard(
     lastPoints: Pair<Int, Boolean>? = null,
     leaderScore: Int = 0,
     tableSum: Int = 0,
-    poolBallManagementEnabled: Boolean = true
+    poolBallManagementEnabled: Boolean = true,
+    scoreInput: String = ""
 ) {
     // Calculate if player is eliminated - Only if pool management is enabled.
     // When tableSum == 0, the game is over - no more points can be scored.
@@ -102,9 +103,8 @@ fun PassivePlayerCard(
     }
 
     Card(
-        modifier = modifier
-            .fillMaxWidth()
-            .clickable { onClick() },
+        modifier = modifier.fillMaxWidth(),
+        onClick = onClick,
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
         border = borderStroke,
         colors = CardDefaults.cardColors(
@@ -141,6 +141,7 @@ fun PassivePlayerCard(
                 val pointsColor = when {
                     pointsValue > 0 -> Color(0xFF4CAF50) // Green
                     pointsValue < 0 -> MaterialTheme.colorScheme.error
+                    pointsValue == 0 -> Color(0x51FFDC85) // Amber for 0 input
                     else -> MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
                 }
                 val pointsText = when {
@@ -149,13 +150,14 @@ fun PassivePlayerCard(
                     isUndo -> "Undo 0"
                     pointsValue > 0 -> "+$pointsValue"
                     pointsValue < 0 -> "$pointsValue"
-                    else -> "0"
+                    else -> "⚠ 0"
                 }
 
+                val isZero = pointsValue == 0 && !isUndo
                 Surface(
-                    color = pointsColor.copy(alpha = 0.25f), // Significantly more visible
+                    color = if (isZero) pointsColor.copy(alpha = 0.5f) else pointsColor.copy(alpha = 0.25f), 
                     shape = RoundedCornerShape(4.dp),
-                    border = BorderStroke(0.5.dp, pointsColor.copy(alpha = 0.3f)), // Subtle border
+                    border = BorderStroke(0.5.dp, pointsColor.copy(alpha = 0.5f)),
                     modifier = Modifier
                         .align(Alignment.BottomEnd)
                         .padding(8.dp)
@@ -163,8 +165,8 @@ fun PassivePlayerCard(
                     Text(
                         text = pointsText,
                         style = MaterialTheme.typography.labelSmall,
-                        fontWeight = FontWeight.ExtraBold, // More emphasis
-                        color = pointsColor,
+                        fontWeight = FontWeight.Black,
+                        color = if (isZero) Color(0xFFE65100) else pointsColor,
                         modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp)
                     )
                 }
@@ -340,6 +342,19 @@ fun PassivePlayerCard(
                     fontWeight = FontWeight.Bold,
                     color = contentColor
                 )
+                
+                // "0" input warning indicator
+                if (scoreInput == "0" && !isEliminated) {
+                    Text(
+                        text = "⚠ 0 pts input",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = Color(0xFFFBC02D), // Amber/Yellow
+                        fontWeight = FontWeight.Black,
+                        fontSize = 9.sp,
+                        letterSpacing = 0.2.sp,
+                        modifier = Modifier.padding(top = 2.dp)
+                    )
+                }
                 
                 // Eliminated label
                 if (isEliminated) {

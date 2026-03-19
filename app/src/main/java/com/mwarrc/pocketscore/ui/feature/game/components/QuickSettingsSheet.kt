@@ -11,10 +11,11 @@ import androidx.compose.material.icons.filled.LightMode
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Palette
 import androidx.compose.material.icons.filled.Keyboard
-import androidx.compose.material.icons.filled.Help
+import androidx.compose.material.icons.automirrored.filled.Help
 import androidx.compose.material.icons.filled.FastForward
 import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.SportsEsports
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.outlined.GridView
 import androidx.compose.material.icons.outlined.ViewAgenda
 import androidx.compose.material3.Button
@@ -81,12 +82,12 @@ fun QuickSettingsSheet(
     val trueScreenHeightDp = with(density) {
         context.resources.displayMetrics.heightPixels.toDp()
     }
-    // We want ~64dp of game screen visible above the sheet top edge.
-    val maxContentHeight = trueScreenHeightDp - 64.dp
+    // We want a significant portion of the game screen visible above the sheet.
+    // Increased gap to 120dp to ensure it clears all punchhole/notch variations 
+    // and feels like a floating panel.
+    val maxContentHeight = trueScreenHeightDp - 100.dp
 
     // --- Drag handle offset ---
-    // statusBars inset is 0 in immersive mode, but displayCutout inset still
-    // correctly describes the notch/punch-hole area even when bars are hidden.
     val statusBarTop = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
     val cutoutTop = WindowInsets.displayCutout.asPaddingValues().calculateTopPadding()
     // Use whichever is larger so we always clear the camera hardware
@@ -95,15 +96,11 @@ fun QuickSettingsSheet(
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = sheetState,
-        // NOTE: Do NOT apply heightIn here. ModalBottomSheet calculates its expanded
-        // anchor from the CONTENT's measured height. Applying heightIn to the sheet
-        // itself only constraints the composable layout, not the drag anchor — this
-        // causes an empty gap at the bottom rather than a gap at the top.
         dragHandle = {
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(top = topInset + 20.dp, bottom = 20.dp),
+                    .padding(top = 12.dp, bottom = 20.dp), // Reduced top padding here because the sheet is capped lower
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
                 Box(
@@ -156,28 +153,45 @@ fun QuickSettingsSheet(
                 Text(
                     "Quick Settings",
                     style = MaterialTheme.typography.titleLarge,
-                    fontWeight = FontWeight.Bold
+                    fontWeight = FontWeight.Black
                 )
 
-                val isDark = when (settings.appTheme) {
-                    AppTheme.DARK -> true
-                    AppTheme.LIGHT -> false
-                    AppTheme.SYSTEM -> isSystemInDarkTheme()
-                }
-                IconButton(
-                    onClick = {
-                        val nextTheme = if (isDark) AppTheme.LIGHT else AppTheme.DARK
-                        onUpdateSettings { it.copy(appTheme = nextTheme) }
-                    },
-                    colors = IconButtonDefaults.filledTonalIconButtonColors(
-                        containerColor = MaterialTheme.colorScheme.surfaceContainerHigh
-                    )
-                ) {
-                    Icon(
-                        if (isDark) Icons.Default.LightMode else Icons.Default.DarkMode,
-                        contentDescription = "Toggle Theme",
-                        tint = if (isDark) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.secondary
-                    )
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    val isDark = when (settings.appTheme) {
+                        AppTheme.DARK -> true
+                        AppTheme.LIGHT -> false
+                        AppTheme.SYSTEM -> isSystemInDarkTheme()
+                    }
+                    IconButton(
+                        onClick = {
+                            val nextTheme = if (isDark) AppTheme.LIGHT else AppTheme.DARK
+                            onUpdateSettings { it.copy(appTheme = nextTheme) }
+                        },
+                        colors = IconButtonDefaults.filledTonalIconButtonColors(
+                            containerColor = MaterialTheme.colorScheme.surfaceContainerHigh
+                        )
+                    ) {
+                        Icon(
+                            if (isDark) Icons.Default.LightMode else Icons.Default.DarkMode,
+                            contentDescription = "Toggle Theme",
+                            tint = if (isDark) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.secondary
+                        )
+                    }
+                    
+                    Spacer(Modifier.width(12.dp))
+
+                    IconButton(
+                        onClick = onDismiss,
+                        colors = IconButtonDefaults.filledTonalIconButtonColors(
+                            containerColor = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.5f),
+                            contentColor = MaterialTheme.colorScheme.onErrorContainer
+                        )
+                    ) {
+                        Icon(
+                            Icons.Default.Close,
+                            contentDescription = "Close Menu"
+                        )
+                    }
                 }
             }
 
@@ -265,7 +279,7 @@ fun QuickSettingsSheet(
                     SettingsItem(
                         title = "Allow Eliminated Input",
                         subtitle = "Eliminated players keep their turns",
-                        icon = Icons.Default.Help,
+                        icon = Icons.AutoMirrored.Filled.Help,
                         trailing = {
                             Switch(
                                 checked = settings.allowEliminatedInput,
@@ -396,7 +410,7 @@ fun QuickSettingsSheet(
             SettingsItem(
                 title = "Show Help Link",
                 subtitle = "Toggle Help icon in the bottom bar",
-                icon = Icons.Default.Help,
+                icon = Icons.AutoMirrored.Filled.Help,
                 trailing = {
                     Switch(
                         checked = settings.showHelpInNavBar,

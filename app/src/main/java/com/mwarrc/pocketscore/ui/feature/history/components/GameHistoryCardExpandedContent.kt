@@ -94,11 +94,19 @@ fun GameHistoryCardExpandedContent(
         }
 
         // Action buttons
-        ViewDetailsButton(onClick = onViewDetails)
-        
-        Spacer(Modifier.height(8.dp))
-        
-        ShareMatchButton(onClick = onShare)
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            ViewDetailsButton(
+                onClick = onViewDetails,
+                modifier = Modifier.weight(1f)
+            )
+            ShareMatchButton(
+                onClick = onShare,
+                modifier = Modifier.weight(1f)
+            )
+        }
     }
 }
 
@@ -194,18 +202,22 @@ private fun MatchCompletedIndicator() {
  * Button to view detailed match analysis and timeline.
  */
 @Composable
-private fun ViewDetailsButton(onClick: () -> Unit) {
+private fun ViewDetailsButton(
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
     OutlinedButton(
         onClick = onClick,
-        modifier = Modifier.fillMaxWidth(),
+        modifier = modifier,
         shape = RoundedCornerShape(12.dp),
         colors = ButtonDefaults.outlinedButtonColors(
             contentColor = MaterialTheme.colorScheme.primary
         ),
         border = androidx.compose.foundation.BorderStroke(
             1.dp,
-            MaterialTheme.colorScheme.primary.copy(alpha = 0.5f)
-        )
+            MaterialTheme.colorScheme.outlineVariant
+        ),
+        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp)
     ) {
         Icon(
             Icons.Default.Analytics,
@@ -213,7 +225,7 @@ private fun ViewDetailsButton(onClick: () -> Unit) {
             modifier = Modifier.size(18.dp)
         )
         Spacer(Modifier.width(8.dp))
-        Text("View Detailed Records", fontWeight = FontWeight.Bold)
+        Text("Stats", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.labelLarge)
     }
 }
 
@@ -221,11 +233,22 @@ private fun ViewDetailsButton(onClick: () -> Unit) {
  * Button to share the match record.
  */
 @Composable
-private fun ShareMatchButton(onClick: () -> Unit) {
+private fun ShareMatchButton(
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
     OutlinedButton(
         onClick = onClick,
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(12.dp)
+        modifier = modifier,
+        shape = RoundedCornerShape(12.dp),
+        colors = ButtonDefaults.outlinedButtonColors(
+            contentColor = MaterialTheme.colorScheme.primary
+        ),
+        border = androidx.compose.foundation.BorderStroke(
+            1.dp,
+            MaterialTheme.colorScheme.outlineVariant
+        ),
+        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp)
     ) {
         Icon(
             Icons.Default.IosShare,
@@ -233,6 +256,6 @@ private fun ShareMatchButton(onClick: () -> Unit) {
             modifier = Modifier.size(18.dp)
         )
         Spacer(Modifier.width(8.dp))
-        Text("Share Match Record", fontWeight = FontWeight.Bold)
+        Text("Share", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.labelLarge)
     }
 }

@@ -14,6 +14,17 @@ enum class ScoreboardLayout {
 }
 
 /**
+ * Layout options for the player roster on home screen.
+ */
+@Serializable
+enum class RosterLayout {
+    /** Grid layout with multiple columns */
+    GRID,
+    /** Vertical list layout */
+    LIST
+}
+
+/**
  * Options for sorting the player roster.
  */
 @Serializable
@@ -90,6 +101,7 @@ enum class KeyboardHeight {
 @Serializable
 data class AppSettings(
     // UI & Feedback
+    val globalScale: Float = 1.0f,
     val hapticFeedbackEnabled: Boolean = true,
     val leaderSpotlightEnabled: Boolean = true,
     val loserSpotlightEnabled: Boolean = true,
@@ -116,6 +128,7 @@ data class AppSettings(
     val hiddenPlayers: List<String> = emptyList(),
     val deactivatedPlayers: List<String> = emptyList(),
     val rosterSortOption: RosterSortOption = RosterSortOption.MANUAL,
+    val rosterLayout: RosterLayout = RosterLayout.GRID,
     
     // Snapshots & Backups
     val lastLocalSnapshotTime: Long = 0L,
@@ -137,10 +150,11 @@ data class AppSettings(
     val settlementRoundingDecimals: Int = 2,
     
     // Custom Keyboard
-    val useCustomKeyboard: Boolean = false,
+    val useCustomKeyboard: Boolean = true,
     val keyboardTheme: KeyboardTheme = KeyboardTheme.AUTO,
     val keyboardTextSize: Float = 24f,
     val keyboardHeight: KeyboardHeight = KeyboardHeight.MEDIUM,
+    val keyboardBordersEnabled: Boolean = false,
     
     // Advanced Settings
     val customDeviceName: String? = null,
@@ -160,6 +174,16 @@ data class AppSettings(
     val guestSavePlayers: Boolean = false
 ) {
     companion object {
+        /**
+         * Minimum allowed value for global scale.
+         */
+        const val MIN_GLOBAL_SCALE = 0.5f
+        
+        /**
+         * Maximum allowed value for global scale.
+         */
+        const val MAX_GLOBAL_SCALE = 1.5f
+        
         /**
          * Minimum allowed value for keyboardTextSize.
          */
@@ -223,6 +247,7 @@ data class AppSettings(
      */
     fun validate(): AppSettings {
         return copy(
+            globalScale = globalScale.coerceIn(MIN_GLOBAL_SCALE, MAX_GLOBAL_SCALE),
             maxPlayers = maxPlayers.coerceIn(MIN_PLAYERS, MAX_PLAYERS_LIMIT),
             keyboardTextSize = keyboardTextSize.coerceIn(MIN_KEYBOARD_TEXT_SIZE, MAX_KEYBOARD_TEXT_SIZE),
             lastLosersCount = lastLosersCount.coerceAtLeast(1),

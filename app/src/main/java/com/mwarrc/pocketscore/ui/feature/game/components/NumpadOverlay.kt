@@ -53,11 +53,13 @@ fun NumpadOverlay(
                     onBackspaceClick = {
                         if (scoreInput.isNotEmpty()) onScoreInputChange(scoreInput.dropLast(1))
                     },
+                    onClearClick = { onScoreInputChange("") },
                     onDismiss = onDismiss,
                     isPinned = isPinned,
                     onTogglePin = onTogglePin,
                     settings = settings,
-                    onUpdateSettings = onUpdateSettings
+                    onUpdateSettings = onUpdateSettings,
+                    showDecimal = false
                 )
             }
         }

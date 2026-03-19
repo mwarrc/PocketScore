@@ -115,7 +115,9 @@ fun SplitMatchItem(
                                             "EXCLUDED: ${excludedPlayers.joinToString()}",
                                         style = MaterialTheme.typography.labelSmall,
                                         color = MaterialTheme.colorScheme.error,
-                                        fontWeight = FontWeight.Medium
+                                        fontWeight = FontWeight.Medium,
+                                        maxLines = 1,
+                                        overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
                                     )
                                 }
                             }
@@ -144,55 +146,80 @@ fun SplitMatchItem(
             }
             
             AnimatedVisibility(visible = isExpanded) {
-                // Full-Width Player Toggle Row
-                // Removed horizontal padding from modifier to allow it to "span" the card width.
-                // Added Spacers inside the Row to maintain the 16.dp margin for content.
-                Row(
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .horizontalScroll(rememberScrollState())
-                        .padding(bottom = 16.dp)
-                ) {
-                    Spacer(Modifier.width(8.dp)) // Start Margin
-                    
-                    sortedPlayers.forEach { player ->
-                        val isExcluded = player.name in excludedPlayers
-                        FilterChip(
-                            selected = !isExcluded,
-                            onClick = { onTogglePlayer(player.name) },
-                            label = { 
-                                Text(
-                                    player.name, 
-                                    style = MaterialTheme.typography.labelSmall,
-                                    textDecoration = if (isExcluded) TextDecoration.LineThrough else null
-                                ) 
-                            },
-                            leadingIcon = if (!isExcluded) {
-                                { Icon(Icons.Default.Check, null, modifier = Modifier.size(12.dp)) }
-                            } else {
-                                { Icon(Icons.Default.Close, null, modifier = Modifier.size(12.dp)) }
-                            },
-                            colors = FilterChipDefaults.filterChipColors(
-                                selectedContainerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f),
-                                selectedLabelColor = MaterialTheme.colorScheme.primary,
-                                selectedLeadingIconColor = MaterialTheme.colorScheme.primary,
-                                containerColor = if (isExcluded) MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.1f) else MaterialTheme.colorScheme.surface
-                            ),
-                            border = if (isExcluded) FilterChipDefaults.filterChipBorder(
-                                enabled = true,
-                                selected = false,
-                                borderColor = MaterialTheme.colorScheme.error.copy(alpha = 0.5f),
-                                borderWidth = 1.dp
-                            ) else FilterChipDefaults.filterChipBorder(
-                                enabled = true,
-                                selected = false,
-                                borderColor = MaterialTheme.colorScheme.outlineVariant
+                Column {
+                    // Points Summary Header
+                    Text(
+                        text = "Scores (Top to Bottom)",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.primary,
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)
+                    )
+
+                    // Compact Player Toggle Row
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .horizontalScroll(rememberScrollState())
+                            .padding(bottom = 12.dp)
+                    ) {
+                        Spacer(Modifier.width(16.dp)) // Standard Left Margin
+                        
+                        sortedPlayers.forEach { player ->
+                            val isExcluded = player.name in excludedPlayers
+                            FilterChip(
+                                selected = !isExcluded,
+                                onClick = { onTogglePlayer(player.name) },
+                                label = { 
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        Text(
+                                            player.name, 
+                                            style = MaterialTheme.typography.labelSmall,
+                                            textDecoration = if (isExcluded) TextDecoration.LineThrough else null
+                                        )
+                                        Spacer(Modifier.width(4.dp))
+                                        Text(
+                                            text = "${player.score}",
+                                            style = MaterialTheme.typography.labelSmall,
+                                            fontWeight = FontWeight.Black,
+                                            color = if (!isExcluded) 
+                                                MaterialTheme.colorScheme.onPrimaryContainer 
+                                            else 
+                                                MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
+                                        )
+                                    }
+                                },
+                                leadingIcon = {
+                                    Icon(
+                                        imageVector = if (!isExcluded) Icons.Default.Check else Icons.Default.Block,
+                                        contentDescription = null,
+                                        modifier = Modifier.size(14.dp)
+                                    )
+                                },
+                                colors = FilterChipDefaults.filterChipColors(
+                                    selectedContainerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.7f),
+                                    selectedLabelColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                                    selectedLeadingIconColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                                    containerColor = Color.Transparent,
+                                    labelColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
+                                    iconColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
+                                ),
+                                border = FilterChipDefaults.filterChipBorder(
+                                    enabled = true,
+                                    selected = !isExcluded,
+                                    borderColor = MaterialTheme.colorScheme.outlineVariant,
+                                    selectedBorderColor = MaterialTheme.colorScheme.primary,
+                                    borderWidth = 1.dp,
+                                    selectedBorderWidth = 1.dp
+                                ),
+                                shape = RoundedCornerShape(8.dp),
+                                modifier = Modifier.height(32.dp) // Fixed height to prevent "size bloating"
                             )
-                        )
+                        }
+                        
+                        Spacer(Modifier.width(16.dp)) // Standard Right Margin
                     }
-                    
-                    Spacer(Modifier.width(8.dp)) // End Margin
                 }
             }
         }

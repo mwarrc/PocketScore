@@ -2,6 +2,7 @@ package com.mwarrc.pocketscore.ui.feature.game
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.*
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -79,7 +80,9 @@ fun GameScreen(
     onRestart: (List<String>, Boolean) -> Unit,
     onUpdateSettings: ((AppSettings) -> AppSettings) -> Unit,
     ballsOnTable: Set<Int>,
-    onUpdateBallsOnTable: (Set<Int>) -> Unit
+    onUpdateBallsOnTable: (Set<Int>) -> Unit,
+    isLoading: Boolean = false,
+    loadingMessage: String? = null
 ) {
     // --- UI Visibility State ---
     var showResetDialog by remember { mutableStateOf(false) }
@@ -532,5 +535,11 @@ fun GameScreen(
                 )
             }
         }
+        
+        // --- Loading Overlay ---
+        GameLoadingOverlay(
+            visible = isLoading,
+            message = loadingMessage ?: "Processing"
+        )
     }
 }

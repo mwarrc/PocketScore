@@ -1,5 +1,6 @@
 package com.mwarrc.pocketscore.ui.feature.home.components
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -18,18 +19,6 @@ import com.mwarrc.pocketscore.domain.model.Player
 
 /**
  * A prominent call-to-action card displayed when a match is currently in progress.
- * 
- * Features:
- * - **Live Status**: Visual branding indicating a "LIVE" session.
- * - **Roster Preview**: Overlapping avatar list showing who is currently playing.
- * - **Fast Action**: Large button to immediately jump back into the active game.
- * - **Secondary Navigation**: Quick links to match history and settings.
- * 
- * @param activePlayers The list of players currently participating in the live game.
- * @param onResumeGame Callback to navigate back to the live match screen.
- * @param onNavigateToHistory Callback to navigate to the match history tab.
- * @param onNavigateToSettings Callback to open the application settings.
- * @param modifier Modifier for the card container.
  */
 @Composable
 fun QuickActionsCard(
@@ -40,35 +29,21 @@ fun QuickActionsCard(
     showSettingsBadge: Boolean = false,
     modifier: Modifier = Modifier
 ) {
-    Surface(
+    Column(
         modifier = modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(28.dp),
-        color = MaterialTheme.colorScheme.surfaceColorAtElevation(1.dp),
-        border = androidx.compose.foundation.BorderStroke(
-            1.dp, 
-            MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
-        )
+        verticalArrangement = Arrangement.spacedBy(24.dp)
     ) {
-        Column(
-            modifier = Modifier.padding(24.dp),
-            verticalArrangement = Arrangement.spacedBy(20.dp)
-        ) {
-            // Header Section
-            QuickActionsHeader(activePlayersCount = activePlayers.size)
+        // Header Section
+        QuickActionsHeader(activePlayersCount = activePlayers.size)
 
-            // Roster Visualization
-            if (activePlayers.isNotEmpty()) {
-                ActiveRosterOverlapList(players = activePlayers)
-            }
-
-            // Action Hierarchy
-            QuickActionsButtonGroup(
-                onResumeGame = onResumeGame,
-                onNavigateToHistory = onNavigateToHistory,
-                onNavigateToSettings = onNavigateToSettings,
-                showSettingsBadge = showSettingsBadge
-            )
-        }
+        // Action Hierarchy
+        QuickActionsButtonGroup(
+            activePlayers = activePlayers,
+            onResumeGame = onResumeGame,
+            onNavigateToHistory = onNavigateToHistory,
+            onNavigateToSettings = onNavigateToSettings,
+            showSettingsBadge = showSettingsBadge
+        )
     }
 }
 
@@ -95,7 +70,7 @@ private fun QuickActionsHeader(activePlayersCount: Int) {
         
         // Live Badge
         Surface(
-            color = MaterialTheme.colorScheme.primaryContainer,
+            color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.85f),
             shape = CircleShape
         ) {
             Text(
@@ -112,21 +87,21 @@ private fun QuickActionsHeader(activePlayersCount: Int) {
 @Composable
 private fun ActiveRosterOverlapList(players: List<Player>) {
     Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy((-8).dp) // Overlap style
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy((-8).dp)
     ) {
         players.take(5).forEach { player ->
             Surface(
-                modifier = Modifier.size(32.dp),
+                modifier = Modifier.size(28.dp),
                 shape = CircleShape,
                 color = MaterialTheme.colorScheme.primary,
-                border = androidx.compose.foundation.BorderStroke(2.dp, MaterialTheme.colorScheme.surface)
+                border = androidx.compose.foundation.BorderStroke(2.dp, MaterialTheme.colorScheme.primary)
             ) {
                 Box(contentAlignment = Alignment.Center) {
                     Text(
                         text = player.name.take(1).uppercase(),
-                        style = MaterialTheme.typography.labelSmall,
-                        fontWeight = FontWeight.Bold,
+                        style = MaterialTheme.typography.labelSmall.copy(fontSize = 9.sp),
+                        fontWeight = FontWeight.Black,
                         color = MaterialTheme.colorScheme.onPrimary
                     )
                 }
@@ -134,15 +109,16 @@ private fun ActiveRosterOverlapList(players: List<Player>) {
         }
         if (players.size > 5) {
             Surface(
-                modifier = Modifier.size(32.dp),
+                modifier = Modifier.size(28.dp),
                 shape = CircleShape,
                 color = MaterialTheme.colorScheme.surfaceVariant,
-                border = androidx.compose.foundation.BorderStroke(2.dp, MaterialTheme.colorScheme.surface)
+                border = androidx.compose.foundation.BorderStroke(2.dp, MaterialTheme.colorScheme.primary)
             ) {
                 Box(contentAlignment = Alignment.Center) {
                     Text(
                         text = "+${players.size - 5}",
-                        style = MaterialTheme.typography.labelSmall,
+                        style = MaterialTheme.typography.labelSmall.copy(fontSize = 9.sp),
+                        fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
@@ -153,79 +129,107 @@ private fun ActiveRosterOverlapList(players: List<Player>) {
 
 @Composable
 private fun QuickActionsButtonGroup(
+    activePlayers: List<Player>,
     onResumeGame: () -> Unit,
     onNavigateToHistory: () -> Unit,
     onNavigateToSettings: () -> Unit,
     showSettingsBadge: Boolean = false
 ) {
-    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+    Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
         // Primary Action
         Button(
             onClick = onResumeGame,
-            modifier = Modifier.fillMaxWidth().height(52.dp),
-            shape = RoundedCornerShape(16.dp),
-            colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
+            modifier = Modifier.fillMaxWidth().height(60.dp),
+            shape = RoundedCornerShape(20.dp),
+            colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary),
+            elevation = ButtonDefaults.buttonElevation(defaultElevation = 0.dp),
+            contentPadding = PaddingValues(horizontal = 20.dp)
         ) {
-            Icon(Icons.Default.PlayArrow, null, modifier = Modifier.size(20.dp))
-            Spacer(Modifier.width(12.dp))
-            Text("Resume Session", fontWeight = FontWeight.ExtraBold)
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(Icons.Default.PlayArrow, null, modifier = Modifier.size(24.dp))
+                    Spacer(Modifier.width(12.dp))
+                    Text(
+                        text = "Resume Session", 
+                        fontWeight = FontWeight.Black, 
+                        style = MaterialTheme.typography.titleSmall
+                    )
+                }
+                
+                ActiveRosterOverlapList(players = activePlayers)
+            }
         }
  
-        // Secondary Actions
         Row(
             modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(10.dp)
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            OutlinedButton(
+            MinimalNavAction(
+                title = "Records",
+                icon = Icons.Default.History,
                 onClick = onNavigateToHistory,
-                modifier = Modifier.weight(1f).height(48.dp),
-                shape = RoundedCornerShape(16.dp),
-                border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
-            ) {
-                Icon(Icons.Default.History, null, modifier = Modifier.size(18.dp))
-                Spacer(Modifier.width(8.dp))
-                Text(
-                    text = "Records", 
-                    style = MaterialTheme.typography.labelMedium, 
-                    fontWeight = FontWeight.Bold
-                )
-            }
- 
-            Box {
-                OutlinedButton(
-                    onClick = onNavigateToSettings,
-                    modifier = Modifier.size(48.dp),
-                    shape = RoundedCornerShape(16.dp),
-                    contentPadding = PaddingValues(0.dp),
-                    border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
-                ) {
-                    Icon(Icons.Default.Settings, null, modifier = Modifier.size(18.dp))
-                }
+                modifier = Modifier.weight(1f)
+            )
 
-                if (showSettingsBadge) {
-                    Surface(
+            MinimalNavAction(
+                title = "Settings",
+                icon = Icons.Default.Settings,
+                onClick = onNavigateToSettings,
+                showBadge = showSettingsBadge,
+                modifier = Modifier.weight(1f)
+            )
+        }
+    }
+}
+
+@Composable
+private fun MinimalNavAction(
+    title: String,
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    showBadge: Boolean = false
+) {
+    TextButton(
+        onClick = onClick,
+        modifier = modifier.height(44.dp),
+        colors = ButtonDefaults.textButtonColors(
+            contentColor = MaterialTheme.colorScheme.onSurfaceVariant
+        ),
+        shape = RoundedCornerShape(12.dp),
+        contentPadding = PaddingValues(horizontal = 12.dp)
+    ) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.Center
+        ) {
+            Box {
+                Icon(
+                    imageVector = icon,
+                    contentDescription = null,
+                    modifier = Modifier.size(18.dp)
+                )
+                if (showBadge) {
+                    Box(
                         modifier = Modifier
                             .align(Alignment.TopEnd)
-                            .offset(x = 4.dp, y = (-4).dp),
-                        shape = CircleShape,
-                        color = MaterialTheme.colorScheme.error,
-                        shadowElevation = 6.dp,
-                        border = androidx.compose.foundation.BorderStroke(2.dp, MaterialTheme.colorScheme.surface)
-                    ) {
-                        Box(
-                            modifier = Modifier.size(14.dp),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Text(
-                                "!", 
-                                style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp),
-                                fontWeight = FontWeight.Black,
-                                color = MaterialTheme.colorScheme.onError
-                            )
-                        }
-                    }
+                            .offset(x = 4.dp, y = (-2).dp)
+                            .size(6.dp)
+                            .background(MaterialTheme.colorScheme.error, CircleShape)
+                    )
                 }
             }
+            Spacer(Modifier.width(8.dp))
+            Text(
+                text = title,
+                style = MaterialTheme.typography.labelLarge,
+                fontWeight = FontWeight.Medium,
+                letterSpacing = 0.3.sp
+            )
         }
     }
 }

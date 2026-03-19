@@ -50,6 +50,7 @@ import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import com.mwarrc.pocketscore.domain.model.AppSettings
 import com.mwarrc.pocketscore.domain.model.Player
 import com.mwarrc.pocketscore.ui.util.ImmersiveMode
+import com.mwarrc.pocketscore.ui.util.BallColors
 
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 
@@ -94,7 +95,7 @@ fun PoolProbabilitySheet(
     val trueScreenHeightDp = with(density) {
         context.resources.displayMetrics.heightPixels.toDp()
     }
-    val maxContentHeight = trueScreenHeightDp - 64.dp
+    val maxContentHeight = trueScreenHeightDp - 100.dp
 
     // displayCutout inset remains valid even in immersive mode (statusBars returns 0)
     val statusBarTop = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
@@ -108,7 +109,7 @@ fun PoolProbabilitySheet(
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(top = topInset + 20.dp, bottom = 20.dp),
+                    .padding(top = 12.dp, bottom = 20.dp), // Reduced top padding here because the sheet is capped lower
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
                 Box(
@@ -365,7 +366,7 @@ fun PoolProbabilitySheet(
                 }
             }
 
-            // ── Done Button ───────────────────────────────────────────────
+            // ── Done Button --─
             Surface(
                 modifier = Modifier.fillMaxWidth(),
                 color = MaterialTheme.colorScheme.surfaceContainerLow,
@@ -399,26 +400,9 @@ fun BallItem(
     size: androidx.compose.ui.unit.Dp = 48.dp
 ) {
     val haptic = LocalHapticFeedback.current
-    val ballColor = when (number) {
-        1 -> Color(0xFFFFD700) // Gold
-        2 -> Color(0xFFC0C0C0) // Silver
-        3 -> Color(0xFFE91E63) // Pink
-        4 -> Color(0xFF9C27B0) // Purple
-        5 -> Color(0xFF673AB7) // Deep Purple
-        6 -> Color(0xFF3F51B5) // Indigo
-        7 -> Color(0xFF2196F3) // Blue
-        8 -> Color(0xFF1A1A1A) // Black
-        9 -> Color(0xFF009688) // Teal
-        10 -> Color(0xFF4CAF50) // Green
-        11 -> Color(0xFF8BC34A) // Light Green
-        12 -> Color(0xFFCDDC39) // Lime
-        13 -> Color(0xFFFFEB3B) // Yellow
-        14 -> Color(0xFFFF9800) // Orange
-        15 -> Color(0xFFFF5722) // Deep Orange
-        else -> MaterialTheme.colorScheme.surfaceVariant
-    }
+    val ballColor = BallColors.getBallColor(number)
 
-    val needsDarkText = number in listOf(1, 2, 13)
+    val needsDarkText = number in listOf(1, 9, 13)
 
     Surface(
         onClick = {

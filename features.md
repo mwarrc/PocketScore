@@ -1,120 +1,87 @@
 # PocketScore Feature Specification
 
-PocketScore is a professional-grade score-keeping application designed for high-performance match management, primarily optimized for pool but versatile enough for various competitive games.
+PocketScore is a professional-grade match management suite designed for high-stakes competition. While primarily optimized for Pool and Billiards, its core logic is versatile enough for any turn-based game, transforming simple score-keeping into a deep, immersive analytical experience.
 
-## Core Scoring System
+##  The Definitive Game Screen (Match Command Center)
 
-*   **Custom Score Numpad**
-    *   Optimized in-app keyboard tailored for rapid numeric entry.
-    *   Tactile haptic feedback integration for precise interaction.
-    *   Gesture-based dismissal and pinning functionality for streamlined multi-player scoring.
-    *   Configurable keyboard height (Compact, Medium, Large) and text size.
+The core of the PocketScore experience is the Game Screen—a high-fidelity, real-time interface designed for maximum accuracy and visual impact.
 
-*   **Dynamic Scoreboard**
-    *   Adaptive layout supporting both Grid and List views.
-    *   Active/Passive player differentiation for clear focus on current turns.
-    *   Real-time leader and loser spotlighting for competitive clarity.
-    *   Automatic scrolling to the current active player.
+*   **Adaptive Scoring HUD (Top Bar)**
+    *   **Live Table Metrics:** A floating, pill-shaped status indicator that tracks total points remaining in the pool session.
+    *   **Ball Removal Intelligence:** When a score is entered that matches a ball value (e.g., +8), the HUD displays a **"Ball Removed" notification** accompanied by a realistic miniature ball icon.
+    *   **Collision Feedback:** Visual alerts if an entered score does not mathematically match any remaining balls on the table ("No matching ball").
+    *   **Tactile Session Controls:** High-visibility "End Game" and "Undo" actions with clear state feedback.
 
-*   **Turn Management**
-    *   Turn-based progression with auto-next functionality.
-    *   Strict Mode enforcement for official match rules.
-    *   In-game help system for rule verification during active matches.
+*   **Intelligent Player Cards (Active & Passive)**
+    *   **Dynamic Identity Tiers:** Players are assigned interactive badges based on live standings: **LEADER**, **TIED LEADER**, **LOSER**, and **TIED LOSER**.
+    *   **Active-Turn Spotlighting:** A high-contrast "PLAYING NOW" badge and primary-color container that pulses to indicate the current turn holder.
+    *   **The Leader's "Star Shower":** A background animation of rotating stars activates for the current leader, providing a premium reward for dominant play.
+    *   **Elimination Graphics:** Players mathematically out of contention receive an **"ELIMINATED" watermark** and a large 3D "Block" icon overlay to prevent scoring errors.
+    *   **Persistence Delta Badges:** Small historical badges that display the exact amount of the **last points change** (e.g., "+14", "-2", or "Undo +8").
+    *   **Layout Fluidity:** Seamlessly switch between a **High-Density Grid** for large rosters and a **Focused List View** for 1v1 sessions.
 
-## Advanced Match Insights
+*   **Advanced Calculation Utilities**
+    *   **The Full-Range Numpad:** A custom-built numeric interface with haptic feedback, ergonomically adjustable height, and multi-stage input validation.
+    *   **The Quick Expression Calculator:** A dedicated formula overlay for calculating complex score additions (e.g., `(20 + 15) * 2`) without leaving the match.
+    *   **Formula Insertion Ribbon:** A "Quick Ribbon" allows you to insert any active player's current score into a math formula with one tap.
+    *   **Hybrid Keyboard Logic:** Dynamically switch between the custom numpad and the system keyboard inside the calculator as needed.
 
-*   **Pool Probability Calculator**
-    *   Real-time calculation of ball-count probabilities.
-    *   Dynamic odds visualization for strategic decision-making.
-    *   Support for multiple game formats through customizable ball values.
+*   **Elite Match Conclusion (Celebration Overlay)**
+    *   **Procedural Sine-Wave Evolution:** A mathematical simulation of three layered, staggered sine waves that animate across the background during victory.
+    *   **Geometric Trophy Marks:** Asset-free, high-fidelity trophy marks drawn entirely in Canvas for a crisp, resolution-independent look.
+    *   **Physics-Based Motion:** Entrance animations utilizing spring-based damping ratios (0.55f) to ensure a premium, tactile feel.
+    *   **Contextual Tie-Handling:** Unique visual states for ties ("Honours Even") vs soul victories ("CHAMPION").
 
-*   **Interactive Analytics**
-    *   Visual representation of game progress and scoring trends.
-    *   Complete game history dialog accessible during active matches.
-    *   Real-time scoreboard updates with expressive animations.
+##  Adaptive Home Dashboard
 
-*   **Player Archetypes**
-    *   Intelligent player categorization based on performance data.
-    *   12 unique archetypes including "The Snake", "The Closer", and "The Fireball".
-    *   Prioritized detection logic for authentic personality assignment.
+*   **Live Match HUD**
+    *   **One-Tap Resumption:** A prominent card appears when a session is in the background, showing **"LIVE" status** and player avatars for immediate reentry.
+*   **Modern Player Recruitment**
+    *   **Alphanumeric Seat Selection:** Fast-entry system for adding new players or selecting from your saved roster.
+    *   **Predictive Start-Game Bar:** A floating HUD that updates as you add players, indicating when the match is ready for kickoff.
+*   **Premium Navigation Cards**
+    *   High-impact entry points for **Records**, **Leaderboards**, and **Help** using DM Serif Display typography.
 
-## Data Management & Privacy
+##  Behavioral Player Analytics (Archetype Engine)
 
-*   **Local Snapshot System**
-    *   Automated daily background backups for data preservation.
-    *   Manual on-demand snapshots with custom labeling.
-    *   Smart merge technology to prevent duplicate records during restoration.
-    *   Visual storage tracking and metadata display.
+*   **Dynamic Identity Assignment**
+    *   **18 Unique Archetypes:** Players receive roles like **The Sniper** (precision), **The Assassin** (explosive turns), or **The Ninja** (late-game lead changes) after every match.
+*   **Deep Performance Metrics**
+    *   **Volatility Index:** Real-time calculation of scoring stability (Standard Deviation).
+    *   **Clutch Scoring Percentage:** Tracking contribution during the final 25% of the match.
+    *   **Lead-Time Analysis:** Monitoring exactly how long a player held the top position.
 
-*   **Secure Data Portability**
-    *   Import and export functionality via proprietary `.pscore` files.
-    *   Conflict resolution during import to ensure data integrity.
-    *   Ability to share individual games or complete historical archives.
-    *   Custom device identity tagging to verify the origin of shared files.
+##  Global Ranks & Leaderboards
 
-*   **Privacy-First Architecture**
-    *   Complete offline-first functionality ensuring zero data collection.
-    *   Ad-free experience with no tracking or external dependencies.
-    *   Secure file sharing using Android FileProvider protocols.
+*   **Automatic Tiering:** Continuous ranking with **Gold, Silver, and Bronze badges**.
+*   **Time-Filtered Performance:** View dominance across **Today**, **Weekly**, **Monthly**, or **All-Time** history.
+*   **Privacy Guarding:** Hide specific regulars from the public leaderboard while preserving their data.
 
-## Game Rules & Customization
+##  Advanced Player & Roster Management
 
-*   **Flexible Setup**
-    *   Active Roster management for quick selection from a saved player pool.
-    *   Support for up to 32 players per session.
-    *   Customizable player order with options for manual, alphabetical, random, or performance-based sorting.
+*   **The "Most Played" Algorithm:** Smart sorting that pulls your frequent competitors to the top.
+*   **Global Renaming Utility:** Update a player's name once and propagate it across all historical records and snapshots instantly.
+*   **Deactivation:** Hide players from the active roster without losing their career stats.
 
-*   **Rule Configuration**
-    *   Adjustable scoring limits and bounds.
-    *   Customizable ball values for various pool variants (Standard, Face Value, Classic).
-    *   Preset management for rapid rule switching.
+##  Premium Match Archives
 
-*   **Visual Personalization**
-    *   Material You dynamic coloring for system-wide aesthetic harmony.
-    *   Dedicated Light and Dark mode support.
-    *   Customizable scoreboard layouts tailored to device screen size.
+*   **Sharing & Data Portability**
+    *   **Proprietary `.pscore` Exports:** Full integrity sharing with other PocketScore users.
+    *   **Semantic Data Import:** Intelligent **Player Mapping** that merges shared data into your local roster without duplicates.
+    *   **Momentum Charts:** Interactive line graphs showing the pulse and "momentum" of previous matches.
 
-## Mathematical Utilities
+##  Advanced Settings & Personalization
 
-*   **Session Cost Calculator ("Settle")**
-    *   Integrated match fee management for sessions involving currency.
-    *   Support for various settlement methods:
-        *   Losers Pay (individual or multiple).
-        *   All Split (equal distribution).
-        *   Custom match cost splitting.
-    *   Live cost indicators and post-game debt tracking.
+*   **Appearance & UX Tuning**
+    *   **Material You Synergy:** System-wide themes that adapt to your device's wallpaper and accents.
+    *   **OLED Deep Black:** Optimized high-contrast dark mode for battery savings.
+    *   **Auto-Center Camera:** Intelligent camera tracking that follows the active turn.
+*   **Snapshot Architecture**
+    *   **Manual Restoration Points:** Create named snapshots of your entire database.
+    *   **Automated Daily Preservation:** Silent background backups ensuring zero data loss.
 
-*   **Quick Calculator**
-    *   In-app expression evaluator for complex board sums.
-    *   Integrated into the game interface to avoid task-switching.
+##  Technical Foundation
 
-## History & Analytics
-
-*   **Comprehensive Records**
-    *   Detailed archive of all past matches with full scoring breakdowns.
-    *   Advanced leaderboard tracking player performance over time.
-    *   Friends management system for recurring competitors.
-
-*   **Session Management**
-    *   Ability to pause and resume games across app sessions.
-    *   Archive versus Resume flow for managing multiple active sessions.
-
-## Support & Feedback
-
-*   **Cloud-Integrated Support**
-    *   Real-time feedback submission powered by Firebase.
-    *   Support for detailed reporting with message limits up to 10,000 characters.
-    *   Live validation and status tracking.
-
-*   **Onboarding & Help**
-    *   Comprehensive Game Help Sheet for new users.
-    *   Contextual banners for critical features like Strict Mode.
-    *   Interactive roadmap for platform development transparency.
-
-## Technical Excellence
-
-*   **Modern Android Stack**
-    *   Built entirely with Kotlin and Jetpack Compose.
-    *   MVVM Clean Architecture for robustness and scalability.
-    *   Performance-optimized local storage using DataStore and Kotlin Serialization.
-    *   Haptic Feedback integration for premium user experience.
+*   **Modern Android Stack:** 100% Kotlin & Jetpack Compose for fluid animations.
+*   **MVVM Clean Architecture:** Robust, scalable, and battle-tested code design.
+*   **Zero-Tracking Privacy:** No external analytics, no cloud dependency, and local encrypted storage.

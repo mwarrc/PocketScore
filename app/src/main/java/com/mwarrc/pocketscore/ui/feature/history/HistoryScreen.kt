@@ -5,6 +5,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Group
 import androidx.compose.material.icons.filled.History
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
@@ -21,10 +22,11 @@ import androidx.compose.ui.draw.clip
 import com.mwarrc.pocketscore.domain.model.AppSettings
 import com.mwarrc.pocketscore.domain.model.GameHistory
 import com.mwarrc.pocketscore.domain.model.GameState
-import com.mwarrc.pocketscore.ui.feature.history.components.FriendsTab
-import com.mwarrc.pocketscore.ui.feature.history.components.GameHistoryTab
-import com.mwarrc.pocketscore.ui.feature.history.components.LeaderboardTab
-import com.mwarrc.pocketscore.ui.feature.history.components.MatchSplitTab
+import com.mwarrc.pocketscore.ui.feature.history.components.*
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import android.os.Build
@@ -154,138 +156,77 @@ fun HistoryScreen(
     Scaffold(
         modifier = Modifier
             .fillMaxSize()
-            .statusBarsPadding(),
+            .displayCutoutPadding(),
         topBar = {
-            Column {
-                Spacer(Modifier.height(30.dp))
-                CenterAlignedTopAppBar(
-                    title = {
-                        Text(
-                            if (selectionMode) "${selectedMatchIds.size} Selected" else "Records",
-                            style = MaterialTheme.typography.titleLarge,
-                            fontWeight = FontWeight.SemiBold
-                        )
-                    },
-                    navigationIcon = {
-                        if (selectionMode) {
-                            IconButton(onClick = { selectionMode = false }) {
-                                Icon(Icons.Default.Close, "Cancel")
-                            }
-                        } else {
-                            IconButton(onClick = onNavigateToGame) {
-                                Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back")
-                            }
+            CenterAlignedTopAppBar(
+                title = {
+                    Text(
+                        if (selectionMode) "${selectedMatchIds.size} Selected" else "Records",
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.Black
+                    )
+                },
+                navigationIcon = {
+                    if (selectionMode) {
+                        IconButton(onClick = { selectionMode = false }) {
+                            Icon(Icons.Default.Close, "Cancel")
                         }
-                    },
-                    windowInsets = WindowInsets(top = 0.dp)
-                )
-                
-                // Elegant Pill-Style Tabs
-                val indicator = @Composable { tabPositions: List<TabPosition> ->
-                    if (pagerState.currentPage < tabPositions.size) {
-                        Box(
-                            modifier = Modifier
-                                .tabIndicatorOffset(tabPositions[pagerState.currentPage])
-                                .height(54.dp)
-                                .padding(horizontal = 4.dp, vertical = 8.dp)
-                                .background(
-                                    color = MaterialTheme.colorScheme.secondaryContainer,
-                                    shape = RoundedCornerShape(24.dp)
-                                )
-                                .zIndex(-1f)
-                        )
-                    }
-                }
-
-                ScrollableTabRow(
-                    selectedTabIndex = pagerState.currentPage,
-                    containerColor = MaterialTheme.colorScheme.surface,
-                    contentColor = MaterialTheme.colorScheme.onSurface,
-                    edgePadding = 16.dp,
-                    divider = {},
-                    indicator = indicator
-                ) {
-                    activeTabs.forEachIndexed { index, tab ->
-                        val selected = pagerState.currentPage == index
-                        Tab(
-                            selected = selected,
-                            onClick = { 
-                                scope.launch {
-                                    pagerState.animateScrollToPage(index)
-                                }
-                            },
-                            modifier = Modifier
-                                .padding(horizontal = 2.dp, vertical = 8.dp)
-                                .clip(RoundedCornerShape(24.dp))
-                        ) {
-                            Box(
-                                modifier = Modifier
-                                    .height(38.dp)
-                                    .padding(horizontal = 8.dp),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Row(verticalAlignment = Alignment.CenterVertically) {
-                                    Icon(
-                                        tab.icon,
-                                        null,
-                                        modifier = Modifier.size(18.dp),
-                                        tint = if (selected) MaterialTheme.colorScheme.onSecondaryContainer else MaterialTheme.colorScheme.onSurfaceVariant
-                                    )
-                                    Spacer(Modifier.width(6.dp))
-                                    Text(
-                                        tab.title,
-                                        style = MaterialTheme.typography.labelMedium,
-                                        fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium,
-                                        color = if (selected) MaterialTheme.colorScheme.onSecondaryContainer else MaterialTheme.colorScheme.onSurfaceVariant,
-                                        maxLines = 1
-                                    )
-                                }
-                            }
+                    } else {
+                        IconButton(onClick = onNavigateToGame) {
+                            Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back")
                         }
                     }
-                }
-            }
-        },
-        bottomBar = {
-            AnimatedVisibility(
-                visible = selectionMode,
-                enter = androidx.compose.animation.expandVertically(),
-                exit = androidx.compose.animation.shrinkVertically()
-            ) {
-                BottomAppBar(
-                    containerColor = MaterialTheme.colorScheme.primaryContainer,
-                    contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
-                    actions = {
-                        Text(
-                            "${selectedMatchIds.size} records ready",
-                            modifier = Modifier.padding(start = 16.dp),
-                            style = MaterialTheme.typography.labelLarge
-                        )
-                    },
-                    floatingActionButton = {
-                        ExtendedFloatingActionButton(
-                            onClick = { 
-                                onShareMultipleGames(selectedMatchIds)
-                                selectionMode = false
-                            },
-                            containerColor = MaterialTheme.colorScheme.primary,
-                            contentColor = MaterialTheme.colorScheme.onPrimary,
-                            icon = { Icon(Icons.Default.Share, null) },
-                            text = { Text("Export Records") }
-                        )
+                },
+                actions = {
+                    if (!selectionMode) {
+                        IconButton(onClick = onNavigateToSettings) {
+                            Icon(Icons.Default.Settings, "Settings")
+                        }
                     }
-                )
-            }
+                },
+                colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
+                    containerColor = MaterialTheme.colorScheme.surface
+                ),
+                windowInsets = WindowInsets.safeDrawing // Ensures it avoids top cutouts/notch
+            )
         }
     ) { padding ->
-        HorizontalPager(
-            state = pagerState,
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(padding),
-            beyondViewportPageCount = 1
-        ) { page ->
-            activeTabs[page].content()
+        Box(modifier = Modifier.fillMaxSize()) {
+            HorizontalPager(
+                state = pagerState,
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(top = padding.calculateTopPadding()), // Use only top padding from Scaffold
+                beyondViewportPageCount = 1
+            ) { page ->
+                activeTabs[page].content()
+            }
+
+            // Floating Navigation Bars
+            Column(
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .navigationBarsPadding() // Handles actual system nav bar if shown
+                    .padding(bottom = 8.dp) // Tighter clearance from screen edge
+            ) {
+                MatchSelectionBar(
+                    selectedCount = selectedMatchIds.size,
+                    onExport = { 
+                        onShareMultipleGames(selectedMatchIds)
+                        selectionMode = false
+                    },
+                    isVisible = selectionMode
+                )
+
+                FloatingHistoryNavBar(
+                    tabs = activeTabs.map { HistoryTab(it.title, it.icon) },
+                    selectedIndex = pagerState.currentPage,
+                    onTabClick = { index -> 
+                        scope.launch { pagerState.animateScrollToPage(index) }
+                    },
+                    isVisible = !selectionMode
+                )
+            }
         }
     }
 }

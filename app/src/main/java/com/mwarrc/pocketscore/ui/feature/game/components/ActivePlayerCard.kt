@@ -1,27 +1,14 @@
 package com.mwarrc.pocketscore.ui.feature.game.components
 
 import androidx.compose.animation.animateColorAsState
-import androidx.compose.animation.core.tween
-import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.isSystemInDarkTheme
-import androidx.compose.foundation.layout.ExperimentalLayoutApi
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxHeight
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.offset
-import androidx.compose.ui.unit.sp
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
-import androidx.compose.ui.draw.*
+import androidx.compose.animation.core.*
+import androidx.compose.foundation.*
+import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.draw.*
+import androidx.compose.ui.unit.sp
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Block
 import androidx.compose.material.icons.filled.EmojiEvents
@@ -164,16 +151,16 @@ fun ActivePlayerCard(
     }
 
     Card(
-        modifier = modifier
-            .fillMaxWidth()
-            .clickable(enabled = canEdit) {
-                onSetTurn?.invoke()
-                if (!useCustomKeyboard) {
-                    focusRequester.requestFocus()
-                    keyboardController?.show()
-                }
-                onFocus()
-            },
+        modifier = modifier.fillMaxWidth(),
+        onClick = {
+            onSetTurn?.invoke()
+            if (!useCustomKeyboard) {
+                focusRequester.requestFocus()
+                keyboardController?.show()
+            }
+            onFocus()
+        },
+        enabled = canEdit,
         shape = RoundedCornerShape(16.dp),
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
         border = borderStroke,
@@ -410,6 +397,7 @@ fun ActivePlayerCard(
                             val pointsColor = when {
                                 pointsValue > 0 -> Color(0xFF4CAF50)
                                 pointsValue < 0 -> MaterialTheme.colorScheme.error
+                                pointsValue == 0 -> Color(0x4DF8CE67) // Amber for 0 input
                                 else -> contentColor.copy(alpha = 0.5f)
                             }
                             val pointsText = when {
@@ -418,19 +406,20 @@ fun ActivePlayerCard(
                                 isUndo -> "Undo 0"
                                 pointsValue > 0 -> "+$pointsValue"
                                 pointsValue < 0 -> "$pointsValue"
-                                else -> "0"
+                                else -> "⚠ 0"
                             }
+                            val isZero = pointsValue == 0 && !isUndo
                             Surface(
-                                color = pointsColor.copy(alpha = 0.18f), // Increased opacity for better visibility
+                                color = if (isZero) pointsColor.copy(alpha = 0.4f) else pointsColor.copy(alpha = 0.25f),
                                 shape = RoundedCornerShape(6.dp),
-                                border = BorderStroke(1.dp, pointsColor.copy(alpha = 0.2f)), // Added subtle border
+                                border = BorderStroke(1.dp, if (isZero) pointsColor else pointsColor.copy(alpha = 0.2f)),
                                 modifier = Modifier.padding(bottom = 8.dp, end = 8.dp)
                             ) {
                                 Text(
                                     text = pointsText,
-                                    style = MaterialTheme.typography.labelMedium,
-                                    fontWeight = FontWeight.ExtraBold, // More emphasis
-                                    color = pointsColor,
+                                    style = if (isZero) MaterialTheme.typography.labelLarge else MaterialTheme.typography.labelMedium,
+                                    fontWeight = FontWeight.ExtraBold, 
+                                    color = if (isZero) Color(0xFFE65100) else pointsColor, // Deep orange for zero
                                     modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
                                 )
                             }
@@ -483,16 +472,17 @@ fun ActivePlayerCard(
                             Surface(
                                 modifier = Modifier
                                     .weight(1f)
-                                    .height(56.dp)
-                                    .clip(RoundedCornerShape(12.dp))
-                                    .clickable(enabled = canEdit) {
-                                        onSetTurn?.invoke()
-                                        onFocus()
-                                        if (!useCustomKeyboard) {
-                                            focusRequester.requestFocus()
-                                            keyboardController?.show()
-                                        }
-                                    },
+                                    .height(56.dp),
+                                shape = RoundedCornerShape(12.dp),
+                                onClick = {
+                                    onSetTurn?.invoke()
+                                    onFocus()
+                                    if (!useCustomKeyboard) {
+                                        focusRequester.requestFocus()
+                                        keyboardController?.show()
+                                    }
+                                },
+                                enabled = canEdit,
                                 color = backgroundColor,
                                 border = BorderStroke(1.dp, borderColor)
                             ) {
@@ -543,22 +533,44 @@ fun ActivePlayerCard(
                                         modifier = Modifier.padding(horizontal = 16.dp),
                                         contentAlignment = Alignment.CenterStart
                                     ) {
-                                        if (scoreInput.isEmpty()) {
-                                            Text(
-                                                "+ pts",
-                                                style = MaterialTheme.typography.bodyMedium,
-                                                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(
-                                                    alpha = 0.5f
+                                        Row(verticalAlignment = Alignment.CenterVertically) {
+                                            if (scoreInput.isEmpty()) {
+                                                Text(
+                                                    "+ pts",
+                                                    style = MaterialTheme.typography.bodyMedium,
+                                                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(
+                                                        alpha = 0.5f
+                                                    )
                                                 )
-                                            )
-                                        } else {
-                                            Text(
-                                                scoreInput,
-                                                style = MaterialTheme.typography.titleLarge,
-                                                fontWeight = FontWeight.ExtraBold,
-                                                fontSize = 22.sp,
-                                                color = MaterialTheme.colorScheme.onSurface
-                                            )
+                                            } else {
+                                                Text(
+                                                    scoreInput,
+                                                    style = MaterialTheme.typography.titleLarge,
+                                                    fontWeight = FontWeight.ExtraBold,
+                                                    fontSize = 22.sp,
+                                                    color = MaterialTheme.colorScheme.onSurface
+                                                )
+                                            }
+                                            
+                                            // Blinking cursor
+                                            if (isCurrentTurn) {
+                                                var cursorVisible by remember { mutableStateOf(true) }
+                                                LaunchedEffect(Unit) {
+                                                    while (true) {
+                                                        kotlinx.coroutines.delay(500)
+                                                        cursorVisible = !cursorVisible
+                                                    }
+                                                }
+                                                
+                                                Box(
+                                                    modifier = Modifier
+                                                        .padding(start = 2.dp)
+                                                        .width(2.dp)
+                                                        .height(24.dp)
+                                                        .alpha(if (cursorVisible) 1f else 0f)
+                                                        .background(MaterialTheme.colorScheme.primary)
+                                                )
+                                            }
                                         }
                                     }
                                 }
@@ -616,6 +628,26 @@ fun ActivePlayerCard(
                                     Icon(Icons.Outlined.Add, "Add")
                                 }
                             }
+                        }
+                    }
+                    
+                    // "0" input warning indicator
+                    if (scoreInput == "0") {
+                        Surface(
+                            color = Color(0xFFFFF8E1), // Light amber background
+                            shape = RoundedCornerShape(8.dp),
+                            border = BorderStroke(1.dp, Color(0xFFFFB300)),
+                            modifier = Modifier
+                                .padding(top = 10.dp)
+                                .align(Alignment.CenterHorizontally)
+                        ) {
+                            Text(
+                                text = "⚠ REGISTERING 0 POINTS",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = Color(0xFFE65100), // Deep Orange
+                                fontWeight = FontWeight.Black,
+                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
+                            )
                         }
                     }
                 }

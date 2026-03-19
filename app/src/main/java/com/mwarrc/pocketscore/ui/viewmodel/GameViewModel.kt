@@ -46,6 +46,9 @@ class GameViewModel(
     private val _importSuccess = MutableSharedFlow<Pair<Int, Int>>()
     val importSuccess: SharedFlow<Pair<Int, Int>> = _importSuccess.asSharedFlow()
 
+    private val _isLoading = MutableStateFlow(false)
+    private val _loadingMessage = MutableStateFlow<String?>(null)
+
     init {
         initializeState()
         initializeAnalytics()
@@ -62,9 +65,11 @@ class GameViewModel(
                     combine(
                         repository.gameState,
                         repository.gameHistory,
-                        repository.appSettings
-                    ) { gameState, gameHistory, settings ->
-                        AppState(gameState, gameHistory, settings)
+                        repository.appSettings,
+                        _isLoading,
+                        _loadingMessage
+                    ) { gameState, gameHistory, settings, isLoading, loadingMessage ->
+                        AppState(gameState, gameHistory, settings, isLoading, loadingMessage)
                     }.collect { newState ->
                         _state.value = newState
                     }
@@ -167,6 +172,8 @@ class GameViewModel(
         
         // 2. State Transformation & Persistence (Async)
         viewModelScope.launch {
+            _loadingMessage.value = "Starting game..."
+            _isLoading.value = true
             try {
                 // BUG FIX: Ensure any currently active match is safely archived before overwriting
                 // This prevents losing progress if a user starts a new game while another is running.
@@ -193,6 +200,9 @@ class GameViewModel(
             } catch (e: Exception) {
                 Log.e(TAG, "Error starting new game", e)
                 emitError("Failed to start game")
+            } finally {
+                _isLoading.value = false
+                _loadingMessage.value = null
             }
         }
     }
@@ -347,6 +357,8 @@ class GameViewModel(
      */
     fun resumeGame(game: GameState, shouldOverrideHistory: Boolean) {
         viewModelScope.launch {
+            _loadingMessage.value = "Resuming game..."
+            _isLoading.value = true
             try {
                 // BUG FIX: Archive existing active game before resuming another one
                 val currentActive = _state.value.gameState
@@ -391,6 +403,9 @@ class GameViewModel(
             } catch (e: Exception) {
                 Log.e(TAG, "Error resuming game", e)
                 emitError("Failed to resume game")
+            } finally {
+                _isLoading.value = false
+                _loadingMessage.value = null
             }
         }
     }
@@ -676,6 +691,8 @@ class GameViewModel(
      */
     fun resetGame(finalized: Boolean = true, forceSave: Boolean = false) {
         viewModelScope.launch {
+            _loadingMessage.value = "Ending session..."
+            _isLoading.value = true
             try {
                 val currentGame = _state.value.gameState
                 val settings = _state.value.settings
@@ -706,6 +723,9 @@ class GameViewModel(
             } catch (e: Exception) {
                 Log.e(TAG, "Error resetting game", e)
                 emitError("Failed to reset game")
+            } finally {
+                _isLoading.value = false
+                _loadingMessage.value = null
             }
         }
     }
@@ -718,6 +738,8 @@ class GameViewModel(
      */
     fun startRestartMatch(playerNames: List<String>, forceSave: Boolean = false) {
         viewModelScope.launch {
+            _loadingMessage.value = "Restarting match..."
+            _isLoading.value = true
             try {
                 val currentGame = _state.value.gameState
                 val settings = _state.value.settings
@@ -747,6 +769,9 @@ class GameViewModel(
             } catch (e: Exception) {
                 Log.e(TAG, "Error restarting match", e)
                 emitError("Failed to restart match")
+            } finally {
+                _isLoading.value = false
+                _loadingMessage.value = null
             }
         }
     }
@@ -829,6 +854,8 @@ class GameViewModel(
      */
     fun importData(share: PocketScoreShare, playerNameMappings: Map<String, String> = emptyMap()) {
         viewModelScope.launch {
+            _loadingMessage.value = "Importing data..."
+            _isLoading.value = true
             try {
                 // Pre-merge calculation for summary
                 val currentHistory = _state.value.gameHistory
@@ -846,6 +873,9 @@ class GameViewModel(
             } catch (e: Exception) {
                 Log.e(TAG, "Error importing data", e)
                 emitError("Failed to import data")
+            } finally {
+                _isLoading.value = false
+                _loadingMessage.value = null
             }
         }
     }
