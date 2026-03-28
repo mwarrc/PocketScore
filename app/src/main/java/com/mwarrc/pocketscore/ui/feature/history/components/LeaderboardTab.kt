@@ -22,6 +22,7 @@ import com.mwarrc.pocketscore.domain.model.AppSettings
 import com.mwarrc.pocketscore.domain.model.GameHistory
 import java.text.SimpleDateFormat
 import java.util.*
+import androidx.compose.animation.AnimatedVisibility
 
 /**
  * Data model for an entry in the leaderboard.
@@ -32,9 +33,12 @@ data class LeaderboardEntry(
     val losses: Int,
     val gamesPlayed: Int,
     val winRate: Float,
-    val totalPoints: Int,
-    val avgScore: Float,
-    val bestScore: Int
+    val totalPoints: Int,       // Net sum (what is used for primary ranks)
+    val positivePoints: Int,    // Total good scoring
+    val negativePoints: Int,    // Total bleeding/negative scoring
+    val avgScore: Float,        // Using median to mitigate extreme outliers like 1.1B
+    val bestScore: Int,
+    val worstScore: Int
 )
 
 /**
@@ -138,7 +142,6 @@ private fun calculateLeaderboard(
         game.players.forEach { player ->
             val name = player.name.trim()
             if (name.isNotEmpty() && name !in hiddenPlayers) {
-                // Use consistent casing for indexing but preserve original for display
                 val originalName = statsMap.keys.find { it.equals(name, ignoreCase = true) } ?: name
                 statsMap.getOrPut(originalName) { mutableListOf() }.add(player.score)
                 
@@ -157,6 +160,15 @@ private fun calculateLeaderboard(
         val losses = totalLosses[name] ?: 0
         val played = wins + losses
         
+        val sortedScores = scores.sorted()
+        val medianAvg = if (sortedScores.isEmpty()) 0f else {
+            if (sortedScores.size % 2 == 0) {
+                ((sortedScores[sortedScores.size / 2 - 1] + sortedScores[sortedScores.size / 2]) / 2.0).toFloat()
+            } else {
+                sortedScores[sortedScores.size / 2].toFloat()
+            }
+        }
+        
         LeaderboardEntry(
             name = name,
             wins = wins,
@@ -164,8 +176,11 @@ private fun calculateLeaderboard(
             gamesPlayed = played,
             winRate = if (played > 0) (wins.toFloat() / played.toFloat()) * 100f else 0f,
             totalPoints = scores.sum(),
-            avgScore = if (played > 0) scores.average().toFloat() else 0f,
-            bestScore = scores.maxOrNull() ?: 0
+            positivePoints = scores.filter { it > 0 }.sum(),
+            negativePoints = scores.filter { it < 0 }.sum(),
+            avgScore = medianAvg, // Used median to cap outliers per requirements
+            bestScore = scores.maxOrNull() ?: 0,
+            worstScore = scores.minOrNull() ?: 0
         )
     }.sortedWith(
         compareByDescending<LeaderboardEntry> { it.wins }
@@ -175,80 +190,162 @@ private fun calculateLeaderboard(
 }
 
 /**
- * Individual card displaying a player's rank and key stats.
+ * Individual card displaying a player's rank and detailed stats.
  */
 @Composable
 fun LeaderboardRankCard(rank: Int, entry: LeaderboardEntry) {
+    var expanded by remember { mutableStateOf(false) }
+
     val rankColor = when (rank) {
-        1 -> Color(0xFFFFD700) // Gold
-        2 -> Color(0xFFC0C0C0) // Silver
-        3 -> Color(0xFFCD7F32) // Bronze
+        1 -> Color(0xFFFFC107) // Amber/Gold
+        2 -> Color(0xFF90A4AE) // Blue-grey/Silver
+        3 -> Color(0xFFFF8A65) // Deep Orange/Bronze
         else -> MaterialTheme.colorScheme.onSurface
     }
     
     val containerColor = when (rank) {
-        1 -> Color(0xFFFFD700).copy(alpha = 0.1f)
-        2 -> Color(0xFFC0C0C0).copy(alpha = 0.1f)
-        3 -> Color(0xFFCD7F32).copy(alpha = 0.1f)
-        else -> MaterialTheme.colorScheme.surface
+        1 -> Color(0xFFFFC107).copy(alpha = 0.08f)
+        2 -> Color(0xFF90A4AE).copy(alpha = 0.08f)
+        3 -> Color(0xFFFF8A65).copy(alpha = 0.08f)
+        else -> MaterialTheme.colorScheme.surfaceContainerLow
     }
 
     Surface(
-        shape = RoundedCornerShape(24.dp),
+        shape = RoundedCornerShape(20.dp),
         color = containerColor,
-        modifier = Modifier.fillMaxWidth()
+        tonalElevation = if (rank <= 3) 1.dp else 0.dp,
+        modifier = Modifier.fillMaxWidth(),
+        onClick = { expanded = !expanded }
     ) {
-        Row(
-            modifier = Modifier.fillMaxWidth().padding(16.dp),
-            verticalAlignment = Alignment.CenterVertically
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(14.dp)
         ) {
-            // Rank Badge
-            Surface(
-                shape = CircleShape,
-                color = if (rank <= 3) rankColor.copy(alpha = 0.2f) else MaterialTheme.colorScheme.surfaceVariant,
-                modifier = Modifier.size(40.dp)
+            // Header Row
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                Box(contentAlignment = Alignment.Center) {
+                // Rank Badge
+                Surface(
+                    shape = CircleShape,
+                    color = if (rank <= 3) rankColor.copy(alpha = 0.15f) else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                    modifier = Modifier.size(40.dp)
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Text(
+                            text = "#$rank",
+                            style = MaterialTheme.typography.titleSmall,
+                            fontWeight = FontWeight.Bold,
+                            color = if (rank <= 3) rankColor else MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+
+                Spacer(Modifier.width(14.dp))
+
+                // Player Info
+                Column(modifier = Modifier.weight(1f)) {
                     Text(
-                        text = "$rank",
+                        text = entry.name,
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold,
-                        color = if (rank <= 3) rankColor else MaterialTheme.colorScheme.onSurfaceVariant
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                    Text(
+                        text = "${entry.gamesPlayed} games played",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
+                    )
+                }
+
+                // Total Points Display (Net)
+                Column(horizontalAlignment = Alignment.End) {
+                    Text(
+                        text = "${entry.totalPoints}",
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.Bold,
+                        color = if (rank <= 3) rankColor else MaterialTheme.colorScheme.primary
+                    )
+                    Text(
+                        text = "Net Points",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
                     )
                 }
             }
 
-            Spacer(Modifier.width(16.dp))
+            // Expanded Statistics Grid
+            androidx.compose.animation.AnimatedVisibility(visible = expanded) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = 12.dp)
+                ) {
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
+                    Spacer(Modifier.height(12.dp))
 
-            // Player Info
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = entry.name,
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold
-                )
-                Text(
-                    text = "${entry.wins}W • ${entry.losses}L • ${entry.winRate.toInt()}% WR",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
+                    // Row 1: Wins, Losses, Win Rate
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        StatItem(label = "Wins", value = "${entry.wins}", color = MaterialTheme.colorScheme.primary.copy(alpha = 0.8f))
+                        StatItem(label = "Losses", value = "${entry.losses}", color = MaterialTheme.colorScheme.error.copy(alpha = 0.8f))
+                        StatItem(
+                            label = "Win Rate", 
+                            value = "${entry.winRate.toInt()}%", 
+                            color = if (entry.winRate >= 50f) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
 
-            // Total Points Display
-            Column(horizontalAlignment = Alignment.End) {
-                Text(
-                    text = "${entry.totalPoints}",
-                    style = MaterialTheme.typography.titleLarge,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.primary
-                )
-                Text(
-                    text = "points",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
+                    Spacer(Modifier.height(14.dp))
+
+                    // Row 2: Best, Worst, Median
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        StatItem(label = "Best Score", value = "${entry.bestScore}", color = MaterialTheme.colorScheme.onSurface)
+                        StatItem(label = "Worst Score", value = "${entry.worstScore}", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        StatItem(label = "Median Avg", value = String.format(Locale.US, "%.1f", entry.avgScore), color = MaterialTheme.colorScheme.onSurface)
+                    }
+
+                    Spacer(Modifier.height(14.dp))
+
+                    // Row 3: Positives & Negatives
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        StatItem(label = "Total Pos.", value = "+${entry.positivePoints}", color = MaterialTheme.colorScheme.primary.copy(alpha = 0.8f))
+                        StatItem(label = "Total Bleed", value = "${entry.negativePoints}", color = MaterialTheme.colorScheme.error.copy(alpha = 0.8f))
+                        Spacer(Modifier.weight(1f))
+                    }
+                }
             }
         }
+    }
+}
+
+@Composable
+private fun RowScope.StatItem(label: String, value: String, color: Color) {
+    Column(
+        modifier = Modifier.weight(1f),
+        horizontalAlignment = Alignment.Start
+    ) {
+        Text(
+            text = label,
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
+        )
+        Text(
+            text = value,
+            style = MaterialTheme.typography.titleMedium,
+            fontWeight = FontWeight.SemiBold,
+            color = color
+        )
     }
 }
 

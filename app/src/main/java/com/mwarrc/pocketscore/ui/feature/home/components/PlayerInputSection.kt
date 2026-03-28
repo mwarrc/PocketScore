@@ -9,6 +9,7 @@ import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AddCircle
+import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -196,7 +197,7 @@ fun PlayerInputSection(
                         Box(contentAlignment = Alignment.CenterStart) {
                             if (name.isEmpty()) {
                                 Text(
-                                    "Enter player name...",
+                                    "Enter Player Name...",
                                     style = MaterialTheme.typography.bodyLarge,
                                     fontWeight = FontWeight.Normal,
                                     color = colorScheme.onSurfaceVariant.copy(alpha = 0.45f)
@@ -208,22 +209,40 @@ fun PlayerInputSection(
                 )
 
                 // ── Add button --─
-                FilledIconButton(
+                Button(
                     onClick = { doAdd() },
-                    enabled = canAdd,
-                    colors = IconButtonDefaults.filledIconButtonColors(
-                        containerColor = colorScheme.primary,
-                        contentColor = colorScheme.onPrimary,
+                    enabled = canAdd || justAdded,
+                    shape = RoundedCornerShape(20.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = if (justAdded) colorScheme.tertiary else colorScheme.primary,
+                        contentColor = if (justAdded) colorScheme.onTertiary else colorScheme.onPrimary,
                         disabledContainerColor = colorScheme.surfaceContainerHighest,
                         disabledContentColor = colorScheme.onSurfaceVariant.copy(alpha = 0.3f)
                     ),
-                    modifier = Modifier.size(40.dp)
+                    contentPadding = PaddingValues(horizontal = 14.dp),
+                    modifier = Modifier.height(40.dp)
                 ) {
-                    Icon(
-                        imageVector = Icons.Default.AddCircle,
-                        contentDescription = "Add player",
-                        modifier = Modifier.size(22.dp)
-                    )
+                    androidx.compose.animation.AnimatedContent(
+                        targetState = justAdded,
+                        transitionSpec = {
+                            (fadeIn(tween(150)) + scaleIn()) togetherWith (fadeOut(tween(150)) + scaleOut())
+                        },
+                        label = "button_content"
+                    ) { added ->
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(
+                                imageVector = if (added) Icons.Default.CheckCircle else Icons.Default.AddCircle,
+                                contentDescription = null,
+                                modifier = Modifier.size(18.dp)
+                            )
+                            Spacer(Modifier.width(6.dp))
+                            Text(
+                                if (added) "Added" else "Add",
+                                style = MaterialTheme.typography.labelLarge,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+                    }
                 }
             }
         }

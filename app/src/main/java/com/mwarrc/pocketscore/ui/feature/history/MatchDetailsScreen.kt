@@ -29,6 +29,7 @@ import java.text.SimpleDateFormat
 import java.util.*
 import com.mwarrc.pocketscore.ui.feature.history.components.match.MatchInsightsTab
 import com.mwarrc.pocketscore.ui.feature.history.components.match.MatchTimelineTab
+import com.mwarrc.pocketscore.ui.util.ImmersiveMode
 
 /**
  * Detailed match analysis screen providing in-depth statistics and timeline.
@@ -49,6 +50,8 @@ fun MatchDetailsScreen(
     game: GameState,
     onBack: () -> Unit
 ) {
+    ImmersiveMode() // Fully hide status bar for immersive match browsing
+    
     val tabs = listOf("Overview", "Insights", "Timeline")
     val pagerState = rememberPagerState(pageCount = { tabs.size })
     val coroutineScope = rememberCoroutineScope()
@@ -58,7 +61,7 @@ fun MatchDetailsScreen(
     Scaffold(
         modifier = Modifier
             .nestedScroll(scrollBehavior.nestedScrollConnection)
-            .displayCutoutPadding(),
+            .fillMaxSize(),
         topBar = {
             Column(modifier = Modifier
                 .background(MaterialTheme.colorScheme.surface)
@@ -86,7 +89,7 @@ fun MatchDetailsScreen(
                         }
                     },
                     scrollBehavior = scrollBehavior,
-                    windowInsets = WindowInsets.safeDrawing
+                    windowInsets = WindowInsets.statusBars.union(WindowInsets.displayCutout)
                 )
                 
                 TabRow(

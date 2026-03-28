@@ -427,6 +427,22 @@ class GameViewModel(
     }
 
     /**
+     * Bulk deletes multiple games from history.
+     * 
+     * @param gameIds Set of IDs to delete
+     */
+    fun deleteMultipleGames(gameIds: Set<String>) {
+        viewModelScope.launch {
+            try {
+                gameIds.forEach { repository.deleteGameFromHistory(it) }
+            } catch (e: Exception) {
+                Log.e(TAG, "Error bulk deleting games", e)
+                emitError("Failed to delete multiple games")
+            }
+        }
+    }
+
+    /**
      * Toggles the archived status of a specific game.
      * 
      * @param gameId ID of the game to archive/unarchive
@@ -447,6 +463,28 @@ class GameViewModel(
             } catch (e: Exception) {
                 Log.e(TAG, "Error toggling archive status", e)
                 emitError("Failed to update game archive status")
+            }
+        }
+    }
+
+    /**
+     * Bulk toggles the archived status of multiple games.
+     * 
+     * @param gameIds Set of IDs to toggle
+     */
+    fun toggleArchiveMultipleGames(gameIds: Set<String>) {
+        viewModelScope.launch {
+            try {
+                val history = _state.value.gameHistory
+                gameIds.forEach { id ->
+                    val game = history.pastGames.find { it.id == id }
+                    if (game != null) {
+                        repository.updateGameInHistory(game.copy(isArchived = !game.isArchived))
+                    }
+                }
+            } catch (e: Exception) {
+                Log.e(TAG, "Error bulk toggling archive status", e)
+                emitError("Failed to update multiple games")
             }
         }
     }
@@ -547,7 +585,17 @@ class GameViewModel(
         )
 
         // Advance to next active player if enabled
-        val nextPlayerId = if (settings.autoNextTurn) {
+        val shouldAdvance = if (settings.autoNextTurn) {
+            if (settings.autoAdvanceOnNegativeOnly) {
+                points < 0
+            } else {
+                true
+            }
+        } else {
+            false
+        }
+
+        val nextPlayerId = if (shouldAdvance) {
             calculateNextTurnId(tempState, settings, forceSkipCurrent = true) ?: tempState.currentPlayerId
         } else {
             tempState.currentPlayerId

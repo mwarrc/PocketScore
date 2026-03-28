@@ -197,73 +197,90 @@ private fun GameHistoryCardHeadline(
             )
         }
         
-        // Tie badge and names
-        if (isTie) {
-            Surface(
-                color = MaterialTheme.colorScheme.tertiary,
-                shape = RoundedCornerShape(6.dp),
-                modifier = Modifier.padding(end = 8.dp)
-            ) {
-                Text(
-                    " TIE ",
-                    style = MaterialTheme.typography.labelSmall,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onTertiary
-                )
-            }
-            Text(
-                winners.joinToString(" & ") { it.name },
-                fontWeight = FontWeight.Bold,
-                style = MaterialTheme.typography.titleMedium,
-                color = if (game.isArchived) {
-                    MaterialTheme.colorScheme.onSurfaceVariant
-                } else {
-                    MaterialTheme.colorScheme.onSurface
-                }
-            )
-        } else {
-            // Single winner or no result
-            val winner = winners.firstOrNull()
-            
-            if (winner == null && game.players.isNotEmpty()) {
-                // Easter Egg for 0-0 games (Pacifist Run)
-                Text(
-                    "Pacifist Run 🕊️", 
-                    fontWeight = FontWeight.Bold,
-                    style = MaterialTheme.typography.titleMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            } else {
-                Text(
-                    winner?.name ?: "No Result",
-                    fontWeight = FontWeight.Bold,
-                    style = MaterialTheme.typography.titleMedium,
-                    color = if (game.isArchived) {
-                        MaterialTheme.colorScheme.onSurfaceVariant
-                    } else {
-                        MaterialTheme.colorScheme.onSurface
+        // Tie/Winner name and stats area
+        Box(
+            modifier = Modifier.weight(1f),
+            contentAlignment = Alignment.CenterStart
+        ) {
+            if (isTie) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Surface(
+                        color = MaterialTheme.colorScheme.tertiary,
+                        shape = RoundedCornerShape(6.dp),
+                        modifier = Modifier.padding(end = 8.dp)
+                    ) {
+                        Text(
+                            " TIE ",
+                            style = MaterialTheme.typography.labelSmall,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onTertiary
+                        )
                     }
-                )
-                
-                if (winner != null) {
-                    Spacer(Modifier.width(8.dp))
                     Text(
-                        "${winner.score} pts",
+                        winners.joinToString(" & ") { it.name },
+                        fontWeight = FontWeight.Bold,
                         style = MaterialTheme.typography.titleMedium,
-                        color = when {
-                            game.isArchived -> MaterialTheme.colorScheme.onSurfaceVariant
-                            winner.score < 0 -> MaterialTheme.colorScheme.error
-                            else -> MaterialTheme.colorScheme.primary
-                        },
-                        fontWeight = FontWeight.Bold
+                        maxLines = 1,
+                        overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+                        color = if (game.isArchived) {
+                            MaterialTheme.colorScheme.onSurfaceVariant
+                        } else {
+                            MaterialTheme.colorScheme.onSurface
+                        }
                     )
+                }
+            } else {
+                // Single winner or no result
+                val winner = winners.firstOrNull()
+                
+                if (winner == null && game.players.isNotEmpty()) {
+                    // Easter Egg for 0-0 games (Pacifist Run)
+                    Text(
+                        "Pacifist Run 🕊️", 
+                        fontWeight = FontWeight.Bold,
+                        style = MaterialTheme.typography.titleMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 1,
+                        overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
+                    )
+                } else {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(
+                            winner?.name ?: "No Result",
+                            fontWeight = FontWeight.Bold,
+                            style = MaterialTheme.typography.titleMedium,
+                            maxLines = 1,
+                            overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+                            color = if (game.isArchived) {
+                                MaterialTheme.colorScheme.onSurfaceVariant
+                            } else {
+                                MaterialTheme.colorScheme.onSurface
+                            },
+                            modifier = Modifier.weight(1f, fill = false)
+                        )
+                        
+                        if (winner != null) {
+                            Spacer(Modifier.width(8.dp))
+                            Text(
+                                "${winner.score} pts",
+                                style = MaterialTheme.typography.titleMedium,
+                                color = when {
+                                    game.isArchived -> MaterialTheme.colorScheme.onSurfaceVariant
+                                    winner.score < 0 -> MaterialTheme.colorScheme.error
+                                    else -> MaterialTheme.colorScheme.primary
+                                },
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+                    }
                 }
             }
         }
         
         // Active game badge
         if (isResumable && !game.isArchived) {
-            Spacer(Modifier.weight(1f))
+            // No spacer needed here as the Box above is weighted 1f and will push this to the right
+            Spacer(Modifier.width(12.dp))
             Surface(
                 color = MaterialTheme.colorScheme.secondaryContainer,
                 shape = RoundedCornerShape(8.dp)
@@ -301,7 +318,10 @@ private fun GameHistoryCardSupporting(
     isTie: Boolean,
     winners: List<com.mwarrc.pocketscore.domain.model.Player>
 ) {
-    Row(verticalAlignment = Alignment.CenterVertically) {
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = Modifier.fillMaxWidth()
+    ) {
         Text(
             timeStr,
             style = MaterialTheme.typography.bodySmall,
@@ -317,11 +337,14 @@ private fun GameHistoryCardSupporting(
         }
         
         if (isTie) {
-            Spacer(Modifier.width(8.dp))
+            Spacer(Modifier.width(4.dp))
             Text(
                 "• Shared ${winners.firstOrNull()?.score ?: 0} pts",
                 style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 1,
+                overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+                modifier = Modifier.weight(1f, fill = false)
             )
         }
     }

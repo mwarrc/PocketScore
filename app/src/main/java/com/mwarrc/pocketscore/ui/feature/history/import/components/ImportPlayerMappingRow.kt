@@ -292,7 +292,12 @@ fun RenamePlayerDialog(
                 )
                 OutlinedTextField(
                     value = name,
-                    onValueChange = { name = it },
+                    onValueChange = { newValue ->
+                        val filtered = newValue.filter { it.isLetterOrDigit() }
+                        if (filtered.length <= 14) {
+                            name = filtered
+                        }
+                    },
                     label = { Text("Player Name") },
                     singleLine = true,
                     isError = isDuplicate || hasSpecialChars,

@@ -25,6 +25,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.mwarrc.pocketscore.domain.model.AppSettings
@@ -44,6 +45,7 @@ fun GameplaySection(
 ) {
     var showStrictModeInfo by remember { mutableStateOf(false) }
     var showEnforceDialog by remember { mutableStateOf(false) }
+    var showSavedPlayersOffDialog by remember { mutableStateOf(false) }
 
     var infoDialogContent by remember { mutableStateOf<InfoContent?>(null) }
 
@@ -139,8 +141,17 @@ fun GameplaySection(
                 Switch(
                     checked = settings.showQuickSelectOnHome,
                     onCheckedChange = { enabled ->
-                        onUpdateSettings { it.copy(showQuickSelectOnHome = enabled) }
-                    }
+                        if (!enabled) {
+                            showSavedPlayersOffDialog = true
+                        } else {
+                            onUpdateSettings { it.copy(showQuickSelectOnHome = true) }
+                        }
+                    },
+                    colors = SwitchDefaults.colors(
+                        uncheckedThumbColor = if (!settings.showQuickSelectOnHome) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.surface,
+                        uncheckedTrackColor = if (!settings.showQuickSelectOnHome) MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.7f) else MaterialTheme.colorScheme.surfaceVariant,
+                        uncheckedBorderColor = if (!settings.showQuickSelectOnHome) MaterialTheme.colorScheme.error.copy(alpha = 0.4f) else Color.Transparent
+                    )
                 )
             }
         )
@@ -190,7 +201,14 @@ fun GameplaySection(
             confirmButton = {
                 Button(
                     onClick = {
-                        onUpdateSettings { it.copy(enforceStrictMode = true, strictTurnMode = true, autoNextTurn = true) }
+                        onUpdateSettings { 
+                            it.copy(
+                                enforceStrictMode = true, 
+                                strictTurnMode = true, 
+                                autoNextTurn = true,
+                                autoAdvanceOnNegativeOnly = false
+                            ) 
+                        }
                         showEnforceDialog = false
                     },
                     colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
@@ -198,6 +216,29 @@ fun GameplaySection(
             },
             dismissButton = {
                 TextButton(onClick = { showEnforceDialog = false }) { Text("Cancel") }
+            }
+        )
+    }
+
+    if (showSavedPlayersOffDialog) {
+        AlertDialog(
+            onDismissRequest = { showSavedPlayersOffDialog = false },
+            icon = { Icon(Icons.Default.Group, null, tint = MaterialTheme.colorScheme.error) },
+            title = { Text("Hide Saved Players?") },
+            text = {
+                Text("This will remove the quick-select roster pool from your Home Screen. You'll need to manually type each player's name to start a match.")
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        onUpdateSettings { it.copy(showQuickSelectOnHome = false) }
+                        showSavedPlayersOffDialog = false
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
+                ) { Text("Disable Roaster") }
+            },
+            dismissButton = {
+                TextButton(onClick = { showSavedPlayersOffDialog = false }) { Text("Keep Enabled") }
             }
         )
     }

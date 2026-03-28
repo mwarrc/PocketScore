@@ -93,6 +93,8 @@ fun GameHistoryCardExpandedContent(
             MatchCompletedIndicator()
         }
 
+        Spacer(Modifier.height(12.dp))
+
         // Action buttons
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -122,13 +124,18 @@ private fun PlayerScoreRow(
         modifier = Modifier
             .fillMaxWidth()
             .padding(vertical = 4.dp),
-        horizontalArrangement = Arrangement.SpaceBetween
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
     ) {
         Text(
             player.name,
             style = MaterialTheme.typography.bodyMedium,
-            fontWeight = if (isWinner) FontWeight.Bold else FontWeight.Normal
+            fontWeight = if (isWinner) FontWeight.Bold else FontWeight.Normal,
+            maxLines = 1,
+            overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+            modifier = Modifier.weight(1f)
         )
+        Spacer(Modifier.width(16.dp))
         Text(
             "${player.score}",
             style = MaterialTheme.typography.bodyMedium,

@@ -1,422 +1,364 @@
 package com.mwarrc.pocketscore.ui.feature.onboarding.components
 
-import androidx.compose.animation.AnimatedContent
-import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.*
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.scaleIn
-import androidx.compose.animation.scaleOut
-import androidx.compose.animation.slideInVertically
-import androidx.compose.animation.slideOutVertically
-import androidx.compose.animation.togetherWith
-import androidx.compose.foundation.Canvas
-import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
-import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.pager.PagerState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.Check
-import androidx.compose.material.icons.filled.Lightbulb
-import androidx.compose.material.icons.filled.SportsScore
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.rotate
-import androidx.compose.ui.draw.scale
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
-import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalHapticFeedback
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.mwarrc.pocketscore.R
-import com.mwarrc.pocketscore.ui.feature.onboarding.OnboardingPage
-import com.mwarrc.pocketscore.ui.feature.onboarding.Particle
-import kotlin.random.Random
+import com.mwarrc.pocketscore.ui.feature.onboarding.PointsSystemOption
+import com.mwarrc.pocketscore.ui.util.BallColors
 
-// --- COMPONENTS CONFIGURATION ---
-
-private object ComponentConstants {
-    const val BREATH_DURATION = 2500
-    const val ROTATION_DURATION = 3000
-    const val CONTENT_ALPHA_DURATION = 400
-    const val ICON_TRANSITION_ENTER = 400
-    const val ICON_TRANSITION_EXIT = 200
-    const val PULSE_DURATION = 1200
-    const val PARTICLE_CYCLE_DURATION = 30000
-    const val PARALLAX_FACTOR = 50f
-}
+// ─────────────────────────────────────────────────────────────────────────────
+// POINTS SYSTEM CARD  (M3 — no gradients, no glows)
+// ─────────────────────────────────────────────────────────────────────────────
 
 /**
- * Renders the content for a single onboarding page.
- * Includes parallax effects, breathing animations, and dynamic icon transitions.
+ * A selectable M3 card representing one ball-points scoring system.
  *
- * @param page The [OnboardingPage] data to display.
- * @param pageIndex The index of the page in the pager.
- * @param pagerState Current [PagerState] for calculating scroll offsets.
- */
-@OptIn(ExperimentalFoundationApi::class)
-@Composable
-fun OnboardingPageContent(
-    page: OnboardingPage,
-    pageIndex: Int,
-    pagerState: PagerState
-) {
-    val haptic = LocalHapticFeedback.current
-    
-    // Calculate parallax effect based on page scroll
-    val pageOffset = (pagerState.currentPage - pageIndex) + pagerState.currentPageOffsetFraction
-    val parallaxOffset = (pageOffset * ComponentConstants.PARALLAX_FACTOR).dp
-    
-    // Breathing animation for icon
-    val infiniteTransition = rememberInfiniteTransition(label = "breath")
-    val breathScale by infiniteTransition.animateFloat(
-        initialValue = 0.92f,
-        targetValue = 1.08f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(ComponentConstants.BREATH_DURATION, easing = FastOutSlowInEasing),
-            repeatMode = RepeatMode.Reverse
-        ),
-        label = "breath_scale"
-    )
-    
-    // Rotation animation
-    val rotation by infiniteTransition.animateFloat(
-        initialValue = -5f,
-        targetValue = 5f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(ComponentConstants.ROTATION_DURATION, easing = FastOutSlowInEasing),
-            repeatMode = RepeatMode.Reverse
-        ),
-        label = "rotation"
-    )
-
-    // Scale and Alpha based on active page
-    val contentScale by animateFloatAsState(
-        targetValue = if (pageIndex == pagerState.currentPage) 1f else 0.85f,
-        animationSpec = spring(
-            dampingRatio = Spring.DampingRatioMediumBouncy,
-            stiffness = Spring.StiffnessMediumLow
-        ),
-        label = "content_scale"
-    )
-    
-    val contentAlpha by animateFloatAsState(
-        targetValue = if (pageIndex == pagerState.currentPage) 1f else 0.3f,
-        animationSpec = tween(ComponentConstants.CONTENT_ALPHA_DURATION),
-        label = "content_alpha"
-    )
-
-    var iconPressed by remember { mutableStateOf(false) }
-    val pressScale by animateFloatAsState(
-        targetValue = if (iconPressed) 0.9f else 1f,
-        animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy),
-        label = "press_scale"
-    )
-
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .offset(y = parallaxOffset)
-            .scale(contentScale)
-            .alpha(contentAlpha)
-            .padding(horizontal = 32.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center
-    ) {
-        Spacer(Modifier.weight(0.3f))
-
-        // Enhanced icon container with glassmorphism feel
-        Surface(
-            modifier = Modifier
-                .size(140.dp)
-                .scale(breathScale * pressScale)
-                .rotate(rotation)
-                .pointerInput(Unit) {
-                    detectTapGestures(
-                        onPress = {
-                            iconPressed = true
-                            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                            tryAwaitRelease()
-                            iconPressed = false
-                        }
-                    )
-                },
-            shape = RoundedCornerShape(40.dp),
-            color = MaterialTheme.colorScheme.surface.copy(alpha = 0.9f),
-            tonalElevation = 8.dp,
-            shadowElevation = 12.dp,
-            border = androidx.compose.foundation.BorderStroke(
-                2.dp,
-                Brush.linearGradient(
-                    colors = listOf(
-                        MaterialTheme.colorScheme.primary.copy(alpha = 0.8f),
-                        MaterialTheme.colorScheme.tertiary.copy(alpha = 0.4f),
-                        MaterialTheme.colorScheme.primary.copy(alpha = 0.1f)
-                    )
-                )
-            )
-        ) {
-            Box(
-                modifier = Modifier.fillMaxSize(),
-                contentAlignment = Alignment.Center
-            ) {
-                AnimatedContent(
-                    targetState = page,
-                    transitionSpec = {
-                        fadeIn(tween(ComponentConstants.ICON_TRANSITION_ENTER)) + scaleIn(tween(ComponentConstants.ICON_TRANSITION_ENTER), initialScale = 0.8f) togetherWith
-                                fadeOut(tween(ComponentConstants.ICON_TRANSITION_EXIT)) + scaleOut(tween(ComponentConstants.ICON_TRANSITION_EXIT), targetScale = 1.2f)
-                    },
-                    label = "icon_transition"
-                ) { targetPage ->
-                    if (targetPage.customIconRes != null) {
-                        Icon(
-                            painter = painterResource(id = targetPage.customIconRes),
-                            contentDescription = null,
-                            modifier = Modifier.size(80.dp),
-                            tint = targetPage.accentColor ?: MaterialTheme.colorScheme.primary
-                        )
-                    } else {
-                        Icon(
-                            imageVector = targetPage.icon ?: Icons.Default.Check,
-                            contentDescription = null,
-                            modifier = Modifier.size(64.dp),
-                            tint = targetPage.accentColor ?: MaterialTheme.colorScheme.primary
-                        )
-                    }
-                }
-            }
-        }
-
-        Spacer(Modifier.height(56.dp))
-
-        // Subtitle - Label text
-        Text(
-            text = page.subtitle,
-            style = MaterialTheme.typography.labelLarge,
-            color = page.accentColor ?: MaterialTheme.colorScheme.primary,
-            fontWeight = FontWeight.ExtraBold,
-            letterSpacing = 3.sp,
-            modifier = Modifier.alpha(0.8f)
-        )
-
-        Spacer(Modifier.height(12.dp))
-
-        // Title - Headline
-        Text(
-            text = page.title,
-            style = MaterialTheme.typography.headlineMedium,
-            fontWeight = FontWeight.Black,
-            textAlign = TextAlign.Center,
-            lineHeight = 38.sp,
-            color = MaterialTheme.colorScheme.onSurface
-        )
-
-        Spacer(Modifier.height(20.dp))
-
-        // Description
-        Text(
-            text = page.description,
-            style = MaterialTheme.typography.bodyLarge,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            textAlign = TextAlign.Center,
-            lineHeight = 26.sp,
-            modifier = Modifier.padding(horizontal = 8.dp)
-        )
-
-        Spacer(Modifier.weight(0.7f))
-    }
-}
-
-/**
- * A modern page indicator dot that expands when active.
+ * Selection state is communicated purely via:
+ *  - Border: primary color when selected, outline-variant when not
+ *  - Background: surfaceContainerHighest when selected, surfaceContainerHigh when not
+ *  - Tonal elevation
  *
- * @param isActive Whether this indicator represents the current page.
- * @param isPast Whether this indicator represents a page the user has already seen.
- * @param onClick Callback when the indicator is tapped.
+ * Ball values are shown as real colored pool-ball circles (balls 1–8) with the
+ * point value and "pts" label rendered BELOW the ball in a plain Column —
+ * no clipping, no scale transforms that shrink layout bounds.
  */
 @Composable
-fun EnhancedPageIndicator(
-    isActive: Boolean,
-    isPast: Boolean,
+fun PointsSystemCard(
+    option: PointsSystemOption,
+    isSelected: Boolean,
     onClick: () -> Unit
 ) {
     val haptic = LocalHapticFeedback.current
-    
-    val width by animateDpAsState(
-        targetValue = if (isActive) 32.dp else 8.dp,
-        animationSpec = spring(
-            dampingRatio = Spring.DampingRatioMediumBouncy,
-            stiffness = Spring.StiffnessMedium
-        ),
-        label = "indicator_width"
+
+    val borderColor by animateColorAsState(
+        targetValue = if (isSelected)
+            MaterialTheme.colorScheme.primary
+        else
+            MaterialTheme.colorScheme.outlineVariant,
+        animationSpec = tween(220),
+        label = "border_${option.name}"
     )
 
-    val alpha by animateFloatAsState(
-        targetValue = when {
-            isActive -> 1f
-            isPast -> 0.6f
-            else -> 0.3f
+    val containerColor by animateColorAsState(
+        targetValue = if (isSelected)
+            MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.45f)
+        else
+            MaterialTheme.colorScheme.surfaceContainerHigh,
+        animationSpec = tween(220),
+        label = "bg_${option.name}"
+    )
+
+    Surface(
+        onClick = {
+            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+            onClick()
         },
-        label = "indicator_alpha"
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(16.dp),
+        color = containerColor,
+        border = BorderStroke(
+            width = if (isSelected) 2.dp else 1.dp,
+            color = borderColor
+        ),
+        tonalElevation = if (isSelected) 3.dp else 0.dp
+    ) {
+        Column(
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 16.dp)
+        ) {
+            // ── TOP ROW: name + badge + checkmark ──────────────────────────
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Text(
+                        text = option.name,
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.ExtraBold,
+                        color = if (isSelected)
+                            MaterialTheme.colorScheme.primary
+                        else
+                            MaterialTheme.colorScheme.onSurface
+                    )
+
+                    if (option.isDefault) {
+                        Surface(
+                            shape = RoundedCornerShape(6.dp),
+                            color = MaterialTheme.colorScheme.primary
+                        ) {
+                            Text(
+                                text = "DEFAULT",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onPrimary,
+                                fontWeight = FontWeight.Bold,
+                                letterSpacing = 0.8.sp,
+                                modifier = Modifier.padding(horizontal = 7.dp, vertical = 3.dp)
+                            )
+                        }
+                    }
+                }
+
+                // Checkmark circle
+                SelectionIndicator(isSelected = isSelected)
+            }
+
+            Spacer(Modifier.height(2.dp))
+
+            // ── TAGLINE ─────────────────────────────────────────────────────
+            Text(
+                text = option.tagline,
+                style = MaterialTheme.typography.bodyMedium,
+                color = if (isSelected)
+                    MaterialTheme.colorScheme.primary
+                else
+                    MaterialTheme.colorScheme.onSurfaceVariant,
+                fontWeight = FontWeight.Medium
+            )
+
+            Spacer(Modifier.height(16.dp))
+
+            // ── BALL GRID: 2 rows of 4 ──────────────────────────────────────
+            // Use a fixed-structure Column → Row layout.
+            // No scale() wrappers → layout bounds are never compressed → text always visible.
+            val allBalls = option.keyValues.entries.toList()
+            val topRow = allBalls.take(4)
+            val bottomRow = allBalls.drop(4).take(4)
+
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                // Row 1: balls 1–4
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceEvenly
+                ) {
+                    topRow.forEach { (ball, pts) ->
+                        PoolBallCell(ball = ball, pts = pts, isSelected = isSelected)
+                    }
+                }
+                // Row 2: balls 5–8
+                if (bottomRow.isNotEmpty()) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceEvenly
+                    ) {
+                        bottomRow.forEach { (ball, pts) ->
+                            PoolBallCell(ball = ball, pts = pts, isSelected = isSelected)
+                        }
+                    }
+                }
+            }
+
+            Spacer(Modifier.height(14.dp))
+
+            HorizontalDivider(
+                color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
+            )
+
+            Spacer(Modifier.height(10.dp))
+
+            // ── DESCRIPTION ─────────────────────────────────────────────────
+            Text(
+                text = option.description,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                lineHeight = 18.sp
+            )
+        }
+    }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// POOL BALL CELL
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * A single pool ball shown as a colored circle with number inside,
+ * then the point value and "pts" label BELOW in a Column.
+ *
+ * Layout is entirely in a Column — no Box layering that could cause clipping.
+ * The ball number text is on TOP of the ball color via contentAlignment.
+ */
+@Composable
+private fun PoolBallCell(
+    ball: Int,
+    pts: Int,
+    isSelected: Boolean
+) {
+    val ballColor = BallColors.getBallColor(ball)
+
+    // Yellow (1,9) and Orange (5,13) need dark text; everything else uses white
+    val labelOnBall = when (ball) {
+        1, 5, 9, 13 -> Color(0xFF1C1B1F)
+        else -> Color.White
+    }
+
+    val valueColor by animateColorAsState(
+        targetValue = if (isSelected)
+            MaterialTheme.colorScheme.primary
+        else
+            MaterialTheme.colorScheme.onSurface,
+        animationSpec = tween(200),
+        label = "val_$ball"
+    )
+
+    // The entire cell: ball circle + value + pts label
+    // All in one Column, nothing overlapping → text is always fully visible
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(0.dp),
+        modifier = Modifier.width(52.dp)          // fixed width keeps SpaceEvenly predictable
+    ) {
+
+        // ── Colored ball circle ────────────────────────────────────────
+        Box(
+            modifier = Modifier
+                .size(40.dp)
+                .clip(CircleShape)
+                .background(ballColor),
+            contentAlignment = Alignment.Center
+        ) {
+            Text(
+                text = "$ball",
+                color = labelOnBall,
+                fontWeight = FontWeight.ExtraBold,
+                fontSize = 15.sp,
+                lineHeight = 15.sp
+            )
+        }
+
+        Spacer(Modifier.height(4.dp))
+
+        // ── Point value ────────────────────────────────────────────────
+        Text(
+            text = "$pts",
+            fontWeight = FontWeight.ExtraBold,
+            fontSize = 14.sp,
+            lineHeight = 14.sp,
+            color = valueColor
+        )
+
+        // ── "pts" micro label ──────────────────────────────────────────
+        Text(
+            text = "pts",
+            fontSize = 9.sp,
+            lineHeight = 9.sp,
+            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.55f)
+        )
+    }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// SELECTION INDICATOR
+// ─────────────────────────────────────────────────────────────────────────────
+
+@Composable
+private fun SelectionIndicator(isSelected: Boolean) {
+    val bgColor by animateColorAsState(
+        targetValue = if (isSelected)
+            MaterialTheme.colorScheme.primary
+        else
+            MaterialTheme.colorScheme.surfaceContainerHighest,
+        animationSpec = tween(220),
+        label = "sel_bg"
+    )
+    val borderColor by animateColorAsState(
+        targetValue = if (isSelected)
+            MaterialTheme.colorScheme.primary
+        else
+            MaterialTheme.colorScheme.outline,
+        animationSpec = tween(220),
+        label = "sel_border"
     )
 
     Box(
         modifier = Modifier
-            .width(width)
-            .height(8.dp)
-            .alpha(alpha)
+            .size(24.dp)
             .clip(CircleShape)
-            .background(
-                if (isActive) MaterialTheme.colorScheme.primary 
-                else MaterialTheme.colorScheme.outlineVariant
-            )
-            .pointerInput(Unit) {
-                detectTapGestures {
-                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                    onClick()
-                }
-            }
-    )
-}
-
-/**
- * A prominent call-to-action button with a pulsing animation and subtle glow.
- *
- * @param onClick Callback when the button is clicked.
- */
-@Composable
-fun PulsingGetStartedButton(onClick: () -> Unit) {
-    val infiniteTransition = rememberInfiniteTransition(label = "pulse")
-    val pulseScale by infiniteTransition.animateFloat(
-        initialValue = 1f,
-        targetValue = 1.05f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(ComponentConstants.PULSE_DURATION, easing = FastOutSlowInEasing),
-            repeatMode = RepeatMode.Reverse
-        ),
-        label = "pulse_scale"
-    )
-    
-    val glowAlpha by infiniteTransition.animateFloat(
-        initialValue = 0.05f,
-        targetValue = 0.2f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(ComponentConstants.PULSE_DURATION, easing = FastOutSlowInEasing),
-            repeatMode = RepeatMode.Reverse
-        ),
-        label = "glow_alpha"
-    )
-
-    Box(contentAlignment = Alignment.Center, modifier = Modifier.fillMaxWidth()) {
-        // Subtle background glow
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(60.dp)
-                .scale(pulseScale)
-                .alpha(glowAlpha)
-                .background(MaterialTheme.colorScheme.primary, RoundedCornerShape(20.dp))
-        )
-        
-        Button(
-            onClick = onClick,
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(56.dp),
-            shape = RoundedCornerShape(18.dp),
-            colors = ButtonDefaults.buttonColors(
-                containerColor = MaterialTheme.colorScheme.primary,
-                contentColor = MaterialTheme.colorScheme.onPrimary
-            ),
-            elevation = ButtonDefaults.buttonElevation(defaultElevation = 4.dp)
-        ) {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.Center
-            ) {
-                Text(
-                    "GET STARTED",
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.ExtraBold,
-                    letterSpacing = 1.5.sp
-                )
-                Spacer(Modifier.width(12.dp))
-                Icon(
-                    Icons.AutoMirrored.Filled.ArrowForward,
-                    null,
-                    modifier = Modifier.size(20.dp)
-                )
-            }
-        }
-    }
-}
-
-/**
- * Ambient background animation featuring floating white particles.
- * Motion is subtly linked to the current time and page state.
- *
- * @param pagerState Current [PagerState] to potentially link motion to swipe gestures.
- */
-@OptIn(ExperimentalFoundationApi::class)
-@Composable
-fun AnimatedBackgroundParticles(pagerState: PagerState) {
-    val particles = remember {
-        List(25) { index ->
-            Particle(
-                id = index,
-                startX = Random.nextFloat(),
-                startY = Random.nextFloat(),
-                speed = Random.nextFloat() * 0.3f + 0.2f,
-                size = Random.nextFloat() * 4f + 2f,
-                alpha = Random.nextFloat() * 0.25f + 0.05f
-            )
-        }
-    }
-
-    val infiniteTransition = rememberInfiniteTransition(label = "particles")
-    val animatedTime by infiniteTransition.animateFloat(
-        initialValue = 0f,
-        targetValue = 1f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(ComponentConstants.PARTICLE_CYCLE_DURATION, easing = LinearEasing),
-            repeatMode = RepeatMode.Restart
-        ),
-        label = "time"
-    )
-
-    Canvas(
-        modifier = Modifier
-            .fillMaxSize()
-            .alpha(0.3f)
+            .background(bgColor),
+        contentAlignment = Alignment.Center
     ) {
-        val width = size.width
-        val height = size.height
+        if (!isSelected) {
+            // Unselected: show hairline border ring by layering a smaller clip
+            Box(
+                modifier = Modifier
+                    .size(22.dp)
+                    .clip(CircleShape)
+                    .background(MaterialTheme.colorScheme.surfaceContainerHigh)
+            )
+        } else {
+            Icon(
+                imageVector = Icons.Default.Check,
+                contentDescription = "Selected",
+                tint = MaterialTheme.colorScheme.onPrimary,
+                modifier = Modifier.size(14.dp)
+            )
+        }
+    }
+}
 
-        particles.forEach { particle ->
-            val progress = (animatedTime * particle.speed) % 1f
-            val x = particle.startX * width + (progress * width * 0.05f)
-            val y = (particle.startY + progress) * height % height
+// ─────────────────────────────────────────────────────────────────────────────
+// GET STARTED BUTTON  (clean M3 FilledButton)
+// ─────────────────────────────────────────────────────────────────────────────
 
-            drawCircle(
-                color = Color.White,
-                radius = particle.size,
-                center = Offset(x, y),
-                alpha = particle.alpha
+@Composable
+fun PulsingGetStartedButton(
+    enabled: Boolean,
+    onClick: () -> Unit
+) {
+    val haptic = LocalHapticFeedback.current
+
+    Button(
+        onClick = {
+            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+            onClick()
+        },
+        enabled = enabled,
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(56.dp),
+        shape = RoundedCornerShape(16.dp),
+        colors = ButtonDefaults.buttonColors(
+            containerColor = MaterialTheme.colorScheme.primary,
+            contentColor = MaterialTheme.colorScheme.onPrimary
+        ),
+        elevation = ButtonDefaults.buttonElevation(defaultElevation = 2.dp)
+    ) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.Center
+        ) {
+            Text(
+                text = "Let's Play",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold
+            )
+            Spacer(Modifier.width(10.dp))
+            Icon(
+                Icons.AutoMirrored.Filled.ArrowForward,
+                contentDescription = null,
+                modifier = Modifier.size(18.dp)
             )
         }
     }

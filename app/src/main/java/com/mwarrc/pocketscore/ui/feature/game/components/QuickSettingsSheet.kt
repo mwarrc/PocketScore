@@ -52,6 +52,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.foundation.background
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.ui.draw.clip
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
 
 /**
  * A bottom sheet for toggling common game-related settings mid-match.
@@ -66,10 +68,19 @@ import androidx.compose.ui.draw.clip
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun QuickSettingsSheet(
-    settings: AppSettings,
-    onUpdateSettings: ((AppSettings) -> AppSettings) -> Unit,
+    initialSettings: AppSettings,
+    onUpdateSettingsBase: ((AppSettings) -> AppSettings) -> Unit,
     onDismiss: () -> Unit
 ) {
+    var settings by remember(initialSettings) { androidx.compose.runtime.mutableStateOf(initialSettings) }
+    var showDisablePoolDialog by remember { androidx.compose.runtime.mutableStateOf(false) }
+    
+    val handleUpdateSettings: ((AppSettings) -> AppSettings) -> Unit = { updater ->
+        val updated = updater(settings)
+        settings = updated
+        onUpdateSettingsBase { updater(it) }
+    }
+
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val scrollState = rememberScrollState()
 
@@ -82,10 +93,13 @@ fun QuickSettingsSheet(
     val trueScreenHeightDp = with(density) {
         context.resources.displayMetrics.heightPixels.toDp()
     }
-    // We want a significant portion of the game screen visible above the sheet.
-    // Increased gap to 120dp to ensure it clears all punchhole/notch variations 
-    // and feels like a floating panel.
-    val maxContentHeight = trueScreenHeightDp - 100.dp
+    val statusBarHeight = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
+    val cutoutHeight = WindowInsets.displayCutout.asPaddingValues().calculateTopPadding()
+    val topSafeInset = maxOf(statusBarHeight, cutoutHeight)
+    
+    // Limit to just below the status bar with a small extra margin (8dp)
+    // This ensures dialogs never overlap with system UI / dynamic island.
+    val maxContentHeight = trueScreenHeightDp - topSafeInset - 8.dp
 
     // --- Drag handle offset ---
     val statusBarTop = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
@@ -100,7 +114,9 @@ fun QuickSettingsSheet(
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(top = 12.dp, bottom = 20.dp), // Reduced top padding here because the sheet is capped lower
+                    .statusBarsPadding()
+                    .displayCutoutPadding()
+                    .padding(top = 8.dp, bottom = 12.dp),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
                 Box(
@@ -165,7 +181,7 @@ fun QuickSettingsSheet(
                     IconButton(
                         onClick = {
                             val nextTheme = if (isDark) AppTheme.LIGHT else AppTheme.DARK
-                            onUpdateSettings { it.copy(appTheme = nextTheme) }
+                            handleUpdateSettings { it.copy(appTheme = nextTheme) }
                         },
                         colors = IconButtonDefaults.filledTonalIconButtonColors(
                             containerColor = MaterialTheme.colorScheme.surfaceContainerHigh
@@ -215,10 +231,13 @@ fun QuickSettingsSheet(
                         enabled = !settings.enforceStrictMode,
                         checked = settings.strictTurnMode,
                         onCheckedChange = { enabled ->
-                            onUpdateSettings { 
+                            handleUpdateSettings { 
                                 var newSettings = it.copy(strictTurnMode = enabled)
                                 if (enabled) {
-                                    newSettings = newSettings.copy(autoNextTurn = true)
+                                    newSettings = newSettings.copy(
+                                        autoNextTurn = true,
+                                        autoAdvanceOnNegativeOnly = false
+                                    )
                                 }
                                 newSettings
                             }
@@ -240,11 +259,77 @@ fun QuickSettingsSheet(
                         enabled = !settings.strictTurnMode, 
                         checked = settings.autoNextTurn || settings.strictTurnMode,
                         onCheckedChange = { enabled ->
-                            onUpdateSettings { it.copy(autoNextTurn = enabled) }
+                            handleUpdateSettings { it.copy(autoNextTurn = enabled) }
                         }
                     )
                 }
             )
+
+            if (settings.autoNextTurn || settings.strictTurnMode) {
+                Column(
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp),
+                    verticalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    Text("Auto-Advance Trigger", style = MaterialTheme.typography.titleMedium)
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        if (!settings.autoAdvanceOnNegativeOnly) {
+                            Button(
+                                modifier = Modifier.weight(1f),
+                                onClick = { /* Already selected */ },
+                                shape = RoundedCornerShape(12.dp)
+                            ) {
+                                Text("Any Score")
+                            }
+                        } else {
+                            OutlinedButton(
+                                modifier = Modifier.weight(1f),
+                                onClick = {
+                                    handleUpdateSettings { it.copy(autoAdvanceOnNegativeOnly = false) }
+                                },
+                                enabled = !settings.strictTurnMode,
+                                shape = RoundedCornerShape(12.dp)
+                            ) {
+                                Text("Any Score")
+                            }
+                        }
+
+                        if (settings.autoAdvanceOnNegativeOnly) {
+                            Button(
+                                modifier = Modifier.weight(1f),
+                                onClick = { /* Already selected */ },
+                                enabled = !settings.strictTurnMode,
+                                shape = RoundedCornerShape(12.dp),
+                                colors = androidx.compose.material3.ButtonDefaults.buttonColors(
+                                    containerColor = MaterialTheme.colorScheme.error
+                                )
+                            ) {
+                                Text("Negative Only")
+                            }
+                        } else {
+                            OutlinedButton(
+                                modifier = Modifier.weight(1f),
+                                onClick = {
+                                    handleUpdateSettings { it.copy(autoAdvanceOnNegativeOnly = true) }
+                                },
+                                enabled = !settings.strictTurnMode,
+                                shape = RoundedCornerShape(12.dp),
+                                colors = androidx.compose.material3.ButtonDefaults.outlinedButtonColors(
+                                    contentColor = MaterialTheme.colorScheme.error
+                                ),
+                                border = androidx.compose.foundation.BorderStroke(
+                                    1.dp,
+                                    MaterialTheme.colorScheme.error
+                                )
+                            ) {
+                                Text("Negative Only")
+                            }
+                        }
+                    }
+                }
+            }
 
             SettingsItem(
                 title = "Pool Ball Management",
@@ -254,8 +339,17 @@ fun QuickSettingsSheet(
                     Switch(
                         checked = settings.poolBallManagementEnabled,
                         onCheckedChange = { enabled ->
-                            onUpdateSettings { it.copy(poolBallManagementEnabled = enabled) }
-                        }
+                            if (!enabled) {
+                                showDisablePoolDialog = true
+                            } else {
+                                handleUpdateSettings { it.copy(poolBallManagementEnabled = true) }
+                            }
+                        },
+                        colors = androidx.compose.material3.SwitchDefaults.colors(
+                            uncheckedThumbColor = if (!settings.poolBallManagementEnabled) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.surface,
+                            uncheckedTrackColor = if (!settings.poolBallManagementEnabled) MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.7f) else MaterialTheme.colorScheme.surfaceVariant,
+                            uncheckedBorderColor = if (!settings.poolBallManagementEnabled) MaterialTheme.colorScheme.error.copy(alpha = 0.4f) else androidx.compose.ui.graphics.Color.Transparent
+                        )
                     )
                 }
             )
@@ -269,7 +363,7 @@ fun QuickSettingsSheet(
                         Switch(
                             checked = settings.autoRemovePoolBalls,
                             onCheckedChange = { enabled ->
-                                onUpdateSettings { it.copy(autoRemovePoolBalls = enabled) }
+                                handleUpdateSettings { it.copy(autoRemovePoolBalls = enabled) }
                             }
                         )
                     }
@@ -284,7 +378,7 @@ fun QuickSettingsSheet(
                             Switch(
                                 checked = settings.allowEliminatedInput,
                                 onCheckedChange = { enabled ->
-                                    onUpdateSettings { it.copy(allowEliminatedInput = enabled) }
+                                    handleUpdateSettings { it.copy(allowEliminatedInput = enabled) }
                                 }
                             )
                         }
@@ -300,6 +394,45 @@ fun QuickSettingsSheet(
                 fontWeight = FontWeight.Bold,
                 modifier = Modifier.padding(start = 4.dp, top = 8.dp)
             )
+
+            Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp, vertical = 8.dp)) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text("Global App Scale (Zoom)", style = MaterialTheme.typography.titleMedium)
+                        Text(
+                            "Adjust UI size",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                    
+                    val displayValue = String.format(java.util.Locale.US, "%.2fx", settings.globalScale)
+                    val isDefault = kotlin.math.abs(settings.globalScale - 1.0f) < 0.02f
+                    
+                    androidx.compose.material3.TextButton(
+                        onClick = { handleUpdateSettings { it.copy(globalScale = 1.0f) } },
+                        enabled = !isDefault
+                    ) {
+                        Text(if (isDefault) "Default" else "Reset ($displayValue)")
+                    }
+                }
+                
+                var localSliderValue by remember(settings.globalScale) { androidx.compose.runtime.mutableFloatStateOf(settings.globalScale) }
+                androidx.compose.material3.Slider(
+                    value = localSliderValue,
+                    onValueChange = { localSliderValue = Math.round(it * 20f) / 20f },
+                    onValueChangeFinished = {
+                        handleUpdateSettings { it.copy(globalScale = localSliderValue) }
+                    },
+                    valueRange = AppSettings.MIN_GLOBAL_SCALE..AppSettings.MAX_GLOBAL_SCALE,
+                    steps = 13,
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
 
             Column(
                 modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp, vertical = 8.dp),
@@ -324,7 +457,7 @@ fun QuickSettingsSheet(
                         OutlinedButton(
                             modifier = Modifier.weight(1f),
                             onClick = {
-                                onUpdateSettings { it.copy(defaultLayout = ScoreboardLayout.LIST) }
+                                handleUpdateSettings { it.copy(defaultLayout = ScoreboardLayout.LIST) }
                             },
                             shape = RoundedCornerShape(12.dp)
                         ) {
@@ -348,7 +481,7 @@ fun QuickSettingsSheet(
                         OutlinedButton(
                             modifier = Modifier.weight(1f),
                             onClick = {
-                                onUpdateSettings { it.copy(defaultLayout = ScoreboardLayout.GRID) }
+                                handleUpdateSettings { it.copy(defaultLayout = ScoreboardLayout.GRID) }
                             },
                             shape = RoundedCornerShape(12.dp)
                         ) {
@@ -368,7 +501,7 @@ fun QuickSettingsSheet(
                     Switch(
                         checked = settings.leaderSpotlightEnabled || settings.loserSpotlightEnabled,
                         onCheckedChange = { enabled ->
-                            onUpdateSettings { 
+                            handleUpdateSettings { 
                                 it.copy(
                                     leaderSpotlightEnabled = enabled,
                                     loserSpotlightEnabled = enabled
@@ -387,7 +520,7 @@ fun QuickSettingsSheet(
                     Switch(
                         checked = settings.autoScrollToActivePlayer,
                         onCheckedChange = { enabled ->
-                            onUpdateSettings { it.copy(autoScrollToActivePlayer = enabled) }
+                            handleUpdateSettings { it.copy(autoScrollToActivePlayer = enabled) }
                         }
                     )
                 }
@@ -401,7 +534,7 @@ fun QuickSettingsSheet(
                     Switch(
                         checked = settings.useCustomKeyboard,
                         onCheckedChange = { enabled ->
-                            onUpdateSettings { it.copy(useCustomKeyboard = enabled) }
+                            handleUpdateSettings { it.copy(useCustomKeyboard = enabled) }
                         }
                     )
                 }
@@ -415,12 +548,34 @@ fun QuickSettingsSheet(
                     Switch(
                         checked = settings.showHelpInNavBar,
                         onCheckedChange = { enabled ->
-                            onUpdateSettings { it.copy(showHelpInNavBar = enabled) }
+                            handleUpdateSettings { it.copy(showHelpInNavBar = enabled) }
                         }
                     )
                 }
             )
         }
     }
-}
 
+    if (showDisablePoolDialog) {
+        androidx.compose.material3.AlertDialog(
+            onDismissRequest = { showDisablePoolDialog = false },
+            icon = { Icon(Icons.Default.SportsEsports, null, tint = MaterialTheme.colorScheme.error) },
+            title = { Text("Disable Pool Management?") },
+            text = {
+                Text("Turning this off will remove the specialized pool tracking interface from your match screen, including ball remaining indicators and automatic point calculation based on balls.")
+            },
+            confirmButton = {
+                androidx.compose.material3.Button(
+                    onClick = {
+                        handleUpdateSettings { it.copy(poolBallManagementEnabled = false) }
+                        showDisablePoolDialog = false
+                    },
+                    colors = androidx.compose.material3.ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
+                ) { Text("Disable") }
+            },
+            dismissButton = {
+                androidx.compose.material3.TextButton(onClick = { showDisablePoolDialog = false }) { Text("Keep Enabled") }
+            }
+        )
+    }
+}

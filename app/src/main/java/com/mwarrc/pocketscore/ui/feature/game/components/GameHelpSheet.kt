@@ -19,6 +19,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.mwarrc.pocketscore.ui.util.ImmersiveMode
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalContext
 
 /**
  * An educational bottom sheet that explains the game's unique features.
@@ -34,10 +37,39 @@ fun GameHelpSheet(
     onDismiss: () -> Unit
 ) {
     val scrollState = rememberScrollState()
+    // --- Dynamic Safe Area Height Calculation ---
+    val density = LocalDensity.current
+    val context = LocalContext.current
+    val trueScreenHeightDp = with(density) {
+        context.resources.displayMetrics.heightPixels.toDp()
+    }
+    val statusBarHeight = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
+    val cutoutHeight = WindowInsets.displayCutout.asPaddingValues().calculateTopPadding()
+    val topSafeInset = maxOf(statusBarHeight, cutoutHeight)
+    
+    val maxContentHeight = trueScreenHeightDp - topSafeInset - 8.dp
+
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
-        dragHandle = { BottomSheetDefaults.DragHandle() },
+        dragHandle = {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .statusBarsPadding()
+                    .displayCutoutPadding()
+                    .padding(top = 8.dp, bottom = 12.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                Box(
+                    modifier = Modifier
+                        .width(40.dp)
+                        .height(4.dp)
+                        .clip(CircleShape)
+                        .background(MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f))
+                )
+            }
+        },
         containerColor = MaterialTheme.colorScheme.surface,
         shape = RoundedCornerShape(topStart = 32.dp, topEnd = 32.dp)
     ) {
@@ -45,9 +77,7 @@ fun GameHelpSheet(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .statusBarsPadding()
-                .systemBarsPadding()
-                .displayCutoutPadding()
+                .heightIn(max = maxContentHeight)
                 .navigationBarsPadding()
                 .verticalScroll(scrollState)
                 .padding(horizontal = 24.dp)
@@ -89,7 +119,7 @@ fun GameHelpSheet(
 
             // Sections
             Text(
-                "MATCH INSIGHTS",
+                "TABLE & MATCH INTELLIGENCE",
                 style = MaterialTheme.typography.labelLarge,
                 color = MaterialTheme.colorScheme.primary,
                 fontWeight = FontWeight.Bold,
@@ -97,19 +127,25 @@ fun GameHelpSheet(
             )
 
             HelpItem(
-                icon = Icons.Default.Analytics,
-                title = "Pool Probabilities",
-                description = "Track which balls are on the table. The app automatically calculates remaining points and warns you when a win is mathematically impossible."
+                icon = Icons.Default.AutoAwesome,
+                title = "Auto-Remove & Probabilities",
+                description = "In pool games, scoring perfectly matching points auto-removes the ball from the table. Tap 'Balls Remaining' to recalculate mathematically impossible comebacks."
+            )
+
+            HelpItem(
+                icon = Icons.Default.EmojiEvents,
+                title = "Early Winner Detection",
+                description = "The app computes 'Last Man Standing' and early clearances. If players trailing safely can't catch the leader using the remaining balls, the match automatically ends."
             )
 
             HelpItem(
                 icon = Icons.Default.Palette,
-                title = "Live Spotlights",
-                description = "Winners (Leaders) and Underdogs (Losers) are dynamically highlighted with premium badges and glowing card backgrounds."
+                title = "Dynamic Live Spotlights",
+                description = "Watch the leaderboards glow! Leaders receive a gold spotlight and badge. Losers or eliminated players receive a red alert. Ties are dynamically tracked in real time."
             )
 
             Text(
-                "SCORING TOOLS",
+                "ADVANCED SCORING WORKFLOWS",
                 style = MaterialTheme.typography.labelLarge,
                 color = MaterialTheme.colorScheme.primary,
                 fontWeight = FontWeight.Bold,
@@ -117,19 +153,25 @@ fun GameHelpSheet(
             )
 
             HelpItem(
+                icon = Icons.Default.Keyboard,
+                title = "Rapid Numpad Pinning",
+                description = "Instead of opening and closing the keyboard per player, open the custom numpad and tap the 'Pin' icon. The numpad remains open so you can shotgun scores consecutively!"
+            )
+
+            HelpItem(
                 icon = Icons.Default.Calculate,
-                title = "Smart Math Tool",
-                description = "Enter complex strings like '1+7+8' directly. The app calculates the sum and lets you apply it to any player with one tap."
+                title = "Smart Score Calculation",
+                description = "Need to enter a complex score like '7+1+8'? Open the Quick Calculator tool from the bottom bar, sum it up, and tap a player's row to apply it instantly."
             )
 
             HelpItem(
                 icon = Icons.AutoMirrored.Filled.Undo,
-                title = "Contextual Undo",
-                description = "Mistakes happen. Undo doesn't just revert points; it returns the turn to the right person and updates all probability data."
+                title = "Chronological Quick Undo",
+                description = "Made a mistake? Just hit Undo. Every event is mapped, so it won't just subtract points — it physically reverses the turn order and recalculates table balls too."
             )
 
             Text(
-                "RULES & PRIVACY",
+                "SECURITY & PROGRESS PRESERVATION",
                 style = MaterialTheme.typography.labelLarge,
                 color = MaterialTheme.colorScheme.primary,
                 fontWeight = FontWeight.Bold,
@@ -139,13 +181,13 @@ fun GameHelpSheet(
             HelpItem(
                 icon = Icons.Default.Lock,
                 title = "Strict Turn Security",
-                description = "Lock scoring to the current player only. Prevents manual tampering and ensures a legitimate competitive session."
+                description = "Enable Strict Mode in settings. The scoreboard completely disables scoring for inactive players, meaning nobody can accidentally hit the wrong row during intense matches."
             )
 
             HelpItem(
-                icon = Icons.Default.Groups,
-                title = "Guest Sessions",
-                description = "Perfect for public scoreboards or warmups. Play without cluttering your history with temporary rounds."
+                icon = Icons.Default.Save,
+                title = "Guest Override Capability",
+                description = "Playing in Guest Mode to avoid clutter? If an unexpected legendary game happens, don't worry! Toggle 'Override Guest Status' in the final match screen to force-save the history permanently."
             )
 
             Spacer(Modifier.height(16.dp))

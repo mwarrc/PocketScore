@@ -26,60 +26,66 @@ import com.mwarrc.pocketscore.domain.model.GameState
 @Composable
 fun ResumeGameDialog(
     onDismiss: () -> Unit,
-    onConfirm: (Boolean) -> Unit
+    onConfirm: () -> Unit
 ) {
     AlertDialog(
         onDismissRequest = onDismiss,
-        icon = { Icon(Icons.Default.Restore, null, tint = MaterialTheme.colorScheme.primary) },
-        title = { Text("How to Resume?") },
-        text = {
-            Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
-                Text(
-                    text = "Choose how you'd like to rejoin this match session.",
-                    style = MaterialTheme.typography.bodyMedium
-                )
-
-                // Option 1: Resume as new record
-                Button(
-                    onClick = { onConfirm(false) },
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(12.dp),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = MaterialTheme.colorScheme.primaryContainer,
-                        contentColor = MaterialTheme.colorScheme.onPrimaryContainer
+        icon = { 
+            Surface(
+                color = MaterialTheme.colorScheme.primaryContainer,
+                shape = RoundedCornerShape(12.dp),
+                modifier = Modifier.size(48.dp)
+            ) {
+                Box(contentAlignment = Alignment.Center) {
+                    Icon(
+                        Icons.Default.Restore, 
+                        null, 
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(24.dp)
                     )
-                ) {
-                    Icon(Icons.Default.History, null, modifier = Modifier.size(18.dp))
-                    Spacer(Modifier.width(12.dp))
-                    Column(horizontalAlignment = Alignment.Start) {
-                        Text("Resume (New Entry)", fontWeight = FontWeight.Bold)
-                        Text("Keep old data as a separate record", style = MaterialTheme.typography.labelSmall)
-                    }
-                }
-
-                // Option 2: Overwrite existing record
-                Button(
-                    onClick = { onConfirm(true) },
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(12.dp),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = MaterialTheme.colorScheme.secondaryContainer,
-                        contentColor = MaterialTheme.colorScheme.onSecondaryContainer
-                    )
-                ) {
-                    Icon(Icons.Default.Refresh, null, modifier = Modifier.size(18.dp))
-                    Spacer(Modifier.width(12.dp))
-                    Column(horizontalAlignment = Alignment.Start) {
-                        Text("Replace Game", fontWeight = FontWeight.Bold)
-                        Text("Overwrite and continue old session", style = MaterialTheme.typography.labelSmall)
-                    }
                 }
             }
         },
-        confirmButton = {},
+        title = { 
+            Text(
+                "Resume Match?", 
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.Bold
+            ) 
+        },
+        text = {
+            Text(
+                "Restoring this match will return you to the Game Screen. Previous scores and player standings will be preserved exactly where you left off.",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        },
+        confirmButton = {
+            Button(
+                onClick = onConfirm,
+                modifier = Modifier.fillMaxWidth().height(52.dp),
+                shape = RoundedCornerShape(16.dp),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = MaterialTheme.colorScheme.primary
+                )
+            ) {
+                Text("Resume Now", fontWeight = FontWeight.ExtraBold)
+            }
+        },
         dismissButton = {
-            TextButton(onClick = onDismiss) { Text("Go Back") }
-        }
+            TextButton(
+                onClick = onDismiss,
+                modifier = Modifier.fillMaxWidth()
+            ) { 
+                Text(
+                    "Close", 
+                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
+                ) 
+            }
+        },
+        properties = androidx.compose.ui.window.DialogProperties(
+            usePlatformDefaultWidth = true
+        )
     )
 }
 
@@ -110,6 +116,78 @@ fun DeleteGameDialog(
         },
         dismissButton = {
             TextButton(onClick = onDismiss) { Text("Cancel") }
+        }
+    )
+}
+
+/**
+ * Critical confirmation dialog for bulk deleting multiple matches.
+ * 
+ * @param count Number of matches to be deleted.
+ * @param onDismiss Callback to close the dialog.
+ * @param onConfirm Callback to proceed with deletion.
+ */
+@Composable
+fun DeleteMultipleGamesDialog(
+    count: Int,
+    onDismiss: () -> Unit,
+    onConfirm: () -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        icon = { 
+            Surface(
+                color = MaterialTheme.colorScheme.errorContainer,
+                shape = RoundedCornerShape(12.dp),
+                modifier = Modifier.size(48.dp)
+            ) {
+                Box(contentAlignment = Alignment.Center) {
+                    Icon(
+                        Icons.Default.DeleteForever, 
+                        null, 
+                        tint = MaterialTheme.colorScheme.error,
+                        modifier = Modifier.size(24.dp)
+                    )
+                }
+            }
+        },
+        title = { 
+            Text(
+                "Delete $count Records?", 
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.error
+            ) 
+        },
+        text = {
+            Text(
+                "You are about to delete $count selected match(es) permanently. These records will be erased from history and rankings. This action is irreversible.",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        },
+        confirmButton = {
+            Button(
+                onClick = onConfirm,
+                modifier = Modifier.fillMaxWidth().height(52.dp),
+                shape = RoundedCornerShape(16.dp),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = MaterialTheme.colorScheme.error
+                )
+            ) {
+                Text("Delete $count Records", fontWeight = FontWeight.ExtraBold)
+            }
+        },
+        dismissButton = {
+            TextButton(
+                onClick = onDismiss,
+                modifier = Modifier.fillMaxWidth()
+            ) { 
+                Text(
+                    "Close", 
+                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
+                ) 
+            }
         }
     )
 }

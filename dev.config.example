@@ -1,0 +1,16 @@
+# ============================================================
+#  dev.config.ps1  —  local overrides for PocketScore toolkit
+# ============================================================
+
+# ── Keystore (leave defaults to use the auto-generated dev keystore) ──
+# $KS_PATH    = "C:\keys\pocketscore-release.keystore"
+# $KS_ALIAS   = "pocketscore"
+# $KS_PASS    = "your_store_password"
+# $KS_KEYPASS = "your_key_password"
+
+# ── Override app package if you have a fork/flavor ───────────
+# $PACKAGE    = "com.mwarrc.pocketscore.staging"
+# $ACTIVITY   = "com.mwarrc.pocketscore.MainActivity"
+
+# ── Force a specific ADB path ────────────────────────────────
+# $ADB = "D:\android-sdk\platform-tools\adb.exe"

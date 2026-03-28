@@ -1,18 +1,11 @@
 package com.mwarrc.pocketscore.ui.feature.history.components
 
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.slideInVertically
-import androidx.compose.animation.slideOutVertically
-import androidx.compose.foundation.BorderStroke
+import androidx.compose.animation.*
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.Alignment
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -26,14 +19,15 @@ data class HistoryTab(
 )
 
 /**
- * An elegant floating navigation bar for the History screen.
- * 
- * Features a pill-shaped design with active state highlights and smooth transitions.
- * 
+ * Material 3 expressive NavigationBar for the History screen.
+ *
+ * Always shows labels, uses M3 NavigationBar with animated indicator pill,
+ * and supports hiding during bulk selection mode.
+ *
  * @param tabs List of tabs to display
  * @param selectedIndex Currently active tab index
  * @param onTabClick Callback when a tab is selected
- * @param isVisible Control the visibility of the bar (e.g., hide when in selection mode)
+ * @param isVisible Controls visibility — hidden during selection mode
  */
 @Composable
 fun FloatingHistoryNavBar(
@@ -45,61 +39,42 @@ fun FloatingHistoryNavBar(
 ) {
     AnimatedVisibility(
         visible = isVisible,
-        enter = fadeIn() + slideInVertically(initialOffsetY = { it / 2 }),
-        exit = fadeOut() + slideOutVertically(targetOffsetY = { it / 2 }),
+        enter = fadeIn() + slideInVertically(initialOffsetY = { it }),
+        exit = fadeOut() + slideOutVertically(targetOffsetY = { it }),
         modifier = modifier.fillMaxWidth()
     ) {
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(bottom = 8.dp),
-            contentAlignment = Alignment.Center
+        NavigationBar(
+            containerColor = MaterialTheme.colorScheme.surfaceContainer,
+            contentColor = MaterialTheme.colorScheme.onSurfaceVariant,
+            tonalElevation = 0.dp,
         ) {
-            Surface(
-                color = MaterialTheme.colorScheme.surfaceContainerHighest.copy(alpha = 0.95f),
-                shape = RoundedCornerShape(32.dp),
-                tonalElevation = 8.dp,
-                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f)),
-                modifier = Modifier.padding(horizontal = 16.dp)
-            ) {
-                Row(
-                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 6.dp),
-                    horizontalArrangement = Arrangement.spacedBy(4.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    tabs.forEachIndexed { index, tab ->
-                        val selected = selectedIndex == index
-                        
-                        Surface(
-                            onClick = { onTabClick(index) },
-                            color = if (selected) MaterialTheme.colorScheme.primary else Color.Transparent,
-                            shape = RoundedCornerShape(24.dp),
-                            modifier = Modifier.height(44.dp)
-                        ) {
-                            Row(
-                                modifier = Modifier.padding(horizontal = 16.dp),
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.Center
-                            ) {
-                                Icon(
-                                    tab.icon,
-                                    null,
-                                    modifier = Modifier.size(20.dp),
-                                    tint = if (selected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                                if (selected) {
-                                    Spacer(Modifier.width(8.dp))
-                                    Text(
-                                        text = tab.title,
-                                        style = MaterialTheme.typography.labelLarge,
-                                        fontWeight = FontWeight.Black,
-                                        color = MaterialTheme.colorScheme.onPrimary
-                                    )
-                                }
-                            }
-                        }
-                    }
-                }
+            tabs.forEachIndexed { index, tab ->
+                val selected = selectedIndex == index
+                NavigationBarItem(
+                    selected = selected,
+                    onClick = { onTabClick(index) },
+                    icon = {
+                        Icon(
+                            imageVector = tab.icon,
+                            contentDescription = tab.title
+                        )
+                    },
+                    label = {
+                        Text(
+                            text = tab.title,
+                            style = MaterialTheme.typography.labelMedium,
+                            fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal
+                        )
+                    },
+                    alwaysShowLabel = true,
+                    colors = NavigationBarItemDefaults.colors(
+                        selectedIconColor = MaterialTheme.colorScheme.onSecondaryContainer,
+                        selectedTextColor = MaterialTheme.colorScheme.onSurface,
+                        indicatorColor = MaterialTheme.colorScheme.secondaryContainer,
+                        unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                        unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                )
             }
         }
     }

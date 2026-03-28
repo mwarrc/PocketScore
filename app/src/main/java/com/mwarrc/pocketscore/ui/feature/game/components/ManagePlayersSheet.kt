@@ -62,8 +62,13 @@ fun ManagePlayersSheet(
     val trueScreenHeightDp = with(density) {
         context.resources.displayMetrics.heightPixels.toDp()
     }
-    // Consistent 100dp gap to keep it as a floating panel
-    val maxContentHeight = trueScreenHeightDp - 100.dp
+    val statusBarHeight = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
+    val cutoutHeight = WindowInsets.displayCutout.asPaddingValues().calculateTopPadding()
+    val topSafeInset = maxOf(statusBarHeight, cutoutHeight)
+    
+    // Limit to just below the status bar with a small extra margin (8dp)
+    // This ensures dialogs never overlap with system UI / dynamic island.
+    val maxContentHeight = trueScreenHeightDp - topSafeInset - 8.dp
 
     // displayCutout inset remains valid even in immersive mode (statusBars returns 0)
     val statusBarTop = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
@@ -77,7 +82,9 @@ fun ManagePlayersSheet(
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(top = 12.dp, bottom = 20.dp), // Reduced padding for a tighter look
+                    .statusBarsPadding()
+                    .displayCutoutPadding()
+                    .padding(top = 8.dp, bottom = 12.dp),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
                 Box(

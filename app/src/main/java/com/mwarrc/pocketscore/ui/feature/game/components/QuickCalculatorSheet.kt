@@ -16,6 +16,8 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.background
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.draw.clip
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardOptions
@@ -58,6 +60,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.ClipEntry
 import androidx.compose.ui.platform.LocalClipboard
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
@@ -102,7 +106,7 @@ fun QuickCalculatorSheet(
     onDismiss: () -> Unit
 ) {
     val result = remember(expression) { evaluate(expression.text) }
-    var showNumpad by remember { mutableStateOf(false) }
+
 
     val clipboard = LocalClipboard.current
     val keyboardController = LocalSoftwareKeyboardController.current
@@ -114,38 +118,64 @@ fun QuickCalculatorSheet(
     LaunchedEffect(Unit) {
         kotlinx.coroutines.delay(300)
         focusRequester.requestFocus()
-        if (settings.useCustomKeyboard) {
-            showNumpad = true
-        } else {
-            keyboardController?.show()
-        }
+        keyboardController?.show()
+
     }
 
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
 
     val activePlayers = remember(players) { players.filter { it.isActive } }
-
     val scrollState = rememberScrollState()
+
+    // --- Dynamic Safe Area Height Calculation ---
+    val density = LocalDensity.current
+    val context = LocalContext.current
+    val trueScreenHeightDp = with(density) {
+        context.resources.displayMetrics.heightPixels.toDp()
+    }
+    val statusBarHeight = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
+    val cutoutHeight = WindowInsets.displayCutout.asPaddingValues().calculateTopPadding()
+    val topSafeInset = maxOf(statusBarHeight, cutoutHeight)
+    
+    // Limit to just below the status bar with a small extra margin (8dp)
+    // This ensures dialogs never overlap with system UI / dynamic island.
+    val maxContentHeight = trueScreenHeightDp - topSafeInset - 8.dp
+
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = sheetState,
-        dragHandle = { BottomSheetDefaults.DragHandle() },
+        dragHandle = {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .statusBarsPadding()
+                    .displayCutoutPadding()
+                    .padding(top = 8.dp, bottom = 12.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                Box(
+                    modifier = Modifier
+                        .width(40.dp)
+                        .height(4.dp)
+                        .clip(CircleShape)
+                        .background(MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f))
+                )
+            }
+        },
         containerColor = MaterialTheme.colorScheme.surface
     ) {
         ImmersiveMode()
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .statusBarsPadding()
-                .navigationBarsPadding()
+                .heightIn(max = maxContentHeight) // Capped below status bar
+                .navigationBarsPadding() // Keep nav bar clear if visible
         ) {
             // Scrollable Content Area
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .systemBarsPadding()
-                    .displayCutoutPadding()
-                    .imePadding()
+                    .imePadding() // Adjust for system keyboard
                     .weight(1f, fill = false)
                     .verticalScroll(scrollState)
                     .padding(horizontal = 16.dp),
@@ -157,7 +187,7 @@ fun QuickCalculatorSheet(
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
 
-                Spacer(Modifier.height(16.dp))
+                Spacer(Modifier.height(24.dp))
 
                 Surface(
                     modifier = Modifier
@@ -214,6 +244,8 @@ fun QuickCalculatorSheet(
                     }
                 }
 
+                Spacer(Modifier.height(32.dp))
+
                 BasicTextField(
                     value = expression,
                     onValueChange = { newValue ->
@@ -223,13 +255,9 @@ fun QuickCalculatorSheet(
                     },
                     modifier = Modifier
                         .fillMaxWidth()
-                        .focusRequester(focusRequester)
-                        .onFocusChanged { 
-                            if (it.isFocused && settings.useCustomKeyboard) {
-                                showNumpad = true
-                            }
-                        },
-                    readOnly = settings.useCustomKeyboard,
+                        .focusRequester(focusRequester),
+                    readOnly = false,
+
                     keyboardOptions = KeyboardOptions(
                         keyboardType = KeyboardType.Number,
                         imeAction = androidx.compose.ui.text.input.ImeAction.Done
@@ -246,7 +274,7 @@ fun QuickCalculatorSheet(
                                 .height(56.dp)
                                 .border(
                                     1.dp, 
-                                    if (showNumpad) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline, 
+                                    MaterialTheme.colorScheme.primary, 
                                     RoundedCornerShape(16.dp)
                                 )
                                 .padding(horizontal = 16.dp),
@@ -290,7 +318,7 @@ fun QuickCalculatorSheet(
                     }
                 )
 
-                Spacer(Modifier.height(12.dp))
+                Spacer(Modifier.height(16.dp))
 
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -324,6 +352,8 @@ fun QuickCalculatorSheet(
                         }
                     }
                 }
+                
+                Spacer(Modifier.height(24.dp))
             }
 
             // Quick Score Ribbon (Insertion only)
@@ -419,55 +449,6 @@ fun QuickCalculatorSheet(
                 }
             }
 
-            // Custom Numpad
-            AnimatedVisibility(
-                visible = showNumpad && settings.useCustomKeyboard,
-                enter = expandVertically(),
-                exit = shrinkVertically()
-            ) {
-                ScoreNumpad(
-                    onNumberClick = { char ->
-                        val text = expression.text
-                        val selection = expression.selection
-                        val before = text.substring(0, selection.start)
-                        val after = text.substring(selection.end)
-                        val newText = "$before$char$after"
-                        val newCursorPos = selection.start + char.length
-                        onExpressionChange(TextFieldValue(
-                            text = newText,
-                            selection = TextRange(newCursorPos)
-                        ))
-                    },
-                    onBackspaceClick = {
-                        val text = expression.text
-                        val selection = expression.selection
-                        if (selection.start > 0 || selection.end > selection.start) {
-                            val before = if (selection.start == selection.end) {
-                                text.substring(0, selection.start - 1)
-                            } else {
-                                text.substring(0, selection.start)
-                            }
-                            val after = text.substring(selection.end)
-                            val newText = "$before$after"
-                            val newCursorPos = if (selection.start == selection.end) {
-                                selection.start - 1
-                            } else {
-                                selection.start
-                            }
-                            onExpressionChange(TextFieldValue(
-                                text = newText,
-                                selection = TextRange(newCursorPos)
-                            ))
-                        }
-                    },
-                    onClearClick = { onExpressionChange(TextFieldValue("")) },
-                    onDismiss = { showNumpad = false },
-                    isPinned = false,
-                    onTogglePin = {},
-                    settings = settings,
-                    onUpdateSettings = onUpdateSettings
-                )
-            }
         }
     }
 }

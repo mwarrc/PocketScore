@@ -79,8 +79,8 @@ fun AppearanceSection(
                     )
                 }
                 
-                val displayValue = String.format(java.util.Locale.US, "%.1fx", settings.globalScale)
-                val isDefault = kotlin.math.abs(settings.globalScale - 1.0f) < 0.05f
+                val displayValue = String.format(java.util.Locale.US, "%.2fx", settings.globalScale)
+                val isDefault = kotlin.math.abs(settings.globalScale - 1.0f) < 0.02f
                 
                 TextButton(
                     onClick = { onUpdateSettings { it.copy(globalScale = 1.0f) } },
@@ -96,11 +96,12 @@ fun AppearanceSection(
             
             Slider(
                 value = localSliderValue,
-                onValueChange = { localSliderValue = it },
+                onValueChange = { localSliderValue = Math.round(it * 20f) / 20f },
                 onValueChangeFinished = { 
                     onUpdateSettings { it.copy(globalScale = localSliderValue) }
                 },
                 valueRange = AppSettings.MIN_GLOBAL_SCALE..AppSettings.MAX_GLOBAL_SCALE,
+                steps = 13,
                 modifier = Modifier.fillMaxWidth()
             )
         }
@@ -138,11 +139,11 @@ fun AppearanceSection(
             }
             Spacer(Modifier.height(12.dp))
             SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
-                val options = listOf("System", "Light", "Dark")
+                val options = listOf("Light", "Dark", "System")
                 val selectedIndex = when (settings.appTheme) {
-                    AppTheme.SYSTEM -> 0
-                    AppTheme.LIGHT -> 1
-                    AppTheme.DARK -> 2
+                    AppTheme.LIGHT -> 0
+                    AppTheme.DARK -> 1
+                    AppTheme.SYSTEM -> 2
                 }
                 options.forEachIndexed { index, label ->
                     SegmentedButton(
@@ -152,10 +153,10 @@ fun AppearanceSection(
                         ),
                         onClick = {
                             val newVal = when (index) {
-                                0 -> AppTheme.SYSTEM
-                                1 -> AppTheme.LIGHT
-                                2 -> AppTheme.DARK
-                                else -> AppTheme.SYSTEM
+                                0 -> AppTheme.LIGHT
+                                1 -> AppTheme.DARK
+                                2 -> AppTheme.SYSTEM
+                                else -> AppTheme.LIGHT
                             }
                             onUpdateSettings { it.copy(appTheme = newVal) }
                         },

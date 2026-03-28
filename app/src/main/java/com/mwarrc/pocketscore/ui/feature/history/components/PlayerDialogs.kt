@@ -41,7 +41,10 @@ fun AddPlayerDialog(
                 OutlinedTextField(
                     value = newFriendName,
                     onValueChange = { newValue -> 
-                        newFriendName = newValue.filter { it.isLetterOrDigit() }
+                        val filtered = newValue.filter { it.isLetterOrDigit() }
+                        if (filtered.length <= 14) {
+                            newFriendName = filtered
+                        }
                     },
                     label = { Text("Display Name") },
                     singleLine = true,
@@ -184,7 +187,10 @@ fun RenamePlayerDialog(
                 OutlinedTextField(
                     value = renameValue,
                     onValueChange = { newValue ->
-                        renameValue = newValue.filter { it.isLetterOrDigit() }
+                        val filtered = newValue.filter { it.isLetterOrDigit() }
+                        if (filtered.length <= 14) {
+                            renameValue = filtered
+                        }
                     },
                     label = { Text("Update Name") },
                     singleLine = true,
@@ -212,6 +218,52 @@ fun RenamePlayerDialog(
         dismissButton = {
             TextButton(onClick = onDismiss) { 
                 Text("Cancel") 
+            }
+        }
+    )
+}
+/**
+ * Confirmation dialog for bulk removing multiple players.
+ * 
+ * @param count Number of players selected
+ * @param onDismiss Callback when dialog is dismissed
+ * @param onConfirm Callback when removal is confirmed
+ */
+@Composable
+fun RemoveMultiplePlayersDialog(
+    count: Int,
+    onDismiss: () -> Unit,
+    onConfirm: () -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        icon = { 
+            Icon(
+                Icons.Default.DeleteForever, 
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.error
+            ) 
+        },
+        title = { Text("Remove $count Players?") },
+        text = { 
+            Text(
+                "Are you sure you want to remove these $count players from the active roster? " +
+                "Their match history and statistics will be preserved."
+            ) 
+        },
+        confirmButton = {
+            Button(
+                onClick = onConfirm,
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = MaterialTheme.colorScheme.error
+                )
+            ) { 
+                Text("Remove All") 
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { 
+                Text("Keep Them") 
             }
         }
     )

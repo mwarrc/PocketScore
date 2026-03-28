@@ -92,7 +92,7 @@ fun GameTopBar(
                         color = bgColor,
                         contentColor = contentColor,
                         modifier = Modifier
-                            .height(48.dp) // Bigger touch target
+                            .height(50.dp) // Bigger touch target
                             .widthIn(min = 140.dp), // Wider for presence
                         tonalElevation = 6.dp, // Higher elevation for "glossy"/pop effect
                         shadowElevation = 4.dp,

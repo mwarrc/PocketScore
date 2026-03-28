@@ -1,4 +1,5 @@
 package com.mwarrc.pocketscore.ui.feature.history.components
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
 
 import androidx.compose.animation.*
 import androidx.compose.foundation.background
@@ -6,7 +7,6 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
@@ -16,7 +16,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import com.mwarrc.pocketscore.domain.model.AppSettings
 import com.mwarrc.pocketscore.domain.model.SettlementMethod
@@ -29,6 +28,7 @@ import com.mwarrc.pocketscore.domain.model.SettlementMethod
  * @param settings Current app settings
  * @param onUpdateSettings Callback to update settlement preferences
  */
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun SplitSettingsCard(
     totalAmount: Double,
@@ -174,67 +174,247 @@ private fun SplitSummaryHeader(
 }
 
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun MatchCostEditor(
     matchCost: Double,
     currencySymbol: String,
     onUpdate: ((AppSettings) -> AppSettings) -> Unit
 ) {
-    var symbolText by remember { mutableStateOf(currencySymbol) }
-    var costText by remember(matchCost) { mutableStateOf(if (matchCost % 1.0 == 0.0) matchCost.toInt().toString() else matchCost.toString()) }
+    // Which field is active: null=none, "cost", "symbol"
+    var activeField by remember { mutableStateOf<String?>(null) }
 
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(8.dp)
-    ) {
-        OutlinedTextField(
-            value = costText,
-            onValueChange = { newValue ->
-                if (newValue.isEmpty() || newValue.all { it.isDigit() || it == '.' }) {
-                    if (newValue.count { it == '.' } <= 1) {
-                        costText = newValue
-                        val dValue = newValue.toDoubleOrNull()
-                        if (dValue != null) {
-                            onUpdate { s -> s.copy(matchCost = dValue) }
-                        }
+    var costText by remember(matchCost) {
+        mutableStateOf(if (matchCost % 1.0 == 0.0) matchCost.toInt().toString() else matchCost.toString())
+    }
+    var symbolText by remember(currencySymbol) { mutableStateOf(currencySymbol) }
+
+    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        // ── Display Row ──────────────────────────────────────────────────────
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            // Cost display chip
+            Surface(
+                onClick = { activeField = if (activeField == "cost") null else "cost" },
+                modifier = Modifier.weight(1f),
+                shape = RoundedCornerShape(12.dp),
+                color = if (activeField == "cost")
+                    MaterialTheme.colorScheme.primaryContainer
+                else
+                    MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                border = androidx.compose.foundation.BorderStroke(
+                    1.dp,
+                    if (activeField == "cost") MaterialTheme.colorScheme.primary
+                    else MaterialTheme.colorScheme.outlineVariant
+                )
+            ) {
+                Row(
+                    modifier = Modifier.padding(horizontal = 14.dp, vertical = 12.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = symbolText,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Spacer(Modifier.width(4.dp))
+                    Text(
+                        text = costText.ifEmpty { "0" },
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = if (activeField == "cost")
+                            MaterialTheme.colorScheme.onPrimaryContainer
+                        else
+                            MaterialTheme.colorScheme.onSurface,
+                        modifier = Modifier.weight(1f)
+                    )
+                    Text(
+                        text = "/ match",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+
+            // Currency symbol chips
+            val symbols = listOf("$", "€", "£", "Ksh", "¥")
+            // Show current symbol + presets in a compact row
+            Surface(
+                onClick = { activeField = if (activeField == "symbol") null else "symbol" },
+                shape = RoundedCornerShape(12.dp),
+                color = if (activeField == "symbol")
+                    MaterialTheme.colorScheme.secondaryContainer
+                else
+                    MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                border = androidx.compose.foundation.BorderStroke(
+                    1.dp,
+                    if (activeField == "symbol") MaterialTheme.colorScheme.secondary
+                    else MaterialTheme.colorScheme.outlineVariant
+                )
+            ) {
+                Text(
+                    text = symbolText.ifEmpty { "¤" },
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = if (activeField == "symbol")
+                        MaterialTheme.colorScheme.onSecondaryContainer
+                    else
+                        MaterialTheme.colorScheme.onSurface
+                )
+            }
+        }
+
+        // ── Inline numpad for "cost" ──────────────────────────────────────────
+        AnimatedVisibility(visible = activeField == "cost") {
+            InlineNumpad(
+                value = costText,
+                showDecimal = true,
+                onKey = { key ->
+                    val next = when (key) {
+                        "⌫" -> if (costText.length > 1) costText.dropLast(1) else "0"
+                        "C" -> "0"
+                        "." -> if ("." !in costText) "$costText." else costText
+                        else -> if (costText == "0") key else costText + key
+                    }
+                    costText = next
+                    next.toDoubleOrNull()?.let { v -> onUpdate { s -> s.copy(matchCost = v) } }
+                }
+            )
+        }
+
+        // ── Quick-select symbol chips when "symbol" active ───────────────────
+        AnimatedVisibility(visible = activeField == "symbol") {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                val presets = listOf("$", "€", "£", "Ksh", "¥", "₹", "₩", "₺", "CHF")
+                Text(
+                    "Quick select or type a symbol below",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                androidx.compose.foundation.layout.FlowRow(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    presets.forEach { sym ->
+                        FilterChip(
+                            selected = symbolText == sym,
+                            onClick = {
+                                symbolText = sym
+                                onUpdate { s -> s.copy(currencySymbol = sym) }
+                            },
+                            label = { Text(sym, fontWeight = FontWeight.Bold) }
+                        )
                     }
                 }
-            },
-            label = { Text("Cost per Match") },
-            modifier = Modifier.weight(1f),
-            prefix = { 
-                Text(
-                    text = symbolText,
-                    modifier = Modifier.padding(end = 4.dp),
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                ) 
-            },
-            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-            shape = RoundedCornerShape(12.dp),
-            singleLine = true,
-            colors = OutlinedTextFieldDefaults.colors(
-                focusedBorderColor = MaterialTheme.colorScheme.primary,
-                unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant
-            )
-        )
-        
-        OutlinedTextField(
-            value = symbolText,
-            onValueChange = { newSymbol -> 
-                symbolText = newSymbol
-                onUpdate { s -> s.copy(currencySymbol = newSymbol) } 
-            },
-            label = { Text("Symbol") },
-            modifier = Modifier.width(90.dp),
-            shape = RoundedCornerShape(12.dp),
-            singleLine = true,
-            colors = OutlinedTextFieldDefaults.colors(
-                focusedBorderColor = MaterialTheme.colorScheme.primary,
-                unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant
-            )
-        )
+                // Symbol inline letter pad (A-Z style but compact)
+                InlineSymbolPad(
+                    value = symbolText,
+                    onKey = { key ->
+                        val next = when (key) {
+                            "⌫" -> if (symbolText.length > 1) symbolText.dropLast(1) else ""
+                            "C" -> ""
+                            else -> if (symbolText.length < 4) symbolText + key else symbolText
+                        }
+                        symbolText = next
+                        onUpdate { s -> s.copy(currencySymbol = next) }
+                    }
+                )
+            }
+        }
     }
 }
+
+// ── Lightweight inline numpad (no system keyboard) ───────────────────────────
+
+@Composable
+private fun InlineNumpad(
+    value: String,
+    showDecimal: Boolean,
+    onKey: (String) -> Unit
+) {
+    val rows = listOf(
+        listOf("1", "2", "3"),
+        listOf("4", "5", "6"),
+        listOf("7", "8", "9"),
+        listOf(if (showDecimal) "." else "C", "0", "⌫")
+    )
+    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        rows.forEach { row ->
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(4.dp)
+            ) {
+                row.forEach { key ->
+                    InlineKey(
+                        label = key,
+                        isAction = key == "⌫" || key == "C",
+                        modifier = Modifier.weight(1f),
+                        onClick = { onKey(key) }
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun InlineSymbolPad(
+    value: String,
+    onKey: (String) -> Unit
+) {
+    val rows = listOf(
+        listOf("K", "s", "h", "€", "£"),
+        listOf("₹", "₩", "₺", "¥", "⌫")
+    )
+    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        rows.forEach { row ->
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(4.dp)
+            ) {
+                row.forEach { key ->
+                    InlineKey(
+                        label = key,
+                        isAction = key == "⌫",
+                        modifier = Modifier.weight(1f),
+                        onClick = { onKey(key) }
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun InlineKey(
+    label: String,
+    isAction: Boolean,
+    modifier: Modifier = Modifier,
+    onClick: () -> Unit
+) {
+    Surface(
+        onClick = onClick,
+        modifier = modifier.height(42.dp),
+        shape = RoundedCornerShape(8.dp),
+        color = if (isAction)
+            MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.5f)
+        else
+            MaterialTheme.colorScheme.surfaceContainerHighest,
+        contentColor = if (isAction)
+            MaterialTheme.colorScheme.error
+        else
+            MaterialTheme.colorScheme.onSurface
+    ) {
+        Box(contentAlignment = Alignment.Center) {
+            Text(label, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+        }
+    }
+}
+
 
 @Composable
 private fun SettlementRuleSelector(

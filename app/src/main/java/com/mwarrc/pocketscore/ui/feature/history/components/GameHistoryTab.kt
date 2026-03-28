@@ -58,8 +58,8 @@ fun GameHistoryTab(
     if (gameToResume != null) {
         ResumeGameDialog(
             onDismiss = { gameToResume = null },
-            onConfirm = { shouldReplace ->
-                onResumeGame(gameToResume!!, shouldReplace)
+            onConfirm = {
+                onResumeGame(gameToResume!!, true) // Always replace
                 gameToResume = null
                 onNavigateToGame()
             }

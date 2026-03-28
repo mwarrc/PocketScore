@@ -2,6 +2,8 @@ package com.mwarrc.pocketscore.ui.feature.history.components
 
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -23,10 +25,18 @@ import java.util.*
 
 /**
  * A selectable item representing a single match in the history list.
- * 
+ *
+ * Bug fix: the "EXCLUDED:" indicator row is now wrapped in AnimatedVisibility driven by
+ * `excludedPlayers.isNotEmpty()`. Previously it was an unconditional `if` inside the
+ * Column, which meant recomposition only hid the content but did not release the layout
+ * height — so the card kept its expanded size even after all players were re-included.
+ * AnimatedVisibility with shrinkVertically properly collapses the row and resets height.
+ *
  * @param game The game state to display
  * @param isSelected Whether the match is currently selected for settlement
+ * @param excludedPlayers Set of player names excluded from this match's cost split
  * @param onToggle Callback when selection state is toggled
+ * @param onTogglePlayer Callback when a player's inclusion is toggled
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -41,7 +51,7 @@ fun SplitMatchItem(
     val maxScore = remember(game) { game.players.maxOfOrNull { it.score } ?: 0 }
     val winners = remember(game) { game.players.filter { it.score == maxScore } }
     val sortedPlayers = remember(game) { game.players.sortedByDescending { it.score } }
-    
+
     val timeFormat = remember { SimpleDateFormat("HH:mm", Locale.getDefault()) }
     val timeStr = timeFormat.format(Date(game.endTime ?: game.startTime))
 
@@ -49,37 +59,49 @@ fun SplitMatchItem(
 
     Surface(
         shape = RoundedCornerShape(20.dp),
-        color = if (isSelected) 
-            MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.08f) 
-        else 
+        color = if (isSelected)
+            MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.08f)
+        else
             MaterialTheme.colorScheme.surface,
         border = androidx.compose.foundation.BorderStroke(
-            1.dp, 
-            if (isSelected) MaterialTheme.colorScheme.primary.copy(alpha = 0.5f) else MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
+            1.dp,
+            if (isSelected)
+                MaterialTheme.colorScheme.primary.copy(alpha = 0.5f)
+            else
+                MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
         ),
         modifier = Modifier.fillMaxWidth()
     ) {
         Column(modifier = Modifier.fillMaxWidth()) {
-            // ONLY the top section is clickable for match selection
-            // This prevents gesture conflicts with the player scrolling row below.
+            // Only the top section is clickable for match selection —
+            // prevents gesture conflicts with the player-chip scroll row below.
             Surface(
                 onClick = onToggle,
                 color = Color.Transparent,
                 modifier = Modifier.fillMaxWidth()
             ) {
                 ListItem(
-                    headlineContent = { 
+                    headlineContent = {
                         Text(
-                            text = "Winner: ${winners.joinToString { it.name }}", 
+                            text = "Winner: ${winners.joinToString { it.name }}",
                             fontWeight = FontWeight.Bold,
-                            color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
-                        ) 
+                            color = if (isSelected)
+                                MaterialTheme.colorScheme.primary
+                            else
+                                MaterialTheme.colorScheme.onSurface
+                        )
                     },
-                    supportingContent = { 
+                    supportingContent = {
                         Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                Text("$timeStr • ${game.players.size} players", style = MaterialTheme.typography.bodySmall)
-                                
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                Text(
+                                    "$timeStr • ${game.players.size} players",
+                                    style = MaterialTheme.typography.bodySmall
+                                )
+
                                 if (game.isArchived) {
                                     Surface(
                                         color = MaterialTheme.colorScheme.tertiary.copy(alpha = 0.1f),
@@ -96,22 +118,30 @@ fun SplitMatchItem(
                                 }
                             }
 
-                            if (excludedPlayers.isNotEmpty()) {
+                            // FIX: AnimatedVisibility with shrinkVertically ensures the card
+                            // collapses its height back to the baseline when excludedPlayers
+                            // becomes empty (i.e. the last excluded player is re-included).
+                            // A plain `if` only hides content but does NOT release layout space.
+                            AnimatedVisibility(
+                                visible = excludedPlayers.isNotEmpty(),
+                                enter = expandVertically(),
+                                exit = shrinkVertically()
+                            ) {
                                 Row(
                                     modifier = Modifier.padding(top = 2.dp),
                                     verticalAlignment = Alignment.CenterVertically,
                                     horizontalArrangement = Arrangement.spacedBy(4.dp)
                                 ) {
                                     Icon(
-                                        Icons.Default.PersonOff, 
-                                        contentDescription = null, 
+                                        Icons.Default.PersonOff,
+                                        contentDescription = null,
                                         modifier = Modifier.size(14.dp),
                                         tint = MaterialTheme.colorScheme.error
                                     )
                                     Text(
-                                        text = if (excludedPlayers.size == game.players.size) 
-                                            "ALL PLAYERS EXCLUDED" 
-                                        else 
+                                        text = if (excludedPlayers.size == game.players.size)
+                                            "ALL PLAYERS EXCLUDED"
+                                        else
                                             "EXCLUDED: ${excludedPlayers.joinToString()}",
                                         style = MaterialTheme.typography.labelSmall,
                                         color = MaterialTheme.colorScheme.error,
@@ -126,7 +156,7 @@ fun SplitMatchItem(
                     trailingContent = {
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Checkbox(
-                                checked = isSelected, 
+                                checked = isSelected,
                                 onCheckedChange = { onToggle() },
                                 colors = CheckboxDefaults.colors(
                                     checkedColor = MaterialTheme.colorScheme.primary
@@ -134,7 +164,7 @@ fun SplitMatchItem(
                             )
                             IconButton(onClick = { isExpanded = !isExpanded }) {
                                 Icon(
-                                    Icons.Default.ExpandMore, 
+                                    Icons.Default.ExpandMore,
                                     contentDescription = "Expand",
                                     modifier = Modifier.rotate(rotation)
                                 )
@@ -144,10 +174,9 @@ fun SplitMatchItem(
                     colors = ListItemDefaults.colors(containerColor = Color.Transparent)
                 )
             }
-            
+
             AnimatedVisibility(visible = isExpanded) {
                 Column {
-                    // Points Summary Header
                     Text(
                         text = "Scores (Top to Bottom)",
                         style = MaterialTheme.typography.labelSmall,
@@ -156,7 +185,6 @@ fun SplitMatchItem(
                         modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)
                     )
 
-                    // Compact Player Toggle Row
                     Row(
                         horizontalArrangement = Arrangement.spacedBy(8.dp),
                         modifier = Modifier
@@ -164,17 +192,17 @@ fun SplitMatchItem(
                             .horizontalScroll(rememberScrollState())
                             .padding(bottom = 12.dp)
                     ) {
-                        Spacer(Modifier.width(16.dp)) // Standard Left Margin
-                        
+                        Spacer(Modifier.width(16.dp))
+
                         sortedPlayers.forEach { player ->
                             val isExcluded = player.name in excludedPlayers
                             FilterChip(
                                 selected = !isExcluded,
                                 onClick = { onTogglePlayer(player.name) },
-                                label = { 
+                                label = {
                                     Row(verticalAlignment = Alignment.CenterVertically) {
                                         Text(
-                                            player.name, 
+                                            player.name,
                                             style = MaterialTheme.typography.labelSmall,
                                             textDecoration = if (isExcluded) TextDecoration.LineThrough else null
                                         )
@@ -183,9 +211,9 @@ fun SplitMatchItem(
                                             text = "${player.score}",
                                             style = MaterialTheme.typography.labelSmall,
                                             fontWeight = FontWeight.Black,
-                                            color = if (!isExcluded) 
-                                                MaterialTheme.colorScheme.onPrimaryContainer 
-                                            else 
+                                            color = if (!isExcluded)
+                                                MaterialTheme.colorScheme.onPrimaryContainer
+                                            else
                                                 MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
                                         )
                                     }
@@ -214,11 +242,11 @@ fun SplitMatchItem(
                                     selectedBorderWidth = 1.dp
                                 ),
                                 shape = RoundedCornerShape(8.dp),
-                                modifier = Modifier.height(32.dp) // Fixed height to prevent "size bloating"
+                                modifier = Modifier.height(32.dp)
                             )
                         }
-                        
-                        Spacer(Modifier.width(16.dp)) // Standard Right Margin
+
+                        Spacer(Modifier.width(16.dp))
                     }
                 }
             }

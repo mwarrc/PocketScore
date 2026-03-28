@@ -71,8 +71,7 @@ fun PocketScoreTheme(
         SideEffect {
             val window = (view.context as? android.app.Activity)?.window
             window?.let {
-                it.statusBarColor = android.graphics.Color.TRANSPARENT
-                it.navigationBarColor = android.graphics.Color.TRANSPARENT
+                // System bar transparency is handled by enableEdgeToEdge() in Activity
                 
                 WindowCompat.getInsetsController(it, view).apply {
                     isAppearanceLightStatusBars = !darkTheme

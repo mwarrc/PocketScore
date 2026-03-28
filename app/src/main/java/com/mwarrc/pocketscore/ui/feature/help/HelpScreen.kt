@@ -40,6 +40,19 @@ import androidx.compose.ui.text.LinkAnnotation
 import androidx.compose.ui.text.withLink
 import androidx.compose.ui.text.TextStyle
 
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.ui.draw.scale
+import androidx.compose.ui.draw.drawWithCache
+import androidx.compose.ui.graphics.BlendMode
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.res.painterResource
+
 /**
  * Help Center screen.
  *
@@ -121,6 +134,11 @@ fun HelpScreen(
                 HelpCategoryCard(
                     category = category
                 )
+            }
+            
+            item {
+                Spacer(modifier = Modifier.height(16.dp))
+                ContactSupportCard(onNavigateToFeedback = onNavigateToFeedback)
             }
         }
     }
@@ -343,4 +361,187 @@ private fun HelpEntryRow(
         colors = ListItemDefaults.colors(containerColor = Color.Transparent),
         modifier = Modifier.clip(RoundedCornerShape(10.dp))
     )
+}
+
+@Composable
+private fun ContactSupportCard(onNavigateToFeedback: () -> Unit) {
+    val uriHandler = LocalUriHandler.current
+
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(20.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.3f)
+        ),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+    ) {
+        Column(
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Surface(
+                    modifier = Modifier.size(40.dp),
+                    shape = RoundedCornerShape(12.dp),
+                    color = MaterialTheme.colorScheme.tertiary
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Icon(
+                            imageVector = Icons.Default.MailOutline,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.onTertiary,
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
+                }
+                Spacer(modifier = Modifier.width(14.dp))
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = "Need More Help?",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                    Text(
+                        text = "Reach out for support or feedback.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+
+            Button(
+                onClick = onNavigateToFeedback,
+                modifier = Modifier.fillMaxWidth(),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = MaterialTheme.colorScheme.tertiary,
+                    contentColor = MaterialTheme.colorScheme.onTertiary
+                )
+            ) {
+                Text("Contact Support")
+            }
+            
+            HorizontalDivider(
+                color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f),
+                modifier = Modifier.padding(vertical = 4.dp)
+            )
+            
+            Text(
+                text = "Connect with us",
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                fontWeight = FontWeight.SemiBold
+            )
+            
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.Center,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                InstagramButton(
+                    onClick = { uriHandler.openUri("https://instagram.com/mwarrc") }
+                )
+                Spacer(modifier = Modifier.width(16.dp))
+                SocialButton(
+                    iconRes = com.mwarrc.pocketscore.R.drawable.ic_brand_github,
+                    contentDescription = "GitHub",
+                    onClick = { uriHandler.openUri("https://github.com/mwarrc/pocketscore") }
+                )
+                Spacer(modifier = Modifier.width(16.dp))
+                SocialButton(
+                    iconRes = com.mwarrc.pocketscore.R.drawable.ic_brand_x,
+                    contentDescription = "X (Twitter)",
+                    onClick = { uriHandler.openUri("https://x.com/mwarrc") }
+                )
+                Spacer(modifier = Modifier.width(16.dp))
+                SocialButton(
+                    iconVector = Icons.Default.MailOutline,
+                    contentDescription = "Email",
+                    onClick = { uriHandler.openUri("mailto:mwarrc.dev@gmail.com") }
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun InstagramButton(onClick: () -> Unit) {
+    val infiniteTransition = rememberInfiniteTransition(label = "ig_pulse")
+    val scale by infiniteTransition.animateFloat(
+        initialValue = 1f,
+        targetValue = 1.05f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(1500, easing = FastOutSlowInEasing),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "scale"
+    )
+
+    val igGradient = remember {
+        Brush.linearGradient(
+            colors = listOf(
+                Color(0xFF833AB4), Color(0xFFC13584), Color(0xFFE1306C),
+                Color(0xFFFD1D1D), Color(0xFFF56040), Color(0xFFF77737)
+            )
+        )
+    }
+
+    FilledTonalIconButton(
+        onClick = onClick,
+        modifier = Modifier
+            .size(44.dp)
+            .scale(scale),
+        shape = CircleShape,
+        colors = IconButtonDefaults.filledTonalIconButtonColors(
+            containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f)
+        )
+    ) {
+        Icon(
+            painter = painterResource(id = com.mwarrc.pocketscore.R.drawable.ic_brand_instagram),
+            contentDescription = "Instagram",
+            modifier = Modifier
+                .size(22.dp)
+                .graphicsLayer(alpha = 0.99f)
+                .drawWithCache {
+                    onDrawWithContent {
+                        drawContent()
+                        drawRect(igGradient, blendMode = BlendMode.SrcIn)
+                    }
+                }
+        )
+    }
+}
+
+@Composable
+private fun SocialButton(
+    iconRes: Int? = null,
+    iconVector: androidx.compose.ui.graphics.vector.ImageVector? = null,
+    contentDescription: String,
+    onClick: () -> Unit
+) {
+    FilledTonalIconButton(
+        onClick = onClick,
+        modifier = Modifier.size(44.dp),
+        shape = CircleShape,
+        colors = IconButtonDefaults.filledTonalIconButtonColors(
+            containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f)
+        )
+    ) {
+        if (iconRes != null) {
+            Icon(
+                painter = painterResource(id = iconRes),
+                contentDescription = contentDescription,
+                modifier = Modifier.size(18.dp),
+                tint = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        } else if (iconVector != null) {
+            Icon(
+                imageVector = iconVector,
+                contentDescription = contentDescription,
+                modifier = Modifier.size(18.dp),
+                tint = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+    }
 }

@@ -45,7 +45,6 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.MaterialTheme
@@ -98,7 +97,6 @@ import kotlinx.coroutines.launch
 @Composable
 fun BackupManagementScreen(
     snapshots: List<Pair<String, Long>>,
-    isLoading: Boolean = false,
     onBack: () -> Unit,
     onCreateManualSnapshot: (String) -> Unit,
     onRestore: (String) -> Unit,
@@ -486,27 +484,7 @@ fun BackupManagementScreen(
                 }
             }
 
-            // Performance Fix: Standalone Loading State
-            if (isLoading) {
-                item {
-                    Column(
-                        modifier = Modifier.fillMaxWidth().padding(vertical = 40.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally
-                    ) {
-                        CircularProgressIndicator(
-                            modifier = Modifier.size(28.dp),
-                            strokeWidth = 3.dp,
-                            color = MaterialTheme.colorScheme.primary
-                        )
-                        Spacer(Modifier.height(16.dp))
-                        Text(
-                            "Scanning Vault...",
-                            style = MaterialTheme.typography.labelMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-                }
-            } else if (filteredSnapshots.isEmpty()) {
+            if (filteredSnapshots.isEmpty()) {
                 item {
                     Column(
                         modifier = Modifier
@@ -574,7 +552,7 @@ fun BackupManagementScreen(
                         )
                     }
                 }
-            }
         }
     }
+}
 }

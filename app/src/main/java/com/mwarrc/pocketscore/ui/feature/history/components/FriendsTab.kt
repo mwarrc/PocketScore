@@ -12,6 +12,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.mwarrc.pocketscore.domain.model.AppSettings
 import com.mwarrc.pocketscore.domain.model.GameHistory
+import androidx.compose.animation.*
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 
 /**
  * Friends/Players management tab in the history screen.
@@ -44,6 +49,7 @@ fun FriendsTab(
 
     // Dialog state management
     var showAddDialog by remember { mutableStateOf(false) }
+    var showMultiRemoveDialog by remember { mutableStateOf(false) }
     var friendToRemove by remember { mutableStateOf<PlayerStats?>(null) }
     var friendToRename by remember { mutableStateOf<PlayerStats?>(null) }
 
@@ -62,74 +68,13 @@ fun FriendsTab(
         )
     }
 
-    Scaffold(
-        floatingActionButton = {
-            if (!selectionMode) {
-                ExtendedFloatingActionButton(
-                    onClick = { showAddDialog = true },
-                    modifier = Modifier.padding(bottom = 110.dp),
-                    icon = { Icon(Icons.Default.Add, contentDescription = null) },
-                    text = { Text("New Player") },
-                    containerColor = MaterialTheme.colorScheme.primaryContainer,
-                    contentColor = MaterialTheme.colorScheme.onPrimaryContainer
-                )
-            }
-        },
-        bottomBar = {
-            if (selectionMode) {
-                BottomAppBar(
-                    containerColor = MaterialTheme.colorScheme.secondaryContainer,
-                    contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
-                    actions = {
-                        // Hide from Leaderboard
-                        IconButton(onClick = {
-                            onUpdateSettings { s ->
-                                val allHidden = (s.hiddenPlayers + selectedNames).distinct()
-                                s.copy(hiddenPlayers = allHidden)
-                            }
-                            selectionMode = false
-                        }) {
-                            Icon(Icons.Default.VisibilityOff, "Hide from Ranks")
-                        }
-                        
-                        // Hide from Home Screen (Deactivate)
-                        IconButton(onClick = {
-                            onUpdateSettings { s ->
-                                val allDeactivated = (s.deactivatedPlayers + selectedNames).distinct()
-                                s.copy(hiddenPlayers = (s.hiddenPlayers + selectedNames).distinct(), deactivatedPlayers = allDeactivated)
-                            }
-                            selectionMode = false
-                        }) {
-                            Icon(Icons.Default.HomeWork, "Hide from Home")
-                        }
-                    },
-                    floatingActionButton = {
-                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            // Delete Mass Action
-                            FloatingActionButton(
-                                onClick = {
-                                    onUpdateSettings { s ->
-                                        s.copy(savedPlayerNames = s.savedPlayerNames.filter { it !in selectedNames })
-                                    }
-                                    selectionMode = false
-                                },
-                                containerColor = MaterialTheme.colorScheme.error,
-                                contentColor = MaterialTheme.colorScheme.onError
-                            ) {
-                                Icon(Icons.Default.Delete, "Delete Selected")
-                            }
-                        }
-                    }
-                )
-            }
-        }
-    ) { padding ->
+    Box(modifier = Modifier.fillMaxSize()) {
         if (playerStats.isEmpty()) {
-            EmptyRosterState(modifier = Modifier.padding(padding))
+            EmptyRosterState()
         } else {
             PlayerList(
                 playerStats = playerStats,
-                padding = padding,
+                padding = PaddingValues(0.dp), // Padding handled internally via contentPadding
                 selectionMode = selectionMode,
                 selectedNames = selectedNames,
                 onToggleSelection = { name ->
@@ -168,11 +113,116 @@ fun FriendsTab(
                 onRename = { friendToRename = it }
             )
         }
+
+        // ── Refresh Floating Actions ---
+
+        // Add Player FAB
+        androidx.compose.animation.AnimatedVisibility(
+            visible = !selectionMode,
+            enter = fadeIn() + scaleIn(),
+            exit = fadeOut() + scaleOut(),
+            modifier = Modifier
+                .align(Alignment.BottomEnd)
+                .padding(bottom = 24.dp, end = 20.dp)
+        ) {
+            FloatingActionButton(
+                onClick = { showAddDialog = true },
+                containerColor = MaterialTheme.colorScheme.primaryContainer,
+                contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                shape = CircleShape
+            ) {
+                Icon(Icons.Default.PersonAdd, contentDescription = "Add Player", modifier = Modifier.size(24.dp))
+            }
+        }
+
+        // Selection Actions Bar
+        androidx.compose.animation.AnimatedVisibility(
+            visible = selectionMode,
+            enter = slideInVertically { it },
+            exit = slideOutVertically { it },
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .padding(12.dp)
+        ) {
+            Surface(
+                shape = RoundedCornerShape(24.dp),
+                color = MaterialTheme.colorScheme.secondaryContainer,
+                tonalElevation = 8.dp,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Row(
+                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 8.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    val anyShownInRanks = selectedNames.any { it !in settings.hiddenPlayers }
+                    val anyShownOnHome = selectedNames.any { it !in settings.deactivatedPlayers }
+
+                    Row {
+                        IconButton(onClick = {
+                            onUpdateSettings { s ->
+                                val newHidden = if (anyShownInRanks) {
+                                    (s.hiddenPlayers + selectedNames).distinct()
+                                } else {
+                                    s.hiddenPlayers - selectedNames
+                                }
+                                s.copy(hiddenPlayers = newHidden)
+                            }
+                            selectionMode = false
+                        }) {
+                            Icon(
+                                if (anyShownInRanks) Icons.Default.VisibilityOff else Icons.Default.Visibility, 
+                                if (anyShownInRanks) "Hide from Ranks" else "Show in Ranks"
+                            )
+                        }
+                        IconButton(onClick = {
+                            onUpdateSettings { s ->
+                                val newDeactivated = if (anyShownOnHome) {
+                                    (s.deactivatedPlayers + selectedNames).distinct()
+                                } else {
+                                    s.deactivatedPlayers - selectedNames
+                                }
+                                s.copy(deactivatedPlayers = newDeactivated)
+                            }
+                            selectionMode = false
+                        }) {
+                            Icon(
+                                if (anyShownOnHome) Icons.Default.HomeWork else Icons.Default.Home, 
+                                if (anyShownOnHome) "Hide from Home" else "Show on Home"
+                            )
+                        }
+                        IconButton(onClick = { selectionMode = false }) {
+                            Icon(Icons.Default.Close, "Cancel")
+                        }
+                    }
+
+                    Text(
+                        "${selectedNames.size} Selected",
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = FontWeight.Bold
+                    )
+
+                    Button(
+                        onClick = { showMultiRemoveDialog = true },
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = MaterialTheme.colorScheme.error,
+                            contentColor = MaterialTheme.colorScheme.onError
+                        ),
+                        shape = RoundedCornerShape(16.dp),
+                        contentPadding = PaddingValues(horizontal = 16.dp)
+                    ) {
+                        Icon(Icons.Default.Delete, contentDescription = null, modifier = Modifier.size(18.dp))
+                        Spacer(Modifier.width(8.dp))
+                        Text("Remove")
+                    }
+                }
+            }
+        }
     }
 
     // Dialogs
     if (showAddDialog) {
-        AddPlayerDialog(
+        FriendsTabAddPlayerDialog(
             onDismiss = { showAddDialog = false },
             onConfirm = { newName ->
                 onUpdateSettings { 
@@ -184,8 +234,22 @@ fun FriendsTab(
         )
     }
 
+    if (showMultiRemoveDialog) {
+        FriendsTabRemoveMultiplePlayersDialog(
+            count = selectedNames.size,
+            onDismiss = { showMultiRemoveDialog = false },
+            onConfirm = {
+                onUpdateSettings { s ->
+                    s.copy(savedPlayerNames = s.savedPlayerNames.filter { it !in selectedNames })
+                }
+                showMultiRemoveDialog = false
+                selectionMode = false
+            }
+        )
+    }
+
     friendToRemove?.let { stat ->
-        RemovePlayerDialog(
+        FriendsTabRemovePlayerDialog(
             playerName = stat.name,
             onDismiss = { friendToRemove = null },
             onConfirm = {
@@ -198,7 +262,7 @@ fun FriendsTab(
     }
 
     friendToRename?.let { stat ->
-        RenamePlayerDialog(
+        FriendsTabRenamePlayerDialog(
             currentName = stat.name,
             onDismiss = { friendToRename = null },
             onConfirm = { newName ->
@@ -211,37 +275,278 @@ fun FriendsTab(
 }
 
 /**
- * Empty state displayed when no players are in the roster.
+ * Dialog for adding a new player to the roster.
  */
 @Composable
-private fun EmptyRosterState(modifier: Modifier = Modifier) {
+private fun FriendsTabAddPlayerDialog(
+    onDismiss: () -> Unit,
+    onConfirm: (String) -> Unit,
+    existingNames: List<String>
+) {
+    var newFriendName by remember { mutableStateOf("") }
+    
+    val trimmed = newFriendName.trim()
+    val alreadyExists = existingNames.any { it.equals(trimmed, ignoreCase = true) }
+    val isValid = trimmed.isNotEmpty() && !alreadyExists
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("New Player") },
+        text = {
+            Column {
+                OutlinedTextField(
+                    value = newFriendName,
+                    onValueChange = { newValue -> 
+                        val filtered = newValue.filter { it.isLetterOrDigit() }
+                        if (filtered.length <= 14) {
+                            newFriendName = filtered
+                        }
+                    },
+                    label = { Text("Display Name") },
+                    singleLine = true,
+                    isError = alreadyExists,
+                    supportingText = if (alreadyExists) {
+                        { Text("This name is already in your roster") }
+                    } else null,
+                    shape = RoundedCornerShape(12.dp)
+                )
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = {
+                    if (isValid) {
+                        onConfirm(trimmed)
+                    }
+                },
+                enabled = isValid,
+                shape = RoundedCornerShape(12.dp)
+            ) { 
+                Text("Add to Roster") 
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { 
+                Text("Cancel") 
+            }
+        }
+    )
+}
+
+/**
+ * Dialog for renaming a player globally across all records.
+ */
+@Composable
+private fun FriendsTabRenamePlayerDialog(
+    currentName: String,
+    onDismiss: () -> Unit,
+    onConfirm: (String) -> Unit,
+    existingNames: List<String>
+) {
+    var renameValue by remember { mutableStateOf(currentName) }
+    
+    val trimmed = renameValue.trim()
+    val isTaken = existingNames.any { 
+        it.trim().equals(trimmed, ignoreCase = true) && 
+        !it.trim().equals(currentName.trim(), ignoreCase = true) 
+    }
+    val isValid = !isTaken && trimmed.isNotEmpty() && trimmed != currentName
+    
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        icon = { 
+            Icon(
+                Icons.Default.Warning, 
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.tertiary
+            ) 
+        },
+        title = { Text("Rename Player") },
+        text = {
+            Column {
+                // Warning message
+                Surface(
+                    color = MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.3f),
+                    shape = RoundedCornerShape(12.dp),
+                    modifier = Modifier.padding(bottom = 16.dp)
+                ) {
+                    Text(
+                        "Names are unique IDs. Renaming will update all past match " +
+                        "records to match this new name.",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onTertiaryContainer,
+                        modifier = Modifier.padding(12.dp)
+                    )
+                }
+                
+                // Input field
+                OutlinedTextField(
+                    value = renameValue,
+                    onValueChange = { newValue ->
+                        val filtered = newValue.filter { it.isLetterOrDigit() }
+                        if (filtered.length <= 14) {
+                            renameValue = filtered
+                        }
+                    },
+                    label = { Text("Update Name") },
+                    singleLine = true,
+                    isError = isTaken,
+                    supportingText = if (isTaken) { 
+                        { Text("Name already taken") } 
+                    } else null,
+                    shape = RoundedCornerShape(12.dp)
+                )
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = {
+                    if (isValid) {
+                        onConfirm(trimmed)
+                    }
+                },
+                enabled = isValid,
+                shape = RoundedCornerShape(12.dp)
+            ) { 
+                Text("Update Records") 
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { 
+                Text("Cancel") 
+            }
+        }
+    )
+}
+
+/**
+ * Confirmation dialog for removing a player from the roster.
+ */
+@Composable
+private fun FriendsTabRemovePlayerDialog(
+    playerName: String,
+    onDismiss: () -> Unit,
+    onConfirm: () -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        icon = { 
+            Icon(
+                Icons.Default.Delete, 
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.error
+            ) 
+        },
+        title = { Text("Remove from Roster?") },
+        text = { 
+            Text(
+                "Removing $playerName will hide them from the 'Active Roster' picker, " +
+                "but their match history will still be safe."
+            ) 
+        },
+        confirmButton = {
+            Button(
+                onClick = onConfirm,
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = MaterialTheme.colorScheme.error
+                )
+            ) { 
+                Text("Remove") 
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { 
+                Text("Cancel") 
+            }
+        }
+    )
+}
+
+/**
+ * Confirmation dialog for bulk removing multiple players.
+ */
+@Composable
+private fun FriendsTabRemoveMultiplePlayersDialog(
+    count: Int,
+    onDismiss: () -> Unit,
+    onConfirm: () -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        icon = { 
+            Icon(
+                Icons.Default.DeleteForever, 
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.error
+            ) 
+        },
+        title = { Text("Remove $count Players?") },
+        text = { 
+            Text(
+                "Are you sure you want to remove these $count players from the active roster? " +
+                "Their match history and statistics will be preserved."
+            ) 
+        },
+        confirmButton = {
+            Button(
+                onClick = onConfirm,
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = MaterialTheme.colorScheme.error
+                )
+            ) { 
+                Text("Remove All") 
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { 
+                Text("Keep Them") 
+            }
+        }
+    )
+}
+
+@Composable
+private fun EmptyRosterState() {
     Box(
-        modifier = modifier.fillMaxSize(),
+        modifier = Modifier.fillMaxSize(),
         contentAlignment = Alignment.Center
     ) {
         Column(
             horizontalAlignment = Alignment.CenterHorizontally,
-            modifier = Modifier.padding(top = 80.dp)
+            modifier = Modifier.padding(bottom = 80.dp) // Offset from center to account for FAB space
         ) {
-            Icon(
-                Icons.Default.Group,
-                contentDescription = null,
-                modifier = Modifier.size(64.dp),
-                tint = MaterialTheme.colorScheme.surfaceVariant
-            )
+            Surface(
+                shape = CircleShape,
+                color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f),
+                modifier = Modifier.size(100.dp)
+            ) {
+                Box(contentAlignment = Alignment.Center) {
+                    Icon(
+                        Icons.Default.Group,
+                        contentDescription = null,
+                        modifier = Modifier.size(48.dp),
+                        tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.5f)
+                    )
+                }
+            }
             
-            Spacer(Modifier.height(16.dp))
+            Spacer(Modifier.height(24.dp))
             
             Text(
                 "Your Roster is Empty",
-                style = MaterialTheme.typography.titleMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.Black,
+                color = MaterialTheme.colorScheme.onSurface
             )
             
+            Spacer(Modifier.height(8.dp))
+            
             Text(
-                "Add friends to track their individual stats.",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
+                "Add friends to track their individual stats across games.",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(horizontal = 48.dp),
+                textAlign = androidx.compose.ui.text.style.TextAlign.Center
             )
         }
     }
@@ -265,8 +570,8 @@ private fun PlayerList(
 ) {
     LazyColumn(
         modifier = Modifier.fillMaxSize().padding(padding),
-        contentPadding = PaddingValues(top = 8.dp, bottom = 100.dp),
-        verticalArrangement = Arrangement.spacedBy(4.dp)
+        contentPadding = PaddingValues(top = 12.dp, start = 4.dp, end = 4.dp, bottom = 140.dp),
+        verticalArrangement = Arrangement.spacedBy(2.dp)
     ) {
         items(playerStats, key = { it.name }) { stat ->
             PlayerStatCard(

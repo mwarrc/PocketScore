@@ -21,11 +21,12 @@ import androidx.core.view.WindowInsetsControllerCompat
 fun ImmersiveMode() {
     val view = LocalView.current
     SideEffect {
-        // DialogWindowProvider is the interface Compose exposes on the synthetic View
-        // parent it creates for every Dialog / ModalBottomSheet window.
-        val window = (view.parent as? DialogWindowProvider)?.window ?: return@SideEffect
+        val window = (view.parent as? DialogWindowProvider)?.window 
+            ?: (view.context as? android.app.Activity)?.window 
+            ?: return@SideEffect
+            
         WindowCompat.getInsetsController(window, view).apply {
-            hide(WindowInsetsCompat.Type.systemBars())
+            hide(WindowInsetsCompat.Type.statusBars() or WindowInsetsCompat.Type.navigationBars())
             systemBarsBehavior =
                 WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
         }

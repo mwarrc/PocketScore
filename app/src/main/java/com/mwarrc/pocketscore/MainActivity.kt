@@ -56,6 +56,7 @@ import com.mwarrc.pocketscore.domain.model.ScoreboardLayout
 import com.mwarrc.pocketscore.ui.feature.about.AboutScreen
 import com.mwarrc.pocketscore.ui.feature.feedback.FeedbackScreen
 import com.mwarrc.pocketscore.ui.feature.game.GameScreen
+import com.mwarrc.pocketscore.ui.components.AppLoadingOverlay
 import com.mwarrc.pocketscore.ui.feature.history.HistoryScreen
 import com.mwarrc.pocketscore.ui.feature.history.import_.ImportPreviewScreen
 import com.mwarrc.pocketscore.ui.feature.history.MatchDetailsScreen
@@ -317,9 +318,21 @@ class MainActivity : ComponentActivity() {
                         }
                         showOnboarding -> {
                             OnboardingScreen(
-                                onComplete = {
+                                onComplete = { chosenPresetName ->
                                     showOnboarding = false
-                                    viewModel.updateSettings { it.copy(hasSeenOnboarding = true) }
+                                    viewModel.updateSettings { settings ->
+                                        // Find the preset that matches the chosen name and apply its values
+                                        val chosenPreset = settings.ballValuePresets.find {
+                                            it.name == chosenPresetName
+                                        } ?: com.mwarrc.pocketscore.domain.model.AppSettings.DEFAULT_PRESETS.find {
+                                            it.name == chosenPresetName
+                                        }
+                                        settings.copy(
+                                            hasSeenOnboarding = true,
+                                            ballValues = chosenPreset?.values
+                                                ?: com.mwarrc.pocketscore.domain.model.AppSettings.DEFAULT_BALL_VALUES
+                                        )
+                                    }
                                 }
                             )
                         }
@@ -404,6 +417,12 @@ class MainActivity : ComponentActivity() {
                             .align(Alignment.BottomCenter)
                             .padding(bottom = 32.dp)
                             .padding(horizontal = 24.dp)
+                    )
+
+                    // Global High-Premium Loading Overlay
+                    AppLoadingOverlay(
+                        visible = appState.isLoading,
+                        message = appState.loadingMessage
                     )
                 }
             }
@@ -510,6 +529,8 @@ class MainActivity : ComponentActivity() {
                         onUpdateSelectedMatchId(id)
                         navController.navigate("match_details")
                     },
+                    onDeleteMultipleGames = { ids -> viewModel.deleteMultipleGames(ids) },
+                    onArchiveMultipleGames = { ids -> viewModel.toggleArchiveMultipleGames(ids) },
                     onShareGame = { id ->
                         scope.launch {
                             val share = viewModel.getShareData(listOf(id))
@@ -593,7 +614,6 @@ class MainActivity : ComponentActivity() {
                 BackupManagementScreen(
                     onBack = { navController.popBackStack() },
                     snapshots = snapshots,
-                    isLoading = appState.isLoading,
                     onRestore = { name ->
                         scope.launch {
                             val data = viewModel.getSnapshotContent(name)

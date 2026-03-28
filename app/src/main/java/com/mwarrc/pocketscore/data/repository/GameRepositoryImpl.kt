@@ -88,7 +88,7 @@ class GameRepositoryImpl(private val context: Context) : GameRepository {
     override val appSettings: Flow<AppSettings> = context.dataStore.data.map { preferences ->
         preferences[appSettingsKey]?.let { jsonString ->
             try {
-                json.decodeFromString<AppSettings>(jsonString)
+                json.decodeFromString<AppSettings>(jsonString).validate()
             } catch (e: SerializationException) {
                 Log.e(TAG, "Failed to decode app settings", e)
                 AppSettings()

@@ -3,6 +3,8 @@ package com.mwarrc.pocketscore.ui.feature.home.components
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
@@ -22,7 +24,7 @@ import androidx.compose.ui.unit.sp
 fun SelectedPlayersSection(
     selectedNames: List<String>,
     onRemoveName: (String) -> Unit,
-    onMoveToEnd: (String) -> Unit = {},
+    onSwap: (Int, Int) -> Unit,
     modifier: Modifier = Modifier
 ) {
     if (selectedNames.isEmpty()) return
@@ -51,7 +53,10 @@ fun SelectedPlayersSection(
                 ActivePlayerChip(
                     name = name,
                     order = index + 1,
-                    onMoveToEnd = { onMoveToEnd(name) },
+                    isFirst = index == 0,
+                    isLast = index == selectedNames.size - 1,
+                    onMoveBack = { onSwap(index, index - 1) },
+                    onMoveForward = { onSwap(index, index + 1) },
                     onRemove = { onRemoveName(name) }
                 )
             }
@@ -63,37 +68,52 @@ fun SelectedPlayersSection(
 private fun ActivePlayerChip(
     name: String,
     order: Int,
-    onMoveToEnd: () -> Unit,
+    isFirst: Boolean,
+    isLast: Boolean,
+    onMoveBack: () -> Unit,
+    onMoveForward: () -> Unit,
     onRemove: () -> Unit
 ) {
     val colorScheme = MaterialTheme.colorScheme
     
     Surface(
-        onClick = onMoveToEnd,
         shape = CircleShape,
-        color = colorScheme.primaryContainer.copy(alpha = 0.4f),
+        color = colorScheme.primaryContainer.copy(alpha = 0.35f),
         border = androidx.compose.foundation.BorderStroke(
             1.dp,
-            colorScheme.primary.copy(alpha = 0.15f)
+            colorScheme.primary.copy(alpha = 0.12f)
         ),
         modifier = Modifier.height(44.dp)
     ) {
         Row(
-            modifier = Modifier.padding(horizontal = 8.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(10.dp)
+            modifier = Modifier.padding(start = 6.dp, end = 2.dp),
+            verticalAlignment = Alignment.CenterVertically
         ) {
+            // Reorder Back
+            if (!isFirst) {
+                IconButton(onClick = onMoveBack, modifier = Modifier.size(28.dp)) {
+                    Icon(
+                        imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                        contentDescription = "Move earlier",
+                        modifier = Modifier.size(14.dp),
+                        tint = colorScheme.primary.copy(alpha = 0.6f)
+                    )
+                }
+            } else {
+                Spacer(Modifier.width(4.dp))
+            }
+
             // Sequential Order Badge
             Surface(
                 shape = CircleShape,
                 color = colorScheme.primary,
-                modifier = Modifier.size(28.dp)
+                modifier = Modifier.size(26.dp)
             ) {
                 Box(contentAlignment = Alignment.Center) {
                     Text(
                         text = order.toString(),
                         style = MaterialTheme.typography.labelSmall.copy(
-                            fontSize = 12.sp,
+                            fontSize = 11.sp,
                             fontWeight = FontWeight.Black
                         ),
                         color = colorScheme.onPrimary
@@ -101,28 +121,42 @@ private fun ActivePlayerChip(
                 }
             }
 
+            Spacer(Modifier.width(8.dp))
+
             Text(
                 text = name,
                 style = MaterialTheme.typography.bodySmall.copy(
                     fontWeight = FontWeight.Bold,
-                    fontSize = 14.sp
+                    fontSize = 13.sp
                 ),
                 color = colorScheme.onSurface,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.widthIn(max = 140.dp)
+                modifier = Modifier.widthIn(max = 110.dp)
             )
+
+            // Reorder Forward
+            if (!isLast) {
+                IconButton(onClick = onMoveForward, modifier = Modifier.size(28.dp)) {
+                    Icon(
+                        imageVector = Icons.AutoMirrored.Filled.ArrowForward,
+                        contentDescription = "Move later",
+                        modifier = Modifier.size(14.dp),
+                        tint = colorScheme.primary.copy(alpha = 0.6f)
+                    )
+                }
+            }
 
             // Removal Action
             IconButton(
                 onClick = onRemove,
-                modifier = Modifier.size(36.dp)
+                modifier = Modifier.size(32.dp)
             ) {
                 Icon(
                     imageVector = Icons.Default.Close,
                     contentDescription = "Remove",
-                    tint = colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
-                    modifier = Modifier.size(18.dp)
+                    tint = colorScheme.error.copy(alpha = 0.5f),
+                    modifier = Modifier.size(16.dp)
                 )
             }
         }

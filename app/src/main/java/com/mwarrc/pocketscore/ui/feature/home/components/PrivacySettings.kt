@@ -45,6 +45,7 @@ fun PrivacySettingsCard(
     val isGuestActive = settings.isGuestSession
     
     Surface(
+        onClick = { onUpdateSettings { it.copy(isGuestSession = !isGuestActive) } },
         modifier = modifier.fillMaxWidth(),
         shape = RoundedCornerShape(24.dp),
         color = if (isGuestActive) {
@@ -55,7 +56,7 @@ fun PrivacySettingsCard(
         border = BorderStroke(
             1.dp, 
             if (isGuestActive) {
-                MaterialTheme.colorScheme.tertiary.copy(alpha = 0.6f)
+                MaterialTheme.colorScheme.tertiary.copy(alpha = 1f)
             } else {
                 MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
             }
@@ -68,13 +69,13 @@ fun PrivacySettingsCard(
             // Main Toggle Row
             PrivacyHeaderRow(
                 isGuestActive = isGuestActive,
-                settings = settings,
                 onCheckedChange = { isEnabled ->
                     onUpdateSettings { it.copy(isGuestSession = isEnabled) }
                 }
             )
 
-            // Extended Persistence Logic
+            /* 
+            // Extended Persistence Logic (Simplified for now)
             AnimatedVisibility(
                 visible = isGuestActive,
                 enter = expandVertically(),
@@ -86,6 +87,7 @@ fun PrivacySettingsCard(
                     onUpdate = onUpdateSettings
                 )
             }
+            */
         }
     }
 }
@@ -93,7 +95,6 @@ fun PrivacySettingsCard(
 @Composable
 private fun PrivacyHeaderRow(
     isGuestActive: Boolean,
-    settings: AppSettings,
     onCheckedChange: (Boolean) -> Unit
 ) {
     Row(
@@ -129,15 +130,8 @@ private fun PrivacyHeaderRow(
                     fontWeight = FontWeight.ExtraBold,
                     color = MaterialTheme.colorScheme.onSurface
                 )
-                val privacyStatus = when {
-                    !isGuestActive -> "History recording active"
-                    settings.guestSaveRecords && settings.guestSavePlayers -> "Saving records & players"
-                    settings.guestSaveRecords -> "Saving game records"
-                    settings.guestSavePlayers -> "Saving player names"
-                    else -> "Session is fully private"
-                }
                 Text(
-                    text = privacyStatus,
+                    text = if (isGuestActive) "Records & players are NOT saved" else "Standard history recording active",
                     style = MaterialTheme.typography.bodySmall,
                     color = if (isGuestActive) MaterialTheme.colorScheme.tertiary else MaterialTheme.colorScheme.onSurfaceVariant
                 )

@@ -12,6 +12,8 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.displayCutoutPadding
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.background
@@ -102,9 +104,15 @@ fun ResetGameDialog(
     AlertDialog(
         onDismissRequest = onDismiss,
         properties = androidx.compose.ui.window.DialogProperties(usePlatformDefaultWidth = false),
-        modifier = Modifier.fillMaxWidth(0.93f),
+        modifier = Modifier
+            .fillMaxWidth(0.93f)
+            .statusBarsPadding()
+            .displayCutoutPadding(),
         shape = RoundedCornerShape(32.dp),
-        containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+        containerColor = if (isGuestRestricted)
+            MaterialTheme.colorScheme.surfaceColorAtElevation(10.dp)
+        else
+            MaterialTheme.colorScheme.surfaceContainerHigh,
         confirmButton = {},
         dismissButton = {},
         title = null,
@@ -200,14 +208,24 @@ fun ResetGameDialog(
 
                 // ── Action Cards --
 
-                // 1. Finish Match (PRIMARY)
+                // 1. Finish Match (PRIMARY / ALERT)
+                val isDiscarding = isGuestRestricted && !overrideGuest
                 EndGameActionCard(
-                    icon = if (isGuestRestricted && !overrideGuest) Icons.Default.Close else Icons.Default.Check,
-                    title = if (isGuestRestricted && !overrideGuest) "Discard Session" else "Finish Match",
-                    subtitle = if (isGuestRestricted && !overrideGuest) "Close without logging" else "Lock scores & return home",
-                    containerColor = MaterialTheme.colorScheme.primary,
-                    contentColor = MaterialTheme.colorScheme.onPrimary,
-                    iconBgColor = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.15f),
+                    icon = if (isDiscarding) Icons.Default.DeleteForever else Icons.Default.Check,
+                    title = if (isDiscarding) "Discard Session" else "Finish Match",
+                    subtitle = if (isDiscarding) "Close & permanently delete" else "Lock scores & return home",
+                    containerColor = if (isDiscarding)
+                        MaterialTheme.colorScheme.error
+                    else
+                        MaterialTheme.colorScheme.primary,
+                    contentColor = if (isDiscarding)
+                        MaterialTheme.colorScheme.onError
+                    else
+                        MaterialTheme.colorScheme.onPrimary,
+                    iconBgColor = if (isDiscarding)
+                        MaterialTheme.colorScheme.onError.copy(alpha = 0.15f)
+                    else
+                        MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.15f),
                     onClick = { onFinishAndArchive(overrideGuest) }
                 )
 
@@ -249,7 +267,10 @@ fun ResetGameDialog(
                         "Cancel",
                         style = MaterialTheme.typography.labelLarge,
                         fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
+                        color = if (isGuestRestricted)
+                            MaterialTheme.colorScheme.error.copy(alpha = 0.8f)
+                        else
+                            MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
                     )
                 }
             }
@@ -521,7 +542,9 @@ fun QuickRestartDialog(
         properties = androidx.compose.ui.window.DialogProperties(usePlatformDefaultWidth = false),
         modifier = Modifier
             .fillMaxWidth(0.95f)
-            .padding(vertical = 24.dp),
+            .statusBarsPadding()
+            .displayCutoutPadding()
+            .padding(vertical = 16.dp),
         shape = RoundedCornerShape(32.dp),
         containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
         title = {

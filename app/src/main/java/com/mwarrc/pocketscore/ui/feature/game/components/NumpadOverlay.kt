@@ -8,6 +8,8 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalHapticFeedback
 import com.mwarrc.pocketscore.domain.model.AppSettings
 
 /**
@@ -36,6 +38,7 @@ fun NumpadOverlay(
     settings: AppSettings,
     onUpdateSettings: ((AppSettings) -> AppSettings) -> Unit
 ) {
+    val haptic = LocalHapticFeedback.current
     if (settings.useCustomKeyboard) {
         Box(
             modifier = Modifier.fillMaxSize(),
@@ -48,7 +51,11 @@ fun NumpadOverlay(
             ) {
                 ScoreNumpad(
                     onNumberClick = { num ->
-                        onScoreInputChange(scoreInput + num)
+                        if (scoreInput.length < 4) {
+                            onScoreInputChange(scoreInput + num)
+                        } else {
+                            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                        }
                     },
                     onBackspaceClick = {
                         if (scoreInput.isNotEmpty()) onScoreInputChange(scoreInput.dropLast(1))

@@ -50,6 +50,7 @@ fun LimitsSection(
             modifier = Modifier.padding(start = 4.dp)
         )
 
+        /*
         Column(modifier = Modifier.fillMaxWidth()) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -91,6 +92,7 @@ fun LimitsSection(
                 modifier = Modifier.fillMaxWidth()
             )
         }
+        */
     }
 
     infoDialogContent?.let { info ->

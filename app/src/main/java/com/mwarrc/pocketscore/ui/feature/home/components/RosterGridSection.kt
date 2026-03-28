@@ -25,6 +25,7 @@ import androidx.compose.ui.unit.sp
 import com.mwarrc.pocketscore.domain.model.*
 import com.mwarrc.pocketscore.ui.feature.home.utils.RosterSorter
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun RosterGridSection(
     savedPlayerNames: List<String>,
@@ -71,21 +72,42 @@ fun RosterGridSection(
             }
         )
 
+        var isExpanded by remember { mutableStateOf(false) }
+        val maxRows = 10
+        val limit = if (layout == RosterLayout.GRID) maxRows * 4 else maxRows
+        
+        val itemsToShow = if (isExpanded || sortedNames.size <= limit) {
+            sortedNames
+        } else {
+            sortedNames.take(limit)
+        }
+
         if (layout == RosterLayout.GRID) {
             RosterGridLayout(
-                names = sortedNames,
+                names = itemsToShow,
                 currentNames = currentNames,
                 onSelectName = onSelectName,
-                columns = 3, // Smaller size by increasing column count
                 newlyAddedNames = newlyAddedNames,
             )
         } else {
             RosterListLayout(
-                names = sortedNames,
+                names = itemsToShow,
                 currentNames = currentNames,
                 onSelectName = onSelectName,
                 newlyAddedNames = newlyAddedNames,
             )
+        }
+
+        if (sortedNames.size > limit) {
+            TextButton(
+                onClick = { isExpanded = !isExpanded },
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text(
+                    text = if (isExpanded) "View Less" else "View All (${sortedNames.size})",
+                    style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.SemiBold)
+                )
+            }
         }
     }
 }
@@ -164,42 +186,35 @@ private fun RosterSectionHeader(
 // Layouts
 // --───────────────────────────────
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun RosterGridLayout(
     names: List<String>,
     currentNames: List<String>,
     onSelectName: (String) -> Unit,
-    columns: Int,
     newlyAddedNames: Set<String> = emptySet(),
 ) {
-    val rows = names.chunked(columns)
-
-    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        rows.forEach { rowItems ->
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                rowItems.forEach { item ->
-                    Box(modifier = Modifier.weight(1f)) {
-                        val selectionIndex = currentNames.indexOfFirst {
-                            it.trim().equals(item.trim(), ignoreCase = true)
-                        }
-                        val isSelected = selectionIndex != -1
-                        PlayerTile(
-                            name = item,
-                            isSelected = isSelected,
-                            selectionOrder = if (isSelected) selectionIndex + 1 else null,
-                            isNew = item.trim().lowercase() in newlyAddedNames.map { it.trim().lowercase() },
-                            onClick = { onSelectName(item) },
-                            modifier = Modifier.fillMaxWidth()
-                        )
-                    }
-                }
-                repeat(columns - rowItems.size) {
-                    Box(modifier = Modifier.weight(1f))
-                }
+    FlowRow(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
+        maxItemsInEachRow = 3
+    ) {
+        names.forEach { item ->
+            val selectionIndex = currentNames.indexOfFirst {
+                it.trim().equals(item.trim(), ignoreCase = true)
             }
+            val isSelected = selectionIndex != -1
+            PlayerTile(
+                name = item,
+                isSelected = isSelected,
+                selectionOrder = if (isSelected) selectionIndex + 1 else null,
+                isNew = item.trim().lowercase() in newlyAddedNames.map { it.trim().lowercase() },
+                onClick = { onSelectName(item) },
+                modifier = Modifier
+                    .weight(1f, fill = false)
+                    .widthIn(min = 85.dp)
+            )
         }
     }
 }

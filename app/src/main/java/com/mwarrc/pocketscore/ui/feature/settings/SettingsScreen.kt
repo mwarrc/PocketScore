@@ -128,8 +128,7 @@ fun SettingsScreen(
                     IconButton(onClick = onNavigateToGame) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back")
                     }
-                },
-                windowInsets = WindowInsets.safeDrawing
+                }
             )
         },
         snackbarHost = { SnackbarHost(hostState = snackbarHostState) }

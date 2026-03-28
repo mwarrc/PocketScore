@@ -4,6 +4,7 @@ import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.*
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.draw.*
 import androidx.compose.ui.unit.sp
@@ -22,7 +23,8 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.FilledIconButton
-import androidx.compose.material3.FilledTonalIconButton
+import com.mwarrc.pocketscore.ui.components.AutoSizeText
+import com.mwarrc.pocketscore.ui.components.AutoSizeText
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.MaterialTheme
@@ -98,6 +100,7 @@ fun ActivePlayerCard(
     useCustomKeyboard: Boolean = true,
     modifier: Modifier = Modifier,
     lastPoints: Pair<Int, Boolean>? = null,
+    isLastUpdated: Boolean = false,
     alwaysShowControls: Boolean = false,
     leaderScore: Int = 0,
     tableSum: Int = 0,
@@ -311,8 +314,8 @@ fun ActivePlayerCard(
                                     }
                                 }
                             }
-                            Text(
-                                player.name,
+                            AutoSizeText(
+                                text = player.name,
                                 style = MaterialTheme.typography.headlineMedium,
                                 fontWeight = if (isLeader || isCurrentTurn) FontWeight.Black else FontWeight.Bold,
                                 color = contentColor
@@ -390,14 +393,20 @@ fun ActivePlayerCard(
                         }
                     }
 
-                    Row(verticalAlignment = Alignment.Bottom) {
+                    Row(
+                        verticalAlignment = Alignment.Bottom,
+                        modifier = Modifier
+                            .weight(1f, fill = false)
+                            .padding(start = 16.dp),
+                        horizontalArrangement = Arrangement.End
+                    ) {
                         if (lastPoints != null) {
                             val (pointsValue, isUndo) = lastPoints
                             val actualValue = if (isUndo) -pointsValue else pointsValue
                             val pointsColor = when {
                                 pointsValue > 0 -> Color(0xFF4CAF50)
                                 pointsValue < 0 -> MaterialTheme.colorScheme.error
-                                pointsValue == 0 -> Color(0x4DF8CE67) // Amber for 0 input
+                                pointsValue == 0 -> Color(0x31F1B1FF) // Amber for 0 input
                                 else -> contentColor.copy(alpha = 0.5f)
                             }
                             val pointsText = when {
@@ -409,6 +418,17 @@ fun ActivePlayerCard(
                                 else -> "⚠ 0"
                             }
                             val isZero = pointsValue == 0 && !isUndo
+
+                            if (isLastUpdated) {
+                                Box(
+                                    modifier = Modifier
+                                        .padding(bottom = 16.dp, end = 6.dp)
+                                        .size(8.dp)
+                                        .background(MaterialTheme.colorScheme.primary, CircleShape)
+                                        .border(1.dp, MaterialTheme.colorScheme.onBackground.copy(alpha = 0.15f), CircleShape)
+                                )
+                            }
+
                             Surface(
                                 color = if (isZero) pointsColor.copy(alpha = 0.4f) else pointsColor.copy(alpha = 0.25f),
                                 shape = RoundedCornerShape(6.dp),
@@ -424,11 +444,12 @@ fun ActivePlayerCard(
                                 )
                             }
                         }
-                        Text(
-                            "${player.score}",
+                        AutoSizeText(
+                            text = "${player.score}",
                             style = if (isCurrentTurn) MaterialTheme.typography.displayMedium else MaterialTheme.typography.headlineLarge,
                             fontWeight = FontWeight.Black,
-                            color = contentColor
+                            color = contentColor,
+                            modifier = Modifier.weight(1f, fill = false)
                         )
                     }
                 }
@@ -490,9 +511,12 @@ fun ActivePlayerCard(
                                     BasicTextField(
                                         value = scoreInput,
                                         onValueChange = { newValue: String ->
-                                            if (newValue.isEmpty() || newValue.all { it.isDigit() }) {
+                                            if ((newValue.isEmpty() || newValue.all { it.isDigit() }) && newValue.length <= 4) {
                                                 onScoreInputChange(newValue)
                                                 isInputError = false
+                                            } else if (newValue.length > 4) {
+                                                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                                isInputError = true
                                             } else {
                                                 haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                                                 isInputError = true
@@ -518,7 +542,7 @@ fun ActivePlayerCard(
                                             ) {
                                                 if (scoreInput.isEmpty()) {
                                                     Text(
-                                                        if (isInputError) "Numbers only" else "+ pts",
+                                                        if (isInputError) "Max 4 digits" else "+ pts",
                                                         style = MaterialTheme.typography.bodyMedium,
                                                         color = if (isInputError) MaterialTheme.colorScheme.error
                                                                 else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)

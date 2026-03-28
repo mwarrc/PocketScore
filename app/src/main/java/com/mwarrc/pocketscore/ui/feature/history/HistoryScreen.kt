@@ -23,10 +23,8 @@ import com.mwarrc.pocketscore.domain.model.AppSettings
 import com.mwarrc.pocketscore.domain.model.GameHistory
 import com.mwarrc.pocketscore.domain.model.GameState
 import com.mwarrc.pocketscore.ui.feature.history.components.*
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.slideInVertically
-import androidx.compose.animation.slideOutVertically
+import androidx.compose.animation.*
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import android.os.Build
@@ -34,7 +32,7 @@ import androidx.compose.material.icons.filled.Leaderboard
 import androidx.compose.material.icons.filled.Payments
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.Close
-import androidx.compose.animation.AnimatedVisibility
+import com.mwarrc.pocketscore.ui.util.ImmersiveMode
 
 /**
  * Main history screen displaying past games and player statistics.
@@ -68,20 +66,28 @@ fun HistoryScreen(
     onNavigateToSettings: () -> Unit,
     onResumeGame: (GameState, Boolean) -> Unit,
     onDeleteGame: (String) -> Unit,
+    onDeleteMultipleGames: (Set<String>) -> Unit,
     onArchiveGame: (String) -> Unit,
+    onArchiveMultipleGames: (Set<String>) -> Unit,
     onShareGame: (String) -> Unit,
     onShareMultipleGames: (Set<String>) -> Unit,
     onRename: (String, String) -> Unit,
     onViewDetails: (String) -> Unit,
     onUpdateSettings: ((AppSettings) -> AppSettings) -> Unit
 ) {
+    ImmersiveMode() // Fully hide status bar for immersive history browsing
+    
     val scope = rememberCoroutineScope()
     var selectedMatchIds by remember { mutableStateOf(setOf<String>()) }
     var selectionMode by remember { mutableStateOf(false) }
+    var showDeleteMultipleDialog by remember { mutableStateOf(false) }
 
     // Clear selection when exiting selection mode
     LaunchedEffect(selectionMode) {
-        if (!selectionMode) selectedMatchIds = emptySet()
+        if (!selectionMode) {
+            selectedMatchIds = emptySet()
+            showDeleteMultipleDialog = false
+        }
     }
 
     // Define the tab structure clearly
@@ -154,17 +160,34 @@ fun HistoryScreen(
     val pagerState = rememberPagerState(pageCount = { activeTabs.size })
 
     Scaffold(
-        modifier = Modifier
-            .fillMaxSize()
-            .displayCutoutPadding(),
+        modifier = Modifier.fillMaxSize(),
+        contentWindowInsets = WindowInsets(0, 0, 0, 0), // TopAppBar handles insets via WindowInsets.safeDrawing
         topBar = {
             CenterAlignedTopAppBar(
                 title = {
-                    Text(
-                        if (selectionMode) "${selectedMatchIds.size} Selected" else "Records",
-                        style = MaterialTheme.typography.titleLarge,
-                        fontWeight = FontWeight.Black
-                    )
+                    AnimatedContent(
+                        targetState = selectionMode to pagerState.currentPage,
+                        transitionSpec = {
+                            if (targetState.first != initialState.first) {
+                                // Transition between selection mode and normal: vertical slide
+                                (fadeIn() + slideInVertically { -it }).togetherWith(fadeOut() + slideOutVertically { -it })
+                            } else {
+                                // Transition between tabs: simple fade
+                                fadeIn(animationSpec = tween(220)).togetherWith(fadeOut(animationSpec = tween(90)))
+                            }
+                        },
+                        label = "title_animation"
+                    ) { (isSelection, pageIndex) ->
+                        Text(
+                            text = if (isSelection) {
+                                "${selectedMatchIds.size} Selected"
+                            } else {
+                                activeTabs.getOrNull(pageIndex)?.title ?: "Records"
+                            },
+                            style = MaterialTheme.typography.titleLarge,
+                            fontWeight = FontWeight.Black
+                        )
+                    }
                 },
                 navigationIcon = {
                     if (selectionMode) {
@@ -187,44 +210,70 @@ fun HistoryScreen(
                 colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
                     containerColor = MaterialTheme.colorScheme.surface
                 ),
-                windowInsets = WindowInsets.safeDrawing // Ensures it avoids top cutouts/notch
+                windowInsets = WindowInsets.statusBars.union(WindowInsets.displayCutout)
             )
+        },
+        bottomBar = {
+            AnimatedContent(
+                targetState = selectionMode,
+                transitionSpec = {
+                    (fadeIn() + slideInVertically { it }).togetherWith(fadeOut() + slideOutVertically { it })
+                },
+                label = "bottom_bar_swap"
+            ) { isSelecting ->
+                if (isSelecting) {
+                    MatchSelectionBar(
+                        selectedCount = selectedMatchIds.size,
+                        onExport = {
+                            onShareMultipleGames(selectedMatchIds)
+                            selectionMode = false
+                        },
+                        onArchive = {
+                            onArchiveMultipleGames(selectedMatchIds)
+                            selectionMode = false
+                        },
+                        onDelete = { showDeleteMultipleDialog = true },
+                        isVisible = true,
+                        modifier = Modifier.navigationBarsPadding()
+                    )
+                } else {
+                    FloatingHistoryNavBar(
+                        tabs = activeTabs.map { HistoryTab(it.title, it.icon) },
+                        selectedIndex = pagerState.currentPage,
+                        onTabClick = { index ->
+                            scope.launch { pagerState.animateScrollToPage(index) }
+                        },
+                        isVisible = true,
+                        modifier = Modifier.navigationBarsPadding()
+                    )
+                }
+            }
         }
     ) { padding ->
-        Box(modifier = Modifier.fillMaxSize()) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(top = padding.calculateTopPadding(), bottom = padding.calculateBottomPadding())
+        ) {
             HorizontalPager(
                 state = pagerState,
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(top = padding.calculateTopPadding()), // Use only top padding from Scaffold
+                modifier = Modifier.fillMaxSize(),
+                verticalAlignment = Alignment.Top,
                 beyondViewportPageCount = 1
             ) { page ->
                 activeTabs[page].content()
             }
 
-            // Floating Navigation Bars
-            Column(
-                modifier = Modifier
-                    .align(Alignment.BottomCenter)
-                    .navigationBarsPadding() // Handles actual system nav bar if shown
-                    .padding(bottom = 8.dp) // Tighter clearance from screen edge
-            ) {
-                MatchSelectionBar(
-                    selectedCount = selectedMatchIds.size,
-                    onExport = { 
-                        onShareMultipleGames(selectedMatchIds)
+            // Bulk Delete Dialog
+            if (showDeleteMultipleDialog) {
+                DeleteMultipleGamesDialog(
+                    count = selectedMatchIds.size,
+                    onDismiss = { showDeleteMultipleDialog = false },
+                    onConfirm = {
+                        onDeleteMultipleGames(selectedMatchIds)
+                        showDeleteMultipleDialog = false
                         selectionMode = false
-                    },
-                    isVisible = selectionMode
-                )
-
-                FloatingHistoryNavBar(
-                    tabs = activeTabs.map { HistoryTab(it.title, it.icon) },
-                    selectedIndex = pagerState.currentPage,
-                    onTabClick = { index -> 
-                        scope.launch { pagerState.animateScrollToPage(index) }
-                    },
-                    isVisible = !selectionMode
+                    }
                 )
             }
         }

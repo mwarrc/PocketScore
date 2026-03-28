@@ -7,16 +7,19 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
+import androidx.compose.runtime.*
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.*
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
 /**
- * Fully floating bottom capsule. Stays fixed — does NOT move with keyboard.
- * User must dismiss keyboard before starting the game.
+ * A ultra-premium bottom bar for starting a new match.
+ * Smoothly transforms between 'Waiting' and 'Ready' states with fluid animations.
  */
 @Composable
 fun BottomStartGameBar(
@@ -26,101 +29,131 @@ fun BottomStartGameBar(
 ) {
     val colorScheme = MaterialTheme.colorScheme
     val isEnabled = selectedCount >= 2
+    
+    // Animate color, width, and height with cohesive easing
+    val containerColor by animateColorAsState(
+        targetValue = if (isEnabled) colorScheme.primary else colorScheme.surfaceContainerHigh.copy(alpha = 0.85f),
+        animationSpec = tween(450, easing = FastOutSlowInEasing),
+        label = "color"
+    )
+    
+    val contentColor by animateColorAsState(
+        targetValue = if (isEnabled) colorScheme.onPrimary else colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
+        animationSpec = tween(400),
+        label = "content_color"
+    )
 
-    // Fully transparent wrapper — no background bar whatsoever
+    val widthPercent by animateFloatAsState(
+        targetValue = if (isEnabled) 0.94f else 0.76f,
+        animationSpec = spring(dampingRatio = 0.72f, stiffness = Spring.StiffnessLow),
+        label = "width"
+    )
+
+    val shadowElevation by animateFloatAsState(
+        targetValue = if (isEnabled) 12f else 2f,
+        animationSpec = tween(400),
+        label = "shadow"
+    )
+
     Box(
         modifier = modifier
             .fillMaxWidth()
-            .padding(horizontal = 28.dp, vertical = 20.dp),
+            .padding(horizontal = 24.dp, vertical = 20.dp),
         contentAlignment = Alignment.Center
     ) {
-        AnimatedContent(
-            targetState = isEnabled,
-            transitionSpec = {
-                fadeIn(tween(220)) + scaleIn(tween(220), initialScale = 0.95f) togetherWith
-                        fadeOut(tween(150)) + scaleOut(tween(150), targetScale = 0.95f)
-            },
-            label = "bar_state"
-        ) { enabled ->
-            if (enabled) {
-                // ── READY ──
-                Surface(
-                    onClick = onStartGame,
-                    shape = CircleShape,
-                    color = colorScheme.primary,
-                    shadowElevation = 18.dp,
-                    modifier = Modifier
-                        .fillMaxWidth(0.88f)
-                        .height(56.dp)
-                ) {
-                    Row(
-                        modifier = Modifier.fillMaxSize(),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.Center
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.PlayArrow,
-                            contentDescription = null,
-                            tint = colorScheme.onPrimary,
-                            modifier = Modifier.size(22.dp)
-                        )
-                        Spacer(Modifier.width(8.dp))
-                        Text(
-                            text = "Start Match",
-                            fontWeight = FontWeight.Black,
-                            fontSize = 15.sp,
-                            letterSpacing = 0.5.sp,
-                            color = colorScheme.onPrimary
-                        )
-                        Spacer(Modifier.width(10.dp))
-                        Surface(
-                            shape = CircleShape,
-                            color = colorScheme.onPrimary.copy(alpha = 0.18f)
+        // High-quality shadow layer decoupled from content to prevent "edgy" artifacts
+        Surface(
+            onClick = { if (isEnabled) onStartGame() },
+            enabled = isEnabled,
+            shape = CircleShape,
+            color = containerColor,
+            modifier = Modifier
+                .fillMaxWidth(widthPercent)
+                .height(if (isEnabled) 58.dp else 48.dp)
+                .graphicsLayer {
+                    this.shadowElevation = shadowElevation
+                    shape = CircleShape
+                    clip = false
+                }
+        ) {
+            Box(
+                modifier = Modifier.fillMaxSize(),
+                contentAlignment = Alignment.Center
+            ) {
+                androidx.compose.animation.AnimatedContent(
+                    targetState = isEnabled,
+                    transitionSpec = {
+                        (fadeIn(tween(350, 100)) + scaleIn(initialScale = 0.94f))
+                            .togetherWith(fadeOut(tween(250)))
+                    },
+                    label = "content_swipe"
+                ) { ready ->
+                    if (ready) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.Center,
+                            modifier = Modifier.padding(horizontal = 16.dp)
                         ) {
-                            AnimatedContent(
-                                targetState = selectedCount,
-                                transitionSpec = {
-                                    if (targetState > initialState)
-                                        slideInVertically { it } + fadeIn() togetherWith
-                                                slideOutVertically { -it } + fadeOut()
-                                    else
-                                        slideInVertically { -it } + fadeIn() togetherWith
-                                                slideOutVertically { it } + fadeOut()
-                                },
-                                label = "count"
-                            ) { count ->
-                                Text(
-                                    text = "$count",
+                            Icon(
+                                Icons.Default.PlayArrow,
+                                null,
+                                tint = contentColor,
+                                modifier = Modifier.size(24.dp)
+                            )
+                            Spacer(Modifier.width(10.dp))
+                            Text(
+                                "Start Match",
+                                style = MaterialTheme.typography.titleMedium.copy(
                                     fontWeight = FontWeight.Black,
-                                    fontSize = 13.sp,
-                                    color = colorScheme.onPrimary,
-                                    modifier = Modifier.padding(horizontal = 9.dp, vertical = 4.dp)
-                                )
+                                    fontSize = 16.sp,
+                                    letterSpacing = 0.4.sp
+                                ),
+                                color = contentColor
+                            )
+                            Spacer(Modifier.width(12.dp))
+                            
+                            // Pulse animation for the count badge
+                            val badgeScale by animateFloatAsState(
+                                targetValue = 1f,
+                                animationSpec = spring(dampingRatio = 0.5f, stiffness = Spring.StiffnessMedium),
+                                label = "badge_pop"
+                            )
+                            
+                            Surface(
+                                shape = CircleShape,
+                                color = colorScheme.onPrimary.copy(alpha = 0.18f),
+                                modifier = Modifier
+                                    .size(28.dp)
+                                    .graphicsLayer { scaleX = badgeScale; scaleY = badgeScale }
+                            ) {
+                                Box(contentAlignment = Alignment.Center) {
+                                    androidx.compose.animation.AnimatedContent(
+                                        targetState = selectedCount,
+                                        transitionSpec = {
+                                            (slideInVertically { it } + fadeIn()).togetherWith(slideOutVertically { -it } + fadeOut())
+                                        },
+                                        label = "count_val"
+                                    ) { count ->
+                                        Text(
+                                            "$count",
+                                            style = MaterialTheme.typography.labelLarge,
+                                            fontWeight = FontWeight.ExtraBold,
+                                            color = contentColor
+                                        )
+                                    }
+                                }
                             }
                         }
-                    }
-                }
-            } else {
-                // ── WAITING --─────
-                Surface(
-                    shape = CircleShape,
-                    color = colorScheme.surfaceContainerHighest.copy(alpha = 0.85f),
-                    shadowElevation = 3.dp,
-                    border = androidx.compose.foundation.BorderStroke(
-                        1.dp,
-                        colorScheme.outlineVariant.copy(alpha = 0.2f)
-                    ),
-                    modifier = Modifier
-                        .fillMaxWidth(0.65f)
-                        .height(46.dp)
-                ) {
-                    Box(contentAlignment = Alignment.Center) {
+                    } else {
+                        // "Waiting" state content
+                        val remaining = 2 - selectedCount
                         Text(
                             text = if (selectedCount == 0) "Select players to begin"
-                            else "Select ${2 - selectedCount} more player",
-                            fontWeight = FontWeight.Medium,
-                            fontSize = 13.sp,
-                            color = colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
+                                   else "Add $remaining more player${if (remaining > 1) "s" else ""}",
+                            style = MaterialTheme.typography.labelLarge,
+                            fontWeight = FontWeight.Bold,
+                            color = contentColor,
+                            modifier = Modifier.padding(horizontal = 20.dp)
                         )
                     }
                 }

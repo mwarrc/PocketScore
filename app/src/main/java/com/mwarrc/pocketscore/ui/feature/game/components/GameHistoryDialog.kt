@@ -59,7 +59,9 @@ fun GameHistoryDialog(
             tonalElevation = 6.dp,
             modifier = Modifier
                 .fillMaxWidth(0.92f)
-                .fillMaxHeight(0.8f)
+                .fillMaxHeight(0.85f)
+                .statusBarsPadding()
+                .displayCutoutPadding()
         ) {
             ImmersiveMode()
             Column(modifier = Modifier.fillMaxSize()) {

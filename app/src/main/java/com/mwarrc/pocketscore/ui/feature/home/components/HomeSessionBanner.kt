@@ -47,64 +47,59 @@ fun HomeSessionBanner(
             onClick = onSettingsClick,
             modifier = modifier
                 .fillMaxWidth()
-                .padding(bottom = 8.dp),
-            shape = RoundedCornerShape(16.dp),
-            color = MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.7f),
-            border = BorderStroke(1.dp, MaterialTheme.colorScheme.tertiary.copy(alpha = 0.5f))
+                .padding(vertical = 4.dp),
+            shape = RoundedCornerShape(20.dp),
+            color = MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.4f),
+            border = BorderStroke(1.dp, MaterialTheme.colorScheme.tertiary.copy(alpha = 0.4f))
         ) {
             Row(
-                modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp),
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                // Left: Session Information
-                Column(modifier = Modifier.weight(1f)) {
-                    val bannerTitle = when {
-                        settings.guestSaveRecords && settings.guestSavePlayers -> "Guest Scoreboard"
-                        settings.guestSaveRecords || settings.guestSavePlayers -> "Guest Session"
-                        else -> "Private Session"
-                    }
-                    
-                    val bannerSubtitle = when {
-                        settings.guestSaveRecords && settings.guestSavePlayers -> "Saving records & names"
-                        settings.guestSaveRecords -> "Saving game records"
-                        settings.guestSavePlayers -> "Saving player names"
-                        else -> "Nothing is being saved"
-                    }
-
-                    Row(verticalAlignment = Alignment.CenterVertically) {
+                // Visual Indicator
+                Surface(
+                    shape = RoundedCornerShape(10.dp),
+                    color = MaterialTheme.colorScheme.tertiary,
+                    modifier = Modifier.size(36.dp)
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
                         Icon(
                             imageVector = Icons.Default.Groups,
                             contentDescription = null,
-                            tint = MaterialTheme.colorScheme.onTertiaryContainer,
-                            modifier = Modifier.size(16.dp)
-                        )
-                        Spacer(Modifier.width(8.dp))
-                        Text(
-                            text = bannerTitle,
-                            style = MaterialTheme.typography.labelLarge,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.onTertiaryContainer
+                            tint = MaterialTheme.colorScheme.onTertiary,
+                            modifier = Modifier.size(18.dp)
                         )
                     }
+                }
+
+                // Info
+                Column(modifier = Modifier.weight(1f)) {
                     Text(
-                        text = bannerSubtitle,
+                        text = "Guest Mode Active",
+                        style = MaterialTheme.typography.labelLarge,
+                        fontWeight = FontWeight.ExtraBold,
+                        color = MaterialTheme.colorScheme.onTertiaryContainer
+                    )
+                    Text(
+                        text = "Match results & player names won't be saved",
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onTertiaryContainer.copy(alpha = 0.7f)
                     )
                 }
                 
-                // Right: Active Rule Preset Badge
+                // Rules Badge
                 Surface(
-                    color = MaterialTheme.colorScheme.onTertiaryContainer.copy(alpha = 0.1f),
-                    shape = RoundedCornerShape(8.dp)
+                    color = MaterialTheme.colorScheme.tertiary.copy(alpha = 0.1f),
+                    shape = RoundedCornerShape(8.dp),
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.tertiary.copy(alpha = 0.1f))
                 ) {
                     Text(
                         text = activePresetName,
-                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp),
                         style = MaterialTheme.typography.labelSmall,
                         fontWeight = FontWeight.Black,
-                        color = MaterialTheme.colorScheme.onTertiaryContainer
+                        color = MaterialTheme.colorScheme.tertiary
                     )
                 }
             }

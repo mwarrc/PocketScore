@@ -65,6 +65,7 @@ fun GameScoreboard(
     loserIds: Set<String>,
     isLoserTie: Boolean,
     playerLastChanges: Map<String, Pair<Int, Boolean>?>,
+    lastUpdatedPlayerId: String? = null,
     scoreInput: String,
     onScoreInputChange: (String) -> Unit,
     onShowNumpad: () -> Unit,
@@ -92,6 +93,7 @@ fun GameScoreboard(
             loserIds = loserIds,
             isLoserTie = isLoserTie,
             playerLastChanges = playerLastChanges,
+            lastUpdatedPlayerId = lastUpdatedPlayerId,
             scoreInput = scoreInput,
             onScoreInputChange = onScoreInputChange,
             onShowNumpad = onShowNumpad,
@@ -115,6 +117,7 @@ fun GameScoreboard(
             loserIds = loserIds,
             isLoserTie = isLoserTie,
             playerLastChanges = playerLastChanges,
+            lastUpdatedPlayerId = lastUpdatedPlayerId,
             scoreInput = scoreInput,
             onScoreInputChange = onScoreInputChange,
             onShowNumpad = onShowNumpad,
@@ -145,6 +148,7 @@ private fun GridScoreboard(
     loserIds: Set<String>,
     isLoserTie: Boolean,
     playerLastChanges: Map<String, Pair<Int, Boolean>?>,
+    lastUpdatedPlayerId: String?,
     scoreInput: String,
     onScoreInputChange: (String) -> Unit,
     onShowNumpad: () -> Unit,
@@ -190,6 +194,7 @@ private fun GridScoreboard(
                     leaderScore = leaderScore,
                     tableSum = tableSum,
                     poolBallManagementEnabled = settings.poolBallManagementEnabled,
+                    isLastUpdated = selectionForHeader.id == lastUpdatedPlayerId,
                     onAdd = { pts ->
                         if (settings.hapticFeedbackEnabled) {
                             haptic.performHapticFeedback(androidx.compose.ui.hapticfeedback.HapticFeedbackType.LongPress)
@@ -240,6 +245,7 @@ private fun GridScoreboard(
                     leaderScore = leaderScore,
                     tableSum = tableSum,
                     poolBallManagementEnabled = settings.poolBallManagementEnabled,
+                    isLastUpdated = player.id == lastUpdatedPlayerId,
                     scoreInput = if (isSelected) scoreInput else "",
                     onClick = {
                         onHeaderSelection(player.id)
@@ -269,6 +275,7 @@ private fun ListScoreboard(
     loserIds: Set<String>,
     isLoserTie: Boolean,
     playerLastChanges: Map<String, Pair<Int, Boolean>?>,
+    lastUpdatedPlayerId: String?,
     scoreInput: String,
     onScoreInputChange: (String) -> Unit,
     onShowNumpad: () -> Unit,
@@ -319,6 +326,7 @@ private fun ListScoreboard(
                 leaderScore = leaderScore,
                 tableSum = tableSum,
                 poolBallManagementEnabled = settings.poolBallManagementEnabled,
+                isLastUpdated = player.id == lastUpdatedPlayerId,
                 onAdd = { pts ->
                     if (settings.hapticFeedbackEnabled) {
                         haptic.performHapticFeedback(androidx.compose.ui.hapticfeedback.HapticFeedbackType.LongPress)

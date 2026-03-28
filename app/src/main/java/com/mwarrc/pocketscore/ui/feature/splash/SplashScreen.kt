@@ -42,6 +42,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.mwarrc.pocketscore.R
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 
 @Composable
 fun SplashScreen(
@@ -59,22 +60,35 @@ fun SplashScreen(
         label = "logo_scale"
     )
 
-    var visible by remember { mutableStateOf(false) }
-    val entryAlpha by animateFloatAsState(
-        targetValue = if (visible) 1f else 0f,
-        animationSpec = tween(1200, easing = LinearOutSlowInEasing),
-        label = "entry_alpha"
-    )
-    val entryScale by animateFloatAsState(
-        targetValue = if (visible) 1f else 0.8f,
-        animationSpec = tween(1200, easing = FastOutSlowInEasing),
-        label = "entry_scale"
-    )
+    val entryAlpha = remember { androidx.compose.animation.core.Animatable(0f) }
+    val entryScale = remember { androidx.compose.animation.core.Animatable(0.8f) }
 
     LaunchedEffect(Unit) {
-        visible = true
-        // Keep existing behavior for now; can be made data-driven later
-        delay(2000)
+        val startTime = System.currentTimeMillis()
+        
+        // Launch both animations to run concurrently without waiting for recompositions
+        kotlinx.coroutines.coroutineScope {
+            launch {
+                entryAlpha.animateTo(
+                    targetValue = 1f,
+                    animationSpec = tween(900, easing = LinearOutSlowInEasing)
+                )
+            }
+            launch {
+                entryScale.animateTo(
+                    targetValue = 1f,
+                    animationSpec = tween(900, easing = FastOutSlowInEasing)
+                )
+            }
+        }
+        
+        // Enforce the remaining time of the 2000ms splash window
+        val elapsed = System.currentTimeMillis() - startTime
+        val remaining = 2000L - elapsed
+        if (remaining > 0L) {
+            delay(remaining)
+        }
+        
         onTimeout()
     }
 
@@ -88,8 +102,8 @@ fun SplashScreen(
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center,
             modifier = Modifier
-                .alpha(entryAlpha)
-                .scale(entryScale)
+                .alpha(entryAlpha.value)
+                .scale(entryScale.value)
         ) {
             Surface(
                 modifier = Modifier

@@ -58,12 +58,12 @@ enum class SettlementMethod {
 
 @Serializable
 enum class AppTheme {
-    /** Follow system theme */
-    SYSTEM,
     /** Force light theme */
     LIGHT,
     /** Force dark theme */
-    DARK
+    DARK,
+    /** Follow system theme */
+    SYSTEM
 }
 
 /**
@@ -71,12 +71,12 @@ enum class AppTheme {
  */
 @Serializable
 enum class KeyboardTheme {
-    /** Follows system theme */
-    AUTO,
     /** Light theme */
     LIGHT,
     /** Dark theme */
-    DARK
+    DARK,
+    /** Follows system theme */
+    AUTO
 }
 
 /**
@@ -105,15 +105,16 @@ data class AppSettings(
     val hapticFeedbackEnabled: Boolean = true,
     val leaderSpotlightEnabled: Boolean = true,
     val loserSpotlightEnabled: Boolean = true,
-    val appTheme: AppTheme = AppTheme.SYSTEM,
+    val appTheme: AppTheme = AppTheme.LIGHT,
     val defaultLayout: ScoreboardLayout = ScoreboardLayout.GRID,
     val autoScrollToActivePlayer: Boolean = true,
     
     // Game Rules
-    val maxPlayers: Int = 8,
+    val maxPlayers: Int = 16,
     val strictTurnMode: Boolean = false,
     val enforceStrictMode: Boolean = false,
     val autoNextTurn: Boolean = false,
+    val autoAdvanceOnNegativeOnly: Boolean = false,
     
     // Navigation & Help
     val showHelpInNavBar: Boolean = false,
@@ -151,7 +152,7 @@ data class AppSettings(
     
     // Custom Keyboard
     val useCustomKeyboard: Boolean = true,
-    val keyboardTheme: KeyboardTheme = KeyboardTheme.AUTO,
+    val keyboardTheme: KeyboardTheme = KeyboardTheme.LIGHT,
     val keyboardTextSize: Float = 24f,
     val keyboardHeight: KeyboardHeight = KeyboardHeight.MEDIUM,
     val keyboardBordersEnabled: Boolean = false,
@@ -177,22 +178,22 @@ data class AppSettings(
         /**
          * Minimum allowed value for global scale.
          */
-        const val MIN_GLOBAL_SCALE = 0.5f
+        const val MIN_GLOBAL_SCALE = 0.65f
         
         /**
          * Maximum allowed value for global scale.
          */
-        const val MAX_GLOBAL_SCALE = 1.5f
+        const val MAX_GLOBAL_SCALE = 1.35f
         
         /**
          * Minimum allowed value for keyboardTextSize.
          */
-        const val MIN_KEYBOARD_TEXT_SIZE = 20f
+        const val MIN_KEYBOARD_TEXT_SIZE = 24f
         
         /**
          * Maximum allowed value for keyboardTextSize.
          */
-        const val MAX_KEYBOARD_TEXT_SIZE = 32f
+        const val MAX_KEYBOARD_TEXT_SIZE = 52f
         
         /**
          * Minimum allowed value for maxPlayers.
@@ -208,17 +209,18 @@ data class AppSettings(
          * Default ball values for pool scoring.
          */
         val DEFAULT_BALL_VALUES = mapOf(
-            1 to 16, 2 to 17, 3 to 3, 4 to 4, 5 to 5,
+            1 to 16, 2 to 17, 3 to 6, 4 to 6, 5 to 6,
             6 to 6, 7 to 7, 8 to 8, 9 to 9, 10 to 10,
             11 to 11, 12 to 12, 13 to 13, 14 to 14, 15 to 15
         )
+
         
         /**
          * Preset configurations for ball values.
          */
         val DEFAULT_PRESETS = listOf(
             BallValuePreset(
-                "Default",
+                "3-17",
                 mapOf(
                     1 to 16, 2 to 17, 3 to 3, 4 to 4, 5 to 5,
                     6 to 6, 7 to 7, 8 to 8, 9 to 9, 10 to 10,
@@ -230,7 +232,7 @@ data class AppSettings(
                 (1..15).associateWith { it }
             ),
             BallValuePreset(
-                "Classic",
+                "6-17",
                 mapOf(
                     1 to 16, 2 to 17, 3 to 6, 4 to 6, 5 to 6,
                     6 to 6, 7 to 7, 8 to 8, 9 to 9, 10 to 10,
@@ -246,12 +248,22 @@ data class AppSettings(
      * @return Validated copy of settings
      */
     fun validate(): AppSettings {
+        val migratedPresets = ballValuePresets.map { preset ->
+            when (preset.name) {
+                "Default" -> preset.copy(name = "3-17")
+                "Classic" -> preset.copy(name = "6-17")
+                "face value" -> preset.copy(name = "Face Value")
+                else -> preset
+            }
+        }
+
         return copy(
             globalScale = globalScale.coerceIn(MIN_GLOBAL_SCALE, MAX_GLOBAL_SCALE),
-            maxPlayers = maxPlayers.coerceIn(MIN_PLAYERS, MAX_PLAYERS_LIMIT),
+            maxPlayers = maxPlayers.coerceIn(16, MAX_PLAYERS_LIMIT),
             keyboardTextSize = keyboardTextSize.coerceIn(MIN_KEYBOARD_TEXT_SIZE, MAX_KEYBOARD_TEXT_SIZE),
             lastLosersCount = lastLosersCount.coerceAtLeast(1),
-            matchCost = matchCost.coerceAtLeast(0.0)
+            matchCost = matchCost.coerceAtLeast(0.0),
+            ballValuePresets = migratedPresets
         )
     }
 

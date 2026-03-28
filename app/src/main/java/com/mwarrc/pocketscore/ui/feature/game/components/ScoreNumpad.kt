@@ -136,12 +136,11 @@ fun ScoreNumpad(
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 // Top Bar
-                Row(
+                Box(
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(48.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
+                    contentAlignment = Alignment.Center
                 ) {
                     // Left: Settings
                     FilledTonalIconButton(
@@ -149,7 +148,9 @@ fun ScoreNumpad(
                             haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                             showSettings = true
                         },
-                        modifier = Modifier.size(42.dp),
+                        modifier = Modifier
+                            .size(42.dp)
+                            .align(Alignment.CenterStart),
                         shape = CircleShape,
                         colors = IconButtonDefaults.filledTonalIconButtonColors(
                             containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f)
@@ -176,6 +177,7 @@ fun ScoreNumpad(
 
                     // Right: Pin & Dismiss
                     Row(
+                        modifier = Modifier.align(Alignment.CenterEnd),
                         horizontalArrangement = Arrangement.spacedBy(10.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
@@ -394,8 +396,8 @@ private fun KeyboardSettingsSheet(
             Slider(
                 value = settings.keyboardTextSize,
                 onValueChange = { newSize -> onUpdateSettings { it.copy(keyboardTextSize = newSize) } },
-                valueRange = 18f..32f,
-                steps = 13
+                valueRange = 24f..52f,
+                steps = 20
             )
 
             Spacer(Modifier.height(16.dp))

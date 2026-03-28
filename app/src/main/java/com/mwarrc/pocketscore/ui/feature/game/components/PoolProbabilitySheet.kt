@@ -95,7 +95,13 @@ fun PoolProbabilitySheet(
     val trueScreenHeightDp = with(density) {
         context.resources.displayMetrics.heightPixels.toDp()
     }
-    val maxContentHeight = trueScreenHeightDp - 100.dp
+    val statusBarHeight = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
+    val cutoutHeight = WindowInsets.displayCutout.asPaddingValues().calculateTopPadding()
+    val topSafeInset = maxOf(statusBarHeight, cutoutHeight)
+    
+    // Limit to just below the status bar with a small extra margin (8dp)
+    // This ensures dialogs never overlap with system UI / dynamic island.
+    val maxContentHeight = trueScreenHeightDp - topSafeInset - 8.dp
 
     // displayCutout inset remains valid even in immersive mode (statusBars returns 0)
     val statusBarTop = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
@@ -109,7 +115,9 @@ fun PoolProbabilitySheet(
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(top = 12.dp, bottom = 20.dp), // Reduced top padding here because the sheet is capped lower
+                    .statusBarsPadding()
+                    .displayCutoutPadding()
+                    .padding(top = 8.dp, bottom = 12.dp),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
                 Box(
@@ -252,6 +260,36 @@ fun PoolProbabilitySheet(
                                 onCheckedChange = { onUpdateSettings { s -> s.copy(autoRemovePoolBalls = it) } },
                                 modifier = Modifier.scale(0.85f)
                             )
+                        }
+                    }
+                    Spacer(Modifier.height(24.dp))
+                }
+
+                // ── Points System Selection ─────────────────────────────────
+                item {
+                    Column(modifier = Modifier.padding(horizontal = 24.dp).fillMaxWidth()) {
+                        Text(
+                            "POINTS SYSTEM",
+                            style = MaterialTheme.typography.labelMedium,
+                            fontWeight = FontWeight.Black,
+                            letterSpacing = 1.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Spacer(Modifier.height(12.dp))
+                        androidx.compose.foundation.lazy.LazyRow(
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            items(settings.ballValuePresets) { preset ->
+                                val isSelected = ballValues == preset.values
+                                FilterChip(
+                                    selected = isSelected,
+                                    onClick = { 
+                                        onUpdateSettings { it.copy(ballValues = preset.values) } 
+                                    },
+                                    label = { Text(preset.name, fontWeight = FontWeight.Bold) },
+                                    shape = RoundedCornerShape(16.dp)
+                                )
+                            }
                         }
                     }
                     Spacer(Modifier.height(24.dp))
@@ -404,68 +442,87 @@ fun BallItem(
 
     val needsDarkText = number in listOf(1, 9, 13)
 
-    Surface(
-        onClick = {
-            onClick()
-            haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-        },
-        modifier = Modifier
-            .size(size)
-            .padding(2.dp),
-        shape = CircleShape,
-        color = if (isOnTable) ballColor else ballColor.copy(alpha = 0.15f),
-        border = BorderStroke(
-            width = if (isOnTable) 2.dp else 1.dp,
-            color = if (isOnTable) Color.White.copy(alpha = 0.5f) else ballColor.copy(alpha = 0.3f)
-        ),
-        shadowElevation = if (isOnTable) 6.dp else 0.dp
-    ) {
+    Box(modifier = Modifier.size(size)) {
+        Surface(
+            onClick = {
+                onClick()
+                haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+            },
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(2.dp),
+            shape = CircleShape,
+            color = if (isOnTable) ballColor else ballColor.copy(alpha = 0.15f),
+            border = BorderStroke(
+                width = if (isOnTable) 2.dp else 1.dp,
+                color = if (isOnTable) Color.White.copy(alpha = 0.5f) else ballColor.copy(alpha = 0.3f)
+            ),
+            shadowElevation = if (isOnTable) 6.dp else 0.dp
+        ) {
+            Box(
+                modifier = Modifier.fillMaxSize(),
+                contentAlignment = Alignment.Center
+            ) {
+                if (isOnTable) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .background(
+                                Brush.radialGradient(
+                                    colors = listOf(
+                                        Color.White.copy(alpha = 0.4f),
+                                        Color.Transparent
+                                    ),
+                                    center = Offset(size.value * 0.3f, size.value * 0.3f)
+                                )
+                            )
+                    )
+                }
+
+                Text(
+                    number.toString(),
+                    style = MaterialTheme.typography.titleMedium.copy(
+                        fontWeight = FontWeight.ExtraBold,
+                        fontSize = (size.value * 0.4f).sp,
+                        shadow = if (isOnTable && !needsDarkText) Shadow(
+                            color = Color.Black.copy(alpha = 0.5f),
+                            offset = Offset(2f, 2f),
+                            blurRadius = 4f
+                        ) else null
+                    ),
+                    color = when {
+                        !isOnTable -> MaterialTheme.colorScheme.onSurface.copy(alpha = 0.3f)
+                        needsDarkText -> Color.Black.copy(alpha = 0.8f)
+                        else -> Color.White
+                    }
+                )
+
+                if (!isOnTable) {
+                    Icon(
+                        Icons.Default.Block,
+                        null,
+                        modifier = Modifier.size(size * 0.8f),
+                        tint = MaterialTheme.colorScheme.error.copy(alpha = 0.3f)
+                    )
+                }
+            }
+        }
+
+        // Points Value Badge Preview
         Box(
-            modifier = Modifier.fillMaxSize(),
+            modifier = Modifier
+                .align(Alignment.BottomEnd)
+                .offset(x = 2.dp, y = 2.dp)
+                .size(18.dp)
+                .background(MaterialTheme.colorScheme.primaryContainer, CircleShape)
+                .border(1.dp, MaterialTheme.colorScheme.surface, CircleShape),
             contentAlignment = Alignment.Center
         ) {
-            if (isOnTable) {
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .background(
-                            Brush.radialGradient(
-                                colors = listOf(
-                                    Color.White.copy(alpha = 0.4f),
-                                    Color.Transparent
-                                ),
-                                center = Offset(size.value * 0.3f, size.value * 0.3f)
-                            )
-                        )
-                )
-            }
-
             Text(
-                number.toString(),
-                style = MaterialTheme.typography.titleMedium.copy(
-                    fontWeight = FontWeight.ExtraBold,
-                    fontSize = (size.value * 0.4f).sp,
-                    shadow = if (isOnTable && !needsDarkText) Shadow(
-                        color = Color.Black.copy(alpha = 0.5f),
-                        offset = Offset(2f, 2f),
-                        blurRadius = 4f
-                    ) else null
-                ),
-                color = when {
-                    !isOnTable -> MaterialTheme.colorScheme.onSurface.copy(alpha = 0.3f)
-                    needsDarkText -> Color.Black.copy(alpha = 0.8f)
-                    else -> Color.White
-                }
+                value.toString(),
+                style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp, fontWeight = FontWeight.Black, letterSpacing = (-0.5).sp),
+                color = MaterialTheme.colorScheme.onPrimaryContainer
             )
-
-            if (!isOnTable) {
-                Icon(
-                    Icons.Default.Block,
-                    null,
-                    modifier = Modifier.size(size * 0.8f),
-                    tint = MaterialTheme.colorScheme.error.copy(alpha = 0.3f)
-                )
-            }
         }
     }
 }
@@ -621,6 +678,9 @@ fun QuickBallSelectDialog(
                 }
             }
         },
+        modifier = Modifier
+            .statusBarsPadding()
+            .displayCutoutPadding(),
         text = {
             Column(
                 modifier = Modifier.fillMaxWidth(),
@@ -629,7 +689,7 @@ fun QuickBallSelectDialog(
                 // Clean minimalistic layout without instructional text
                 
                 // Use a fixed height box to ensure grid behaves in dialog (with padding above)
-                Box(modifier = Modifier.padding(top = 16.dp).height(420.dp).fillMaxWidth(), contentAlignment = Alignment.Center) {
+                Box(modifier = Modifier.padding(top = 8.dp).height(420.dp).fillMaxWidth(), contentAlignment = Alignment.Center) {
                     LazyVerticalGrid(
                         columns = GridCells.Fixed(3), // 3 columns x 5 rows = 15 balls (Perfectly Even)
                         horizontalArrangement = Arrangement.spacedBy(24.dp), // Generous spacing

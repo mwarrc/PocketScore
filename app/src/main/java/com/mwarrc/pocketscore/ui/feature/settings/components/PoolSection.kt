@@ -22,6 +22,11 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.SwitchDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -55,6 +60,7 @@ fun PoolSection(
     onNavigateToBallValues: () -> Unit
 ) {
     var infoDialogContent by remember { mutableStateOf<InfoContent?>(null) }
+    var showDisablePoolDialog by remember { mutableStateOf(false) }
 
     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
         Text(
@@ -80,8 +86,17 @@ fun PoolSection(
                 Switch(
                     checked = settings.poolBallManagementEnabled,
                     onCheckedChange = { enabled ->
-                        onUpdateSettings { it.copy(poolBallManagementEnabled = enabled) }
-                    }
+                        if (!enabled) {
+                            showDisablePoolDialog = true
+                        } else {
+                            onUpdateSettings { it.copy(poolBallManagementEnabled = true) }
+                        }
+                    },
+                    colors = SwitchDefaults.colors(
+                        uncheckedThumbColor = if (!settings.poolBallManagementEnabled) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.surface,
+                        uncheckedTrackColor = if (!settings.poolBallManagementEnabled) MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.7f) else MaterialTheme.colorScheme.surfaceVariant,
+                        uncheckedBorderColor = if (!settings.poolBallManagementEnabled) MaterialTheme.colorScheme.error.copy(alpha = 0.4f) else Color.Transparent
+                    )
                 )
             }
         )
@@ -210,6 +225,29 @@ fun PoolSection(
             description = info.description,
             icon = info.icon,
             onDismiss = { infoDialogContent = null }
+        )
+    }
+
+    if (showDisablePoolDialog) {
+        AlertDialog(
+            onDismissRequest = { showDisablePoolDialog = false },
+            icon = { Icon(Icons.Default.Analytics, null, tint = MaterialTheme.colorScheme.error) },
+            title = { Text("Disable Pool Management?") },
+            text = {
+                Text("Turning this off will remove the specialized pool tracking interface from your match screen, including ball remaining indicators and automatic point calculation based on balls.")
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        onUpdateSettings { it.copy(poolBallManagementEnabled = false) }
+                        showDisablePoolDialog = false
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
+                ) { Text("Disable") }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDisablePoolDialog = false }) { Text("Keep Enabled") }
+            }
         )
     }
 }

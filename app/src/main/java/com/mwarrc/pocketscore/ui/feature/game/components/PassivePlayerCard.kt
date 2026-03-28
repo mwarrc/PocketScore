@@ -1,6 +1,8 @@
 package com.mwarrc.pocketscore.ui.feature.game.components
 
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -13,10 +15,12 @@ import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.Color
+import com.mwarrc.pocketscore.ui.components.AutoSizeText
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Block
 import androidx.compose.material.icons.filled.EmojiEvents
@@ -69,6 +73,7 @@ fun PassivePlayerCard(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
     lastPoints: Pair<Int, Boolean>? = null,
+    isLastUpdated: Boolean = false,
     leaderScore: Int = 0,
     tableSum: Int = 0,
     poolBallManagementEnabled: Boolean = true,
@@ -141,7 +146,7 @@ fun PassivePlayerCard(
                 val pointsColor = when {
                     pointsValue > 0 -> Color(0xFF4CAF50) // Green
                     pointsValue < 0 -> MaterialTheme.colorScheme.error
-                    pointsValue == 0 -> Color(0x51FFDC85) // Amber for 0 input
+                    pointsValue == 0 -> Color(0x61211C1C) // Amber for 0 input
                     else -> MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
                 }
                 val pointsText = when {
@@ -154,21 +159,37 @@ fun PassivePlayerCard(
                 }
 
                 val isZero = pointsValue == 0 && !isUndo
-                Surface(
-                    color = if (isZero) pointsColor.copy(alpha = 0.5f) else pointsColor.copy(alpha = 0.25f), 
-                    shape = RoundedCornerShape(4.dp),
-                    border = BorderStroke(0.5.dp, pointsColor.copy(alpha = 0.5f)),
+
+                Row(
                     modifier = Modifier
                         .align(Alignment.BottomEnd)
-                        .padding(8.dp)
+                        .padding(8.dp),
+                    horizontalArrangement = Arrangement.End,
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text(
-                        text = pointsText,
-                        style = MaterialTheme.typography.labelSmall,
-                        fontWeight = FontWeight.Black,
-                        color = if (isZero) Color(0xFFE65100) else pointsColor,
-                        modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp)
-                    )
+                    if (isLastUpdated) {
+                        Box(
+                            modifier = Modifier
+                                .padding(end = 4.dp)
+                                .size(6.dp)
+                                .background(MaterialTheme.colorScheme.primary, CircleShape)
+                                .border(0.5.dp, MaterialTheme.colorScheme.onBackground.copy(alpha = 0.15f), CircleShape)
+                        )
+                    }
+
+                    Surface(
+                        color = if (isZero) pointsColor.copy(alpha = 0.5f) else pointsColor.copy(alpha = 0.25f), 
+                        shape = RoundedCornerShape(4.dp),
+                        border = BorderStroke(0.5.dp, pointsColor.copy(alpha = 0.5f))
+                    ) {
+                        Text(
+                            text = pointsText,
+                            style = MaterialTheme.typography.labelSmall,
+                            fontWeight = FontWeight.Black,
+                            color = if (isZero) Color(0xFFE65100) else pointsColor,
+                            modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp)
+                        )
+                    }
                 }
             }
 
@@ -328,19 +349,20 @@ fun PassivePlayerCard(
                     .align(Alignment.Center)
                     .alpha(if (isEliminated) 0.5f else 1f)
             ) {
-                Text(
-                    player.name,
+                AutoSizeText(
+                    text = player.name,
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = if (isActualTurn || isLeader) FontWeight.Black else FontWeight.Medium,
-                    maxLines = 1,
-                    color = contentColor
+                    color = contentColor,
+                    modifier = Modifier.padding(horizontal = 8.dp)
                 )
                 Spacer(Modifier.height(4.dp))
-                Text(
-                    "${player.score}",
+                AutoSizeText(
+                    text = "${player.score}",
                     style = MaterialTheme.typography.displaySmall,
                     fontWeight = FontWeight.Bold,
-                    color = contentColor
+                    color = contentColor,
+                    modifier = Modifier.padding(horizontal = 8.dp)
                 )
                 
                 // "0" input warning indicator

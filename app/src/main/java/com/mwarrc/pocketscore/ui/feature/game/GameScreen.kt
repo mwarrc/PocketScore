@@ -340,8 +340,8 @@ fun GameScreen(
 
     if (showQuickSettings) {
         QuickSettingsSheet(
-            settings = settings,
-            onUpdateSettings = onUpdateSettings,
+            initialSettings = settings,
+            onUpdateSettingsBase = onUpdateSettings,
             onDismiss = { showQuickSettings = false }
         )
     }
@@ -457,6 +457,7 @@ fun GameScreen(
                     loserIds = loserIds,
                     isLoserTie = isLoserTie,
                     playerLastChanges = playerLastChanges,
+                    lastUpdatedPlayerId = lastScoreEvent?.playerId,
                     scoreInput = scoreInput,
                     onScoreInputChange = { scoreInput = it },
                     onShowNumpad = { showNumpad = true },
@@ -535,11 +536,7 @@ fun GameScreen(
                 )
             }
         }
-        
-        // --- Loading Overlay ---
-        GameLoadingOverlay(
-            visible = isLoading,
-            message = loadingMessage ?: "Processing"
-        )
     }
 }
+
+

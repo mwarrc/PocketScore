@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.*
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -54,18 +55,19 @@ fun PlayerStatCard(
     Surface(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 12.dp, vertical = 4.dp),
-        shape = RoundedCornerShape(16.dp),
+            .padding(horizontal = 16.dp, vertical = 6.dp),
+        shape = RoundedCornerShape(24.dp),
         color = if (isSelected) 
-            MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.7f) 
+            MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.8f) 
         else 
-            MaterialTheme.colorScheme.surface,
-        tonalElevation = 1.dp
+            MaterialTheme.colorScheme.surfaceContainerLow,
+        tonalElevation = if (isSelected) 4.dp else 1.dp,
+        border = if (isSelected) androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.primary) else null
     ) {
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .clip(RoundedCornerShape(16.dp))
+                .clip(RoundedCornerShape(24.dp))
                 .combinedClickable(
                     onClick = { 
                         if (selectionMode) onToggleSelection() 
@@ -79,42 +81,87 @@ fun PlayerStatCard(
         ) {
             ListItem(
                 headlineContent = {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text(
-                            stat.name,
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.Bold,
-                            color = if (isSelected) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurface
-                        )
-                        
-                        Spacer(Modifier.width(8.dp))
-                        
-                        // Status Indicators
-                        if (stat.isHiddenInLeaderboard) {
-                            Icon(
-                                Icons.Default.VisibilityOff,
-                                contentDescription = "Hidden from Leaderboard",
-                                modifier = Modifier.size(14.dp),
-                                tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
+                    Column {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text(
+                                stat.name,
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Black,
+                                color = if (isSelected) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurface
                             )
-                        }
-                        if (stat.isDeactivated) {
-                            Spacer(Modifier.width(4.dp))
-                            Icon(
-                                Icons.Default.HomeWork,
-                                contentDescription = "Hidden from Home",
-                                modifier = Modifier.size(14.dp),
-                                tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
-                            )
+                            
+                            Spacer(Modifier.width(8.dp))
+                            
+                            if (stat.isHiddenInLeaderboard || stat.isDeactivated) {
+                                Row(
+                                    horizontalArrangement = Arrangement.spacedBy(4.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    if (stat.isHiddenInLeaderboard) {
+                                        Badge(
+                                            containerColor = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.5f),
+                                            contentColor = MaterialTheme.colorScheme.onSecondaryContainer
+                                        ) {
+                                            Icon(Icons.Default.VisibilityOff, null, modifier = Modifier.size(10.dp))
+                                        }
+                                    }
+                                    if (stat.isDeactivated) {
+                                        Badge(
+                                            containerColor = MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.5f),
+                                            contentColor = MaterialTheme.colorScheme.onTertiaryContainer
+                                        ) {
+                                            Icon(Icons.Default.HomeWork, null, modifier = Modifier.size(10.dp))
+                                        }
+                                    }
+                                }
+                            }
                         }
                     }
                 },
                 supportingContent = {
-                    Text(
-                        "${stat.gamesPlayed} Matches • ${stat.winRate.toInt()}% Win Rate",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = if (isSelected) MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f) else MaterialTheme.colorScheme.onSurfaceVariant
-                    )
+                    Row(
+                        modifier = Modifier.padding(top = 4.dp),
+                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        // Matches count
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(
+                                Icons.Default.History, 
+                                null, 
+                                modifier = Modifier.size(12.dp),
+                                tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.7f)
+                            )
+                            Spacer(Modifier.width(4.dp))
+                            Text(
+                                "${stat.gamesPlayed} matches",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                        
+                        // Win rate
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            val winRateColor = when {
+                                stat.winRate >= 60 -> MaterialTheme.colorScheme.primary
+                                stat.winRate >= 40 -> MaterialTheme.colorScheme.secondary
+                                else -> MaterialTheme.colorScheme.onSurfaceVariant
+                            }
+                            Icon(
+                                Icons.AutoMirrored.Filled.TrendingUp, 
+                                null, 
+                                modifier = Modifier.size(12.dp),
+                                tint = winRateColor.copy(alpha = 0.7f)
+                            )
+                            Spacer(Modifier.width(4.dp))
+                            Text(
+                                "${stat.winRate.toInt()}% win rate",
+                                style = MaterialTheme.typography.labelSmall,
+                                fontWeight = FontWeight.Bold,
+                                color = winRateColor
+                            )
+                        }
+                    }
                 },
                 leadingContent = {
                     Box(contentAlignment = Alignment.Center) {
@@ -123,8 +170,8 @@ fun PlayerStatCard(
                             color = if (isSelected) 
                                 MaterialTheme.colorScheme.primary 
                             else 
-                                MaterialTheme.colorScheme.primaryContainer,
-                            modifier = Modifier.size(40.dp)
+                                MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.4f),
+                            modifier = Modifier.size(48.dp)
                         ) {
                             Box(contentAlignment = Alignment.Center) {
                                 if (isSelected) {
@@ -137,9 +184,9 @@ fun PlayerStatCard(
                                 } else {
                                     Text(
                                         stat.name.firstOrNull()?.toString()?.uppercase() ?: "?",
-                                        style = MaterialTheme.typography.titleMedium,
-                                        fontWeight = FontWeight.Bold,
-                                        color = MaterialTheme.colorScheme.onPrimaryContainer
+                                        style = MaterialTheme.typography.titleLarge,
+                                        fontWeight = FontWeight.Black,
+                                        color = MaterialTheme.colorScheme.primary
                                     )
                                 }
                             }
@@ -148,23 +195,25 @@ fun PlayerStatCard(
                 },
                 trailingContent = {
                     if (!selectionMode) {
-                        Box {
-                            IconButton(onClick = { showMenu = true }) {
-                                Icon(Icons.Default.MoreVert, contentDescription = "Options")
-                            }
-                            
-                            PlayerCardMenu(
-                                isHidden = stat.isHiddenInLeaderboard,
-                                isDeactivated = stat.isDeactivated,
-                                showMenu = showMenu,
-                                onDismiss = { showMenu = false },
-                                onToggleLeaderboard = onToggleLeaderboard,
-                                onToggleDeactivated = onToggleDeactivated,
-                                onRename = onRename,
-                                onRemove = onRemove,
-                                onSelect = onEnterSelectionMode
+                        IconButton(onClick = { showMenu = true }) {
+                            Icon(
+                                Icons.Default.MoreVert, 
+                                contentDescription = "Options",
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
                             )
                         }
+                        
+                        PlayerCardMenu(
+                            isHidden = stat.isHiddenInLeaderboard,
+                            isDeactivated = stat.isDeactivated,
+                            showMenu = showMenu,
+                            onDismiss = { showMenu = false },
+                            onToggleLeaderboard = onToggleLeaderboard,
+                            onToggleDeactivated = onToggleDeactivated,
+                            onRename = onRename,
+                            onRemove = onRemove,
+                            onSelect = onEnterSelectionMode
+                        )
                     }
                 },
                 colors = ListItemDefaults.colors(containerColor = Color.Transparent)
