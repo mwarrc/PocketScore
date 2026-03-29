@@ -87,7 +87,7 @@ fun ValueEditor(
                     text = number.toString(),
                     fontSize = if (number >= 10) 9.sp else 11.sp,
                     fontWeight = FontWeight.Black,
-                    color = if (number in listOf(1, 2, 13)) Color.Black else Color.White
+                    color = if (number in listOf(1, 9)) Color.Black else Color.White
                 )
             }
 

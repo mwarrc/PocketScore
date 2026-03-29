@@ -194,10 +194,10 @@ fun PoolSection(
                                     contentAlignment = Alignment.Center
                                 ) {
                                     Text(
-                                        "${settings.ballValues[num]}",
+                                        text = settings.ballValues[num].toString(),
                                         fontSize = 8.sp,
                                         fontWeight = FontWeight.Black,
-                                        color = if (num in listOf(1, 2, 8, 13)) Color.Black else Color.White
+                                        color = if (num in listOf(1, 9)) Color.Black else Color.White
                                     )
                                 }
                             }

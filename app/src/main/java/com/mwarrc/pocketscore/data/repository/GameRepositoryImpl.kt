@@ -47,10 +47,10 @@ class GameRepositoryImpl(private val context: Context) : GameRepository {
 
     private companion object {
         const val TAG = "GameRepositoryImpl"
-        const val MAX_HISTORY_SIZE = 50
-        const val MAX_MERGED_HISTORY_SIZE = 100
-        const val MAX_SAVED_PLAYERS = 100
-        const val GAMES_TO_HIDE_TIP = 2
+        const val MAX_HISTORY_SIZE = 1000000 // Effectively "as many as possible" for standard use
+        const val MAX_MERGED_HISTORY_SIZE = 1500000 // Buffer for large migration batches
+        const val MAX_SAVED_PLAYERS = 200000 // Massive roster support
+        const val GAMES_TO_HIDE_TIP = 5
     }
 
     private val gameStateKey = stringPreferencesKey("game_state")

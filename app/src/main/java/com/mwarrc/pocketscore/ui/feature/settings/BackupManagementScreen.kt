@@ -152,7 +152,7 @@ fun BackupManagementScreen(
 
     var selectedFilter by remember { mutableStateOf("All") }
     val filters = listOf("All", "Auto", "Pulse", "Manual")
-    var itemsToShow by remember(selectedFilter) { mutableIntStateOf(20) }
+    var itemsToShow by remember(selectedFilter) { mutableIntStateOf(200) }
 
     val filteredSnapshots = remember(snapshots, selectedFilter) {
         when (selectedFilter) {
@@ -535,11 +535,11 @@ fun BackupManagementScreen(
                         horizontalAlignment = Alignment.CenterHorizontally
                     ) {
                         androidx.compose.material3.TextButton(
-                            onClick = { itemsToShow += 30 },
+                            onClick = { itemsToShow += 500 },
                             shape = RoundedCornerShape(12.dp)
                         ) {
                             Text(
-                                "Load More (+${minOf(30, filteredSnapshots.size - itemsToShow)})",
+                                "Load More (+${minOf(300, filteredSnapshots.size - itemsToShow)})",
                                 style = MaterialTheme.typography.labelLarge,
                                 color = MaterialTheme.colorScheme.primary,
                                 fontWeight = FontWeight.Bold

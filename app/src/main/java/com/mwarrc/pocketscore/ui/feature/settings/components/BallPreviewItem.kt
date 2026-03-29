@@ -144,7 +144,7 @@ fun BallPreviewItem(
                                 text = number.toString(),
                                 fontSize = if (number >= 10) 9.sp else 10.sp,
                                 fontWeight = FontWeight.Black,
-                                color = ballColor
+                                color = if (number == 9) Color.Black else ballColor
                             )
                         }
                     }
@@ -196,7 +196,7 @@ fun BallPreviewItem(
                                     )
                                 )
                         )
-                        val needsDark = number in listOf(1, 2, 13)
+                        val needsDark = number == 1
                         Text(
                             text = number.toString(),
                             style = MaterialTheme.typography.titleMedium.copy(

@@ -440,7 +440,7 @@ fun BallItem(
     val haptic = LocalHapticFeedback.current
     val ballColor = BallColors.getBallColor(number)
 
-    val needsDarkText = number in listOf(1, 9, 13)
+    val needsDarkText = number in listOf(1, 9)
 
     Box(modifier = Modifier.size(size)) {
         Surface(
@@ -689,14 +689,18 @@ fun QuickBallSelectDialog(
                 // Clean minimalistic layout without instructional text
                 
                 // Use a fixed height box to ensure grid behaves in dialog (with padding above)
-                Box(modifier = Modifier.padding(top = 8.dp).height(420.dp).fillMaxWidth(), contentAlignment = Alignment.Center) {
+                Box(modifier = Modifier.padding(top = 8.dp).fillMaxWidth(), contentAlignment = Alignment.Center) {
                     LazyVerticalGrid(
-                        columns = GridCells.Fixed(3), // 3 columns x 5 rows = 15 balls (Perfectly Even)
-                        horizontalArrangement = Arrangement.spacedBy(24.dp), // Generous spacing
-                        verticalArrangement = Arrangement.spacedBy(16.dp),
-                        modifier = Modifier.fillMaxWidth()
+                        columns = GridCells.Fixed(3),
+                        horizontalArrangement = Arrangement.spacedBy(30.dp, Alignment.CenterHorizontally),
+                        verticalArrangement = Arrangement.spacedBy(24.dp),
+                        modifier = Modifier.fillMaxWidth(),
+                        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 20.dp)
                     ) {
-                        gridItems((1..15).toList()) { ball ->
+                        gridItems(
+                            items = (1..15).toList(),
+                            key = { it }
+                        ) { ball ->
                             val isOnTable = ballsOnTable.contains(ball)
                             BallItem(
                                 number = ball,
@@ -707,7 +711,7 @@ fun QuickBallSelectDialog(
                                         if (isOnTable) ballsOnTable - ball else ballsOnTable + ball
                                     )
                                 },
-                                size = 64.dp // Bigger touch target
+                                size = 70.dp
                             )
                         }
                     }

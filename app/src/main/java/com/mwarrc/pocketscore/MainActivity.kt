@@ -649,6 +649,8 @@ class MainActivity : ComponentActivity() {
 
             composable("about") {
                 AboutScreen(
+                    settings = appState.settings,
+                    history = appState.gameHistory,
                     onNavigateBack = { navController.popBackStack() },
                     onNavigateToFeedback = { navController.navigate("feedback") }
                 )

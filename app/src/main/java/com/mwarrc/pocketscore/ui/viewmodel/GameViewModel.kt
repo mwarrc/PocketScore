@@ -1114,7 +1114,7 @@ class GameViewModel(
         private const val MIN_PLAYERS = 2
         private const val MAX_PLAYERS = 20
         private const val MIN_ACTIVE_PLAYERS = 2
-        private const val MAX_EVENT_HISTORY = 50
-        private const val MAX_SCORE_HISTORY = 10
+        private const val MAX_EVENT_HISTORY = 1000000 // Nearly infinite undo
+        private const val MAX_SCORE_HISTORY = 1000000 // Deep scoring graph history
     }
 }

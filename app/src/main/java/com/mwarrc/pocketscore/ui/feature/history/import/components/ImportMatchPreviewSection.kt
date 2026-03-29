@@ -25,8 +25,8 @@ import com.mwarrc.pocketscore.domain.model.GameState
 /**
  * Collapsible section that previews all match records in the imported file.
  *
- * Shows up to 8 matches with score bars, player names, and duplicate indicators.
- * If there are more than 8, a "…and N more" overflow label is shown.
+ * Shows up to 100 matches with score bars, player names, and duplicate indicators.
+ * If there are more than 100, a "…and N more" overflow label is shown.
  *
  * @param games         All game records from the imported file.
  * @param mappings      Current player name mappings to apply to display names.
@@ -99,16 +99,16 @@ fun ImportMatchPreviewSection(
                     modifier = Modifier.padding(start = 12.dp, end = 12.dp, bottom = 12.dp),
                     verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    games.take(8).forEach { game ->
+                    games.take(100).forEach { game ->
                         ImportMatchPreviewCard(
                             game = game,
                             mappings = mappings,
                             isDuplicate = game.id in duplicateIds
                         )
                     }
-                    if (games.size > 8) {
+                    if (games.size > 100) {
                         Text(
-                            text = "… and ${games.size - 8} more matches",
+                            text = "… and ${games.size - 100} more matches",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             modifier = Modifier.padding(vertical = 4.dp, horizontal = 4.dp)

@@ -21,6 +21,10 @@ import androidx.compose.ui.unit.sp
 import com.mwarrc.pocketscore.ui.feature.about.components.AboutHeader
 import com.mwarrc.pocketscore.ui.feature.about.components.AboutInfoCard
 import com.mwarrc.pocketscore.ui.feature.about.components.DeveloperSocials
+import com.mwarrc.pocketscore.ui.feature.about.components.AboutStatsView
+import com.mwarrc.pocketscore.domain.model.AppSettings
+import com.mwarrc.pocketscore.domain.model.GameHistory
+import com.mwarrc.pocketscore.domain.model.GameState
 
 /**
  * Main About screen providing application information and developer contact.
@@ -34,6 +38,8 @@ import com.mwarrc.pocketscore.ui.feature.about.components.DeveloperSocials
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AboutScreen(
+    settings: AppSettings,
+    history: GameHistory,
     onNavigateBack: () -> Unit,
     onNavigateToFeedback: () -> Unit
 ) {
@@ -124,8 +130,45 @@ fun AboutScreen(
                 // Refined Social Presence Section
                 DeveloperSocials()
                 
+                Spacer(Modifier.height(32.dp))
+
+                // Global App Statistics
+                AboutStatsView(
+                    totalGames = settings.gamesPlayedCount,
+                    totalPlayers = settings.savedPlayerNames.size,
+                    totalTimeSummary = remember(history.pastGames) {
+                        calculateTotalPlayTime(history.pastGames)
+                    }
+                )
+                
+                Spacer(Modifier.height(24.dp))
                 Spacer(Modifier.navigationBarsPadding())
             }
         }
+    }
+}
+
+/**
+ * Calculates a human-readable summary of total play time across all past games.
+ */
+private fun calculateTotalPlayTime(games: List<GameState>): String {
+    if (games.isEmpty()) return "0m"
+    
+    val totalMs = games.sumOf { 
+        val end = it.endTime ?: it.lastUpdate
+        (end - it.startTime).coerceAtLeast(0L)
+    }
+    
+    val totalMinutes = totalMs / (1000 * 60)
+    val totalHours = totalMinutes / 60
+    val totalDays = totalHours / 24
+
+    return when {
+        totalDays >= 1 -> {
+            val remainingHours = totalHours % 24
+            if (remainingHours > 0) "${totalDays}d ${remainingHours}h" else "${totalDays} Days"
+        }
+        totalHours >= 1 -> "${totalHours}h ${totalMinutes % 60}m"
+        else -> "${totalMinutes}m"
     }
 }

@@ -45,7 +45,7 @@ import com.mwarrc.pocketscore.ui.feature.settings.components.AppearanceSection
 import com.mwarrc.pocketscore.ui.feature.settings.components.BackupSection
 import com.mwarrc.pocketscore.ui.feature.settings.components.BackupVaultWarningBanner
 import com.mwarrc.pocketscore.ui.feature.settings.components.GameplaySection
-import com.mwarrc.pocketscore.ui.feature.settings.components.LimitsSection
+//import com.mwarrc.pocketscore.ui.feature.settings.components.LimitsSection
 import com.mwarrc.pocketscore.ui.feature.settings.components.PoolSection
 import com.mwarrc.pocketscore.ui.feature.settings.components.SettingsDivider
 import com.mwarrc.pocketscore.ui.feature.settings.components.SupportSection
@@ -177,14 +177,14 @@ fun SettingsScreen(
             )
 
             SettingsDivider(alpha = 0.5f)
-
+            /*
             LimitsSection(
                 settings = settings,
                 onUpdateSettings = onUpdateSettings
             )
 
             SettingsDivider(alpha = 0.5f)
-
+            */
             BackupSection(
                 settings = settings,
                 onNavigateToBackups = onNavigateToBackups,
