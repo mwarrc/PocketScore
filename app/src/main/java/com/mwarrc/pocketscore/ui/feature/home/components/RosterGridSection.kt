@@ -72,15 +72,21 @@ fun RosterGridSection(
             }
         )
 
-        var isExpanded by remember { mutableStateOf(false) }
-        val maxRows = 10
-        val limit = if (layout == RosterLayout.GRID) maxRows * 4 else maxRows
-        
-        val itemsToShow = if (isExpanded || sortedNames.size <= limit) {
-            sortedNames
-        } else {
-            sortedNames.take(limit)
+        // Initial limits differ by layout: grid = 8 rows × 4 cols, list = 12 rows
+        val initialLimit = if (layout == RosterLayout.GRID) 32 else 12
+        val pageSize     = initialLimit   // each "Show more" tap loads one full page
+
+        // Reset visible count whenever layout or list size changes
+        var visibleCount by remember(layout, sortedNames.size) {
+            mutableIntStateOf(initialLimit)
         }
+
+        val isShowingAll = visibleCount >= sortedNames.size
+        val itemsToShow  = sortedNames.take(visibleCount)
+        val hasMore      = visibleCount < sortedNames.size
+        val canCollapse  = visibleCount > initialLimit
+        val remaining    = sortedNames.size - visibleCount
+        val nextBatch    = minOf(pageSize, remaining)
 
         if (layout == RosterLayout.GRID) {
             RosterGridLayout(
@@ -98,15 +104,43 @@ fun RosterGridSection(
             )
         }
 
-        if (sortedNames.size > limit) {
-            TextButton(
-                onClick = { isExpanded = !isExpanded },
-                modifier = Modifier.fillMaxWidth()
+        // Three-button pagination row
+        //   View Less  |  Show X more (N left)  |  View All
+        if (hasMore || canCollapse) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(2.dp, Alignment.CenterHorizontally),
             ) {
-                Text(
-                    text = if (isExpanded) "View Less" else "View All (${sortedNames.size})",
-                    style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.SemiBold)
-                )
+                // ── View Less ──────────────────────────────────────────────
+                if (canCollapse) {
+                    TextButton(onClick = { visibleCount = initialLimit }) {
+                        Text(
+                            text = "View Less",
+                            style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.SemiBold)
+                        )
+                    }
+                }
+
+                // ── Show X more ────────────────────────────────────────────
+                if (hasMore) {
+                    TextButton(onClick = { visibleCount += pageSize }) {
+                        Text(
+                            text = "Show $nextBatch more  ·  $remaining left",
+                            style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.SemiBold)
+                        )
+                    }
+                }
+
+                // ── View All ───────────────────────────────────────────────
+                // Only shown when there are still more items AND not already showing all
+                if (hasMore && !isShowingAll) {
+                    TextButton(onClick = { visibleCount = sortedNames.size }) {
+                        Text(
+                            text = "View All (${sortedNames.size})",
+                            style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.SemiBold)
+                        )
+                    }
+                }
             }
         }
     }

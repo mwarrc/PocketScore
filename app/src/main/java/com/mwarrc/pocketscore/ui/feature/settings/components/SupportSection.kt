@@ -25,6 +25,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.material3.ExperimentalMaterial3Api
+import com.mwarrc.pocketscore.BuildConfig
 
 /**
  * Section for support and information.
@@ -40,7 +41,7 @@ fun SupportSection(
     onNavigateToHelp: () -> Unit,
     onNavigateToFeedback: () -> Unit,
     onNavigateToAbout: () -> Unit,
-    versionString: String = "v1.0.0 Expressive"
+    versionString: String = BuildConfig.VERSION_NAME
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
         Text(

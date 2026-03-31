@@ -52,7 +52,8 @@ data class PlayerAnalysis(
     val volatility: Double,
     val timeInLeadPercent: Double,
     val clutchPoints: Int,
-    val hotStreak: Int,
+    val hotStreakTurns: Int,
+    val scoringTurnPercentage: Double,
     val zeroTurns: Int,
     val negativeTurns: Int,
     val archetype: PlayerArchetype
@@ -279,7 +280,8 @@ fun analyzeGame(game: GameState): GameAnalysis {
             volatility = stdDev,
             timeInLeadPercent = timeInLead,
             clutchPoints = pClutchScore[player.id] ?: 0,
-            hotStreak = calculateHotStreak(history),
+            hotStreakTurns = calculateHotStreakTurns(history),
+            scoringTurnPercentage = if (history.isNotEmpty()) (history.count { it > 0 }.toDouble() / history.size) * 100 else 0.0,
             zeroTurns = pZeroTurns[pid] ?: 0,
             negativeTurns = pNegativeTurns[pid] ?: 0,
             archetype = assignedArchetypes[pid] ?: PlayerArchetype.TACTICIAN
@@ -301,14 +303,20 @@ fun analyzeGame(game: GameState): GameAnalysis {
 }
 
 /**
- * Finds the highest combined score over 3 consecutive turns.
+ * Finds the highest number of consecutive positive scoring turns.
  */
-private fun calculateHotStreak(history: List<Int>): Int {
-    if (history.size < 3) return history.sum()
+private fun calculateHotStreakTurns(history: List<Int>): Int {
     var maxStreak = 0
-    for (i in 0..history.size - 3) {
-        val current = history[i] + history[i+1] + history[i+2]
-        if (current > maxStreak) maxStreak = current
+    var currentStreak = 0
+    for (pts in history) {
+        if (pts > 0) {
+            currentStreak++
+            if (currentStreak > maxStreak) {
+                maxStreak = currentStreak
+            }
+        } else {
+            currentStreak = 0
+        }
     }
     return maxStreak
 }

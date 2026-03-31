@@ -62,20 +62,22 @@ fun InsightCard(
             Spacer(Modifier.height(12.dp))
             Text(
                 text = value, 
-                style = MaterialTheme.typography.headlineSmall, 
-                fontWeight = FontWeight.Bold, 
+                style = MaterialTheme.typography.headlineMedium, 
+                fontWeight = FontWeight.Black, 
                 color = MaterialTheme.colorScheme.onSurface
             )
             Text(
                 text = label, 
-                style = MaterialTheme.typography.labelSmall, 
+                style = MaterialTheme.typography.titleSmall, 
                 fontWeight = FontWeight.Bold, 
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
+            Spacer(Modifier.height(4.dp))
             Text(
                 text = subValue, 
-                style = MaterialTheme.typography.bodySmall, 
-                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
+                style = MaterialTheme.typography.labelSmall, 
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                fontWeight = FontWeight.SemiBold
             )
         }
     }
@@ -142,7 +144,7 @@ fun PlayerDetailedStatsCard(stats: PlayerAnalysis) {
             // Archetype behavioral description
             Text(
                 text = archetype.description,
-                style = MaterialTheme.typography.bodySmall,
+                style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(vertical = 12.dp)
             )
@@ -150,15 +152,22 @@ fun PlayerDetailedStatsCard(stats: PlayerAnalysis) {
             HorizontalDivider(modifier = Modifier.alpha(0.1f))
             Spacer(Modifier.height(16.dp))
 
-            // Sub-metrics grid
-            Row(
-                modifier = Modifier.fillMaxWidth(), 
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                AnalysisStatItem("Avg/Turn", String.format("%.1f", stats.averagePerTurn))
-                AnalysisStatItem("Volatility", String.format("%.1f", stats.volatility))
-                // AnalysisStatItem("Zero Turns", "${stats.zeroTurns}") // Disabled: consistently 0
-                AnalysisStatItem("Best Streak", "${stats.hotStreak}")
+            // Sub-metrics grid Layout for Pool Players
+            Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(), 
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    AnalysisStatItem("Avg/Turn", String.format("%.1f", stats.averagePerTurn))
+                    AnalysisStatItem("Best Run", "${stats.hotStreakTurns} shots")
+                }
+                Row(
+                    modifier = Modifier.fillMaxWidth(), 
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    AnalysisStatItem("Accuracy", String.format("%.0f%%", stats.scoringTurnPercentage))
+                    AnalysisStatItem("Fouls", "${stats.negativeTurns}")
+                }
             }
             
             // Lead time indicator
@@ -189,14 +198,15 @@ private fun AnalysisStatItem(label: String, value: String) {
     Column {
         Text(
             text = value, 
-            style = MaterialTheme.typography.titleMedium, 
+            style = MaterialTheme.typography.titleLarge, 
             fontWeight = FontWeight.Bold, 
             color = MaterialTheme.colorScheme.onSurface
         )
         Text(
             text = label, 
-            style = MaterialTheme.typography.labelSmall, 
-            color = MaterialTheme.colorScheme.onSurfaceVariant
+            style = MaterialTheme.typography.labelMedium, 
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            fontWeight = FontWeight.SemiBold
         )
     }
 }

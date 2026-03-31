@@ -4,6 +4,19 @@ All notable changes to PocketScore are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.0 - savannah] - 2026-03-31
+
+### Added
+- **Pool Auto-Ball Remove**: Intelligent new feature that automatically removes sunk balls from the table view during Pool games.
+- **App Loading Overlay**: Added a sleek, new app-wide loading cover to elevate the user experience during screen transitions and data loads.
+
+### Changed
+- **Major UI Refresh**: A massive overhaul to the Home screen and several other core screens, bringing a more premium, expressive, and modern Material 3 feel.
+- **Performance Optimizations**: Significant under-the-hood enhancements to ensure smoother animations, reduced latency, and faster load times.
+
+### Fixed
+- Addressed various bugs and squashed minor UI glitches for a much more stable and reliable experience.
+
 ## [1.0.0] - 2026-02-18
 
 ### Added

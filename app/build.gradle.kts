@@ -18,7 +18,7 @@ android {
         minSdk = 24
         targetSdk = 36
         versionCode = 1
-        versionName = "1.0.0 Expressive"
+        versionName = "v1.0.0 – Savannah (Build 20260331)"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }

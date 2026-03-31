@@ -3,6 +3,7 @@ package com.mwarrc.pocketscore.ui.feature.home
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.ui.Alignment
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
@@ -48,7 +49,7 @@ fun HomeScreen(
     val scope = rememberCoroutineScope()
     val bringIntoViewRequester = remember { BringIntoViewRequester() }
 
-    BoxWithConstraints(modifier = modifier.fillMaxSize().imePadding()) {
+    BoxWithConstraints(modifier = modifier.fillMaxSize().imePadding(), contentAlignment = Alignment.BottomCenter) {
         val minHeight = maxHeight
         
         Column(
@@ -58,9 +59,9 @@ fun HomeScreen(
                 .pointerInput(Unit) {
                     detectHorizontalDragGestures(
                         onDragEnd = {
-                            if (swipeOffsetX > 100f) {
+                            if (swipeOffsetX > 350f) {
                                 onNavigateToHistory()
-                            } else if (swipeOffsetX < -100f) {
+                            } else if (swipeOffsetX < -350f) {
                                 onNavigateToSettings()
                             }
                             swipeOffsetX = 0f
@@ -76,7 +77,9 @@ fun HomeScreen(
                 modifier = Modifier
                     .fillMaxWidth()
                     .heightIn(min = minHeight)
-                    .padding(top = 56.dp, bottom = 24.dp),
+                    // Extra bottom padding reserves space so the sticky bar never overlaps the last tile
+                    // The generous value also gives the PlayerInputSection comfortable breathing room above the bar
+                    .padding(top = 56.dp, bottom = 140.dp),
                 verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
                 // Hero Section
@@ -216,26 +219,26 @@ fun HomeScreen(
                         }
                 )
 
-                // Flexible spacing to push button to bottom if content is short
-                Spacer(modifier = Modifier.weight(1f))
-
-                // Start Game button — scrolls naturally with the page
-                BottomStartGameBar(
-                    selectedCount = selectedPlayerNames.size,
-                    onStartGame = {
-                        handleStartGame(
-                            trimmedNames = selectedPlayerNames,
-                            settings = settings,
-                            onUpdateSettings = onUpdateSettings,
-                            onStartGame = onStartGame
-                        )
-                    },
-                    modifier = Modifier
-                        .padding(horizontal = 4.dp)
-                        .navigationBarsPadding()
-                )
             }
         }
+
+        // ── Sticky Start Match bar ─────────────────────────────────────────
+        // Lives outside the scroll column so it's always visible regardless
+        // of how many player tiles are rendered above.
+        BottomStartGameBar(
+            selectedCount = selectedPlayerNames.size,
+            onStartGame = {
+                handleStartGame(
+                    trimmedNames = selectedPlayerNames,
+                    settings = settings,
+                    onUpdateSettings = onUpdateSettings,
+                    onStartGame = onStartGame
+                )
+            },
+            modifier = Modifier
+                .padding(horizontal = 4.dp)
+                .navigationBarsPadding()
+        )
     }
 }  // end HomeScreen
 

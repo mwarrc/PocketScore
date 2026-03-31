@@ -89,6 +89,9 @@ class MainActivity : ComponentActivity() {
     // Holds data received from Intents (e.g. opening a .pscore file)
     private val pendingShareDataFlow = MutableStateFlow<PocketScoreShare?>(null)
 
+    // Signals the UI that a .pscore file is currently being decoded from an external intent
+    private val isImportingFlow = MutableStateFlow(false)
+
     // Tracks whether we should stay in full immersive mode
     // Used by onWindowFocusChanged to re-hide system bars after interactions
     private var isImmersiveRequested = false
@@ -178,6 +181,10 @@ class MainActivity : ComponentActivity() {
         var pendingBackupsNavigation by remember { mutableStateOf(false) }
         val globalSnackbarHostState = remember { SnackbarHostState() }
 
+        // Tracks whether a .pscore file is currently being decoded (intent or file picker / backup restore)
+        val isIntentImporting by isImportingFlow.collectAsStateWithLifecycle()
+        var isLocalImporting by remember { mutableStateOf(false) }
+
         // Observe import success for summary snackbar
         LaunchedEffect(viewModel) {
             viewModel.importSuccess.collect { (matches: Int, players: Int) ->
@@ -199,9 +206,11 @@ class MainActivity : ComponentActivity() {
             ActivityResultContracts.GetContent()
         ) { uri: Uri? ->
             uri?.let {
+                isLocalImporting = true
                 scope.launch(Dispatchers.IO) {
                     val data = ShareUtils.decodeFromUri(this@MainActivity, it)
                     withContext(Dispatchers.Main) {
+                        isLocalImporting = false
                         if (data != null) {
                             incomingShareData = data
                             importError = null
@@ -373,7 +382,8 @@ class MainActivity : ComponentActivity() {
                                 onLinkBackupsFolder = { backupsFolderLauncher.launch(null) },
                                 shareData = { share, name -> shareData(share, name) },
                                 onDataRestored = { data -> incomingShareData = data },
-                                onImportError = { error -> importError = error }
+                                onImportError = { error -> importError = error },
+                                onImportLoading = { loading -> isLocalImporting = loading }
                             )
                         }
                     }
@@ -424,6 +434,14 @@ class MainActivity : ComponentActivity() {
                         visible = appState.isLoading,
                         message = appState.loadingMessage
                     )
+
+                    // File import overlay — shown while decoding any .pscore file
+                    // Covers: external file open, in-app file picker, and backup restore
+                    AppLoadingOverlay(
+                        visible = isIntentImporting || isLocalImporting,
+                        message = "Opening file",
+                        subMessage = "Decoding your .pscore data\u2026"
+                    )
                 }
             }
         }
@@ -446,7 +464,8 @@ class MainActivity : ComponentActivity() {
         onLinkBackupsFolder: () -> Unit,
         shareData: (PocketScoreShare, String?) -> Unit,
         onDataRestored: (PocketScoreShare) -> Unit,
-        onImportError: (String) -> Unit
+        onImportError: (String) -> Unit,
+        onImportLoading: (Boolean) -> Unit
     ) {
         val scope = rememberCoroutineScope()
 
@@ -615,8 +634,10 @@ class MainActivity : ComponentActivity() {
                     onBack = { navController.popBackStack() },
                     snapshots = snapshots,
                     onRestore = { name ->
+                        onImportLoading(true)
                         scope.launch {
                             val data = viewModel.getSnapshotContent(name)
+                            onImportLoading(false)
                             if (data != null) {
                                 onDataRestored(data)
                             } else {
@@ -708,10 +729,12 @@ class MainActivity : ComponentActivity() {
 
         if ((action == Intent.ACTION_VIEW || action == Intent.ACTION_SEND) && data != null) {
             lifecycleScope.launch(Dispatchers.IO) {
+                isImportingFlow.value = true
                 val shareData = ShareUtils.decodeFromUri(this@MainActivity, data)
                 if (shareData != null) {
                     pendingShareDataFlow.update { shareData }
                 }
+                isImportingFlow.value = false
             }
         }
     }

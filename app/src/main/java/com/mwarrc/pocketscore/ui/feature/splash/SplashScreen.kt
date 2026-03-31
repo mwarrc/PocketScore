@@ -35,62 +35,66 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.mwarrc.pocketscore.R
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.launch
 
+/**
+ * Custom splash screen shown only during first-run / onboarding.
+ *
+ * Animation approach: state-gated animateFloatAsState.
+ * Using Animatable inside coroutineScope had a race condition where the
+ * animation coroutine could be cancelled before advancing past alpha=0 on
+ * the initial composition frame, resulting in a permanently blank screen.
+ * animateFloatAsState is managed by Compose's animation engine directly
+ * so it is guaranteed to advance on every frame the composable is present.
+ */
 @Composable
 fun SplashScreen(
     onTimeout: () -> Unit
 ) {
     val infiniteTransition = rememberInfiniteTransition(label = "splash")
 
-    val scale by infiniteTransition.animateFloat(
+    // Slow breathing pulse on the logo card
+    val logoPulse by infiniteTransition.animateFloat(
         initialValue = 1f,
         targetValue = 1.06f,
         animationSpec = infiniteRepeatable(
             animation = tween(2500, easing = FastOutSlowInEasing),
             repeatMode = RepeatMode.Reverse
         ),
-        label = "logo_scale"
+        label = "logo_pulse"
     )
 
-    val entryAlpha = remember { androidx.compose.animation.core.Animatable(0f) }
-    val entryScale = remember { androidx.compose.animation.core.Animatable(0.8f) }
+    // Gate that triggers both entrance animations simultaneously.
+    // A 50ms head-start ensures the composable renders one invisible frame
+    // first, making the subsequent fade-in a real visible transition.
+    var entered by remember { mutableStateOf(false) }
 
     LaunchedEffect(Unit) {
-        val startTime = System.currentTimeMillis()
-        
-        // Launch both animations to run concurrently without waiting for recompositions
-        kotlinx.coroutines.coroutineScope {
-            launch {
-                entryAlpha.animateTo(
-                    targetValue = 1f,
-                    animationSpec = tween(900, easing = LinearOutSlowInEasing)
-                )
-            }
-            launch {
-                entryScale.animateTo(
-                    targetValue = 1f,
-                    animationSpec = tween(900, easing = FastOutSlowInEasing)
-                )
-            }
-        }
-        
-        // Enforce the remaining time of the 2000ms splash window
-        val elapsed = System.currentTimeMillis() - startTime
-        val remaining = 2000L - elapsed
-        if (remaining > 0L) {
-            delay(remaining)
-        }
-        
+        delay(50)      // one-frame grace period for initial composition
+        entered = true
+        delay(2150)    // keep visible; total window ≈ 2200ms
         onTimeout()
     }
+
+    // Entrance: fade in
+    val entryAlpha by animateFloatAsState(
+        targetValue = if (entered) 1f else 0f,
+        animationSpec = tween(durationMillis = 850, easing = LinearOutSlowInEasing),
+        label = "entry_alpha"
+    )
+
+    // Entrance: scale up from 85 %
+    val entryScale by animateFloatAsState(
+        targetValue = if (entered) 1f else 0.85f,
+        animationSpec = tween(durationMillis = 850, easing = FastOutSlowInEasing),
+        label = "entry_scale"
+    )
 
     Box(
         modifier = Modifier
@@ -98,17 +102,19 @@ fun SplashScreen(
             .background(MaterialTheme.colorScheme.surface),
         contentAlignment = Alignment.Center
     ) {
+
+        // ── Centre: logo + wordmark ───────────────────────────────────────
         Column(
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center,
             modifier = Modifier
-                .alpha(entryAlpha.value)
-                .scale(entryScale.value)
+                .alpha(entryAlpha)
+                .scale(entryScale)
         ) {
             Surface(
                 modifier = Modifier
                     .size(170.dp)
-                    .scale(scale),
+                    .scale(logoPulse),
                 shape = RoundedCornerShape(52.dp),
                 color = MaterialTheme.colorScheme.surface,
                 tonalElevation = 4.dp,
@@ -158,10 +164,12 @@ fun SplashScreen(
             )
         }
 
+        // ── Bottom: spinner + label ───────────────────────────────────────
         Column(
             modifier = Modifier
                 .align(Alignment.BottomCenter)
                 .padding(bottom = 72.dp)
+                .alpha(entryAlpha)          // fade in with everything else
                 .width(200.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
@@ -183,4 +191,3 @@ fun SplashScreen(
         }
     }
 }
-

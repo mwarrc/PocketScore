@@ -22,6 +22,7 @@ import com.mwarrc.pocketscore.ui.feature.about.components.AboutHeader
 import com.mwarrc.pocketscore.ui.feature.about.components.AboutInfoCard
 import com.mwarrc.pocketscore.ui.feature.about.components.DeveloperSocials
 import com.mwarrc.pocketscore.ui.feature.about.components.AboutStatsView
+import com.mwarrc.pocketscore.BuildConfig
 import com.mwarrc.pocketscore.domain.model.AppSettings
 import com.mwarrc.pocketscore.domain.model.GameHistory
 import com.mwarrc.pocketscore.domain.model.GameState
@@ -86,7 +87,7 @@ fun AboutScreen(
             ) {
                 // Header (App Logo + Version)
                 AboutHeader(
-                    version = "v1.0.0 Expressive"
+                    version = BuildConfig.VERSION_NAME
                 )
 
                 Spacer(Modifier.height(32.dp))

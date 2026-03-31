@@ -53,8 +53,8 @@ fun AppLoadingOverlay(
         } else {
             if (showState) {
                 val elapsed = System.currentTimeMillis() - showStartTime
-                if (elapsed < 2500L) {
-                    kotlinx.coroutines.delay(2500L - elapsed)
+                if (elapsed < 500L) {
+                    kotlinx.coroutines.delay(500L - elapsed)
                 }
                 showState = false
             }
@@ -103,9 +103,9 @@ fun AppLoadingOverlay(
     }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
+// --
 // Creative Loading Animation
-// ─────────────────────────────────────────────────────────────────────────────
+// --
 
 /**
  * Levitating 8-Ball Loader

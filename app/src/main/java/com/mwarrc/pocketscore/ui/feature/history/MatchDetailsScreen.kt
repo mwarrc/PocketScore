@@ -71,15 +71,16 @@ fun MatchDetailsScreen(
                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
                             Text(
                                 "Match Record",
-                                style = MaterialTheme.typography.titleMedium,
-                                fontWeight = FontWeight.SemiBold
+                                style = MaterialTheme.typography.titleLarge,
+                                fontWeight = FontWeight.Bold
                             )
                             val date = Date(game.endTime ?: game.startTime)
                             val dateStr = SimpleDateFormat("MMM dd, yyyy • HH:mm", Locale.getDefault()).format(date)
                             Text(
                                 dateStr,
-                                style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                style = MaterialTheme.typography.labelMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                fontWeight = FontWeight.SemiBold
                             )
                         }
                     },
@@ -179,8 +180,8 @@ private fun MatchOverviewTab(game: GameState) {
                         winners.size == 2 -> "Tie"
                         else -> "Match Winner"
                     },
-                    style = MaterialTheme.typography.labelMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    style = MaterialTheme.typography.titleSmall,
+                    color = MaterialTheme.colorScheme.primary,
                     fontWeight = FontWeight.Bold
                 )
                 Text(
@@ -230,10 +231,10 @@ private fun MatchOverviewTab(game: GameState) {
             ) {
                 Text(
                     "#$rank",
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold,
-                    color = if (isWinner) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
-                    modifier = Modifier.width(32.dp)
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.Black,
+                    color = if (isWinner) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.width(36.dp)
                 )
                 
                 Column(modifier = Modifier.weight(1f)) {
@@ -259,12 +260,13 @@ private fun MatchOverviewTab(game: GameState) {
         if (game.deviceInfo != null) {
             item {
                 Spacer(Modifier.height(16.dp))
-                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.alpha(0.5f)) {
-                    Icon(Icons.Default.Smartphone, null, modifier = Modifier.size(14.dp))
+                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.alpha(0.7f)) {
+                    Icon(Icons.Default.Smartphone, null, modifier = Modifier.size(16.dp))
                     Spacer(Modifier.width(8.dp))
                     Text(
                         "Played on ${game.deviceInfo}",
-                        style = MaterialTheme.typography.labelSmall
+                        style = MaterialTheme.typography.labelMedium,
+                        fontWeight = FontWeight.SemiBold
                     )
                 }
             }

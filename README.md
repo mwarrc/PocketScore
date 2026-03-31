@@ -49,11 +49,13 @@ com.mwarrc.pocketscore
 ├── core/           # Core utilities and extensions
 ├── data/           # Repositories and data sources
 ├── domain/         # Domain models (Game, Player, History)
-└── ui/             # UI Layer
-    ├── components/ # Reusable Compose components
-    ├── feature/    # Feature-specific screens
-    ├── theme/      # App theme and styling
-    └── viewmodel/  # ViewModels
+├── ui/             # UI Layer
+│   ├── components/ # Reusable Compose components
+│   ├── feature/    # Feature-specific screens
+│   ├── theme/      # App theme and styling
+│   ├── util/       # UI Utilities and helpers
+│   └── viewmodel/  # ViewModels
+└── util/           # App-wide Utilities and Analytics
 ```
 
 ## Getting Started
