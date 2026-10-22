@@ -1,0 +1,42 @@
+name: Publish Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    name: Create GitHub Release
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Prepare APK matching version tag
+        run: |
+          mkdir -p release_assets
+          for f in app/release/*.apk app/build/outputs/apk/*/*.apk; do
+            if [ -f "$f" ]; then
+              cp "$f" "release_assets/PocketScore_${{ github.ref_name }}.apk"
+              break
+            fi
+          done
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          body_path: RELEASE_NOTES.md
+          name: PocketScore ${{ github.ref_name }}
+          draft: false
+          prerelease: false
+          files: |
+            release_assets/*.apk
+          fail_on_unmatched_files: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

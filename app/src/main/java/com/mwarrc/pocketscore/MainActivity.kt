@@ -1,0 +1,859 @@
+package com.mwarrc.pocketscore
+
+import android.content.Intent
+import android.content.pm.ActivityInfo
+import android.net.Uri
+import android.util.Log
+import android.os.Build
+import android.os.Bundle
+import android.os.Environment
+import android.provider.Settings
+import android.view.WindowManager
+import androidx.activity.ComponentActivity
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.compose.setContent
+import androidx.activity.enableEdgeToEdge
+import androidx.activity.result.ActivityResultLauncher
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.unit.Density
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.dp
+import androidx.core.content.ContextCompat
+import androidx.core.content.IntentCompat
+import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
+import androidx.core.view.WindowCompat
+import androidx.core.view.WindowInsetsCompat
+import androidx.core.view.WindowInsetsControllerCompat
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.lifecycleScope
+import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.navigation.NavHostController
+import androidx.navigation.compose.NavHost
+import androidx.navigation.compose.composable
+import androidx.navigation.compose.currentBackStackEntryAsState
+import androidx.navigation.compose.rememberNavController
+import com.mwarrc.pocketscore.data.repository.GameRepositoryImplRoom
+import com.mwarrc.pocketscore.domain.model.AppState
+import com.mwarrc.pocketscore.domain.model.AppTheme
+import com.mwarrc.pocketscore.domain.model.PocketScoreShare
+import com.mwarrc.pocketscore.domain.model.ScoreboardLayout
+import com.mwarrc.pocketscore.ui.feature.about.AboutScreen
+import com.mwarrc.pocketscore.ui.feature.feedback.FeedbackScreen
+import com.mwarrc.pocketscore.ui.feature.game.GameScreen
+import com.mwarrc.pocketscore.ui.components.AppLoadingOverlay
+import com.mwarrc.pocketscore.ui.feature.history.HistoryScreen
+import com.mwarrc.pocketscore.ui.feature.history.import_.ImportPreviewScreen
+import com.mwarrc.pocketscore.ui.feature.history.MatchDetailsScreen
+import com.mwarrc.pocketscore.ui.feature.home.HomeScreen
+import com.mwarrc.pocketscore.ui.feature.help.HelpScreen
+import com.mwarrc.pocketscore.ui.feature.onboarding.OnboardingScreen
+import com.mwarrc.pocketscore.ui.feature.settings.AppearanceSettingsScreen
+import com.mwarrc.pocketscore.ui.feature.settings.FontSettingsScreen
+import com.mwarrc.pocketscore.ui.feature.settings.BackupManagementScreen
+import com.mwarrc.pocketscore.ui.feature.settings.BallValuesScreen
+import com.mwarrc.pocketscore.ui.feature.settings.GameplaySettingsScreen
+import com.mwarrc.pocketscore.ui.feature.settings.PoolSettingsScreen
+import com.mwarrc.pocketscore.ui.feature.settings.SettingsScreen
+import com.mwarrc.pocketscore.ui.feature.settings.UtilitiesSettingsScreen
+import com.mwarrc.pocketscore.ui.feature.splash.SplashScreen
+import com.mwarrc.pocketscore.ui.theme.PocketScoreTheme
+import com.mwarrc.pocketscore.ui.viewmodel.GameViewModel
+import com.mwarrc.pocketscore.ui.viewmodel.GameViewModelFactory
+import com.mwarrc.pocketscore.util.AnalyticsManager
+import com.mwarrc.pocketscore.util.ShareUtils
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+
+/**
+ * Main Activity of Slice.
+ *
+ * Handles app initialization, navigation setup, intent handling for shared files,
+ * and global app configuration like themes and screen orientation.
+ */
+class MainActivity : ComponentActivity() {
+
+    // Holds data received from Intents (e.g. opening a .pscore file)
+    private val pendingShareDataFlow = MutableStateFlow<PocketScoreShare?>(null)
+
+    // Signals the UI that a .pscore file is currently being decoded from an external intent
+    private val isImportingFlow = MutableStateFlow(false)
+
+    // Tracks whether we should stay in full immersive mode
+    // Used by onWindowFocusChanged to re-hide system bars after interactions
+    private var isImmersiveRequested = false
+
+    /**
+     * Called when the activity is starting.
+     */
+    override fun onCreate(savedInstanceState: Bundle?) {
+        installSplashScreen()
+        super.onCreate(savedInstanceState)
+
+        setupOrientation()
+        enableEdgeToEdge()
+        initializeAnalytics()
+        setupSystemBars()
+        handleIntent(intent)
+
+        setContent {
+            MainContent()
+        }
+    }
+
+    /**
+     * Called when the activity receives a new Intent while already running.
+     */
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        handleIntent(intent)
+    }
+
+    /**
+     * Re-applies full immersive mode every time the window regains focus.
+     * This is critical because when a Dialog or BottomSheet closes, Android 
+     * shows the system bars temporarily. Overriding this ensures they are 
+     * re-hidden automatically on the game screen.
+     */
+    override fun onWindowFocusChanged(hasFocus: Boolean) {
+        super.onWindowFocusChanged(hasFocus)
+        if (hasFocus && isImmersiveRequested) {
+            val insetsController = WindowCompat.getInsetsController(window, window.decorView)
+            insetsController.hide(WindowInsetsCompat.Type.systemBars())
+            insetsController.systemBarsBehavior =
+                WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+        }
+    }
+
+    /**
+     * The main composable content of the application.
+     * Sets up the ViewModel, Navigation Host, and handles global UI states like dialogs and overlays.
+     */
+    @Composable
+    private fun MainContent() {
+        val app = application as PocketScoreApp
+        val repository = remember { GameRepositoryImplRoom(applicationContext, app.database) }
+        val viewModel: GameViewModel = viewModel(factory = GameViewModelFactory(repository))
+        val appState by viewModel.state.collectAsStateWithLifecycle()
+        val navController = rememberNavController()
+        val scope = rememberCoroutineScope()
+
+        // Track current route and apply full immersive mode
+        val currentBackStackEntry by navController.currentBackStackEntryAsState()
+        val currentRoute = currentBackStackEntry?.destination?.route
+        LaunchedEffect(currentRoute) {
+            val insetsController = WindowCompat.getInsetsController(window, window.decorView)
+            
+            if (currentRoute == "setup" || currentRoute == null) {
+                // Home Screen (setup): Show UI bars
+                isImmersiveRequested = false
+                insetsController.show(WindowInsetsCompat.Type.navigationBars())
+                insetsController.hide(WindowInsetsCompat.Type.statusBars()) // Keep status bar hidden app-wide
+                insetsController.systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_DEFAULT
+            } else {
+                // All other screens (Game, History, Settings): Full Immersive
+                isImmersiveRequested = true
+                insetsController.hide(WindowInsetsCompat.Type.systemBars())
+                insetsController.systemBarsBehavior =
+                    WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+            }
+        }
+
+        // Local state
+        var showSplash by remember { mutableStateOf(true) }
+        var showOnboarding by remember { mutableStateOf(false) }
+        var incomingShareData by remember { mutableStateOf<PocketScoreShare?>(null) }
+        var selectedMatchId by remember { mutableStateOf<String?>(null) }
+        var storagePermissionGranted by remember { mutableStateOf(false) }
+        var importError by remember { mutableStateOf<String?>(null) }
+        var pendingBackupsNavigation by remember { mutableStateOf(false) }
+        val globalSnackbarHostState = remember { SnackbarHostState() }
+
+        // Tracks whether a .pscore file is currently being decoded (intent or file picker / backup restore)
+        val isIntentImporting by isImportingFlow.collectAsStateWithLifecycle()
+        var isLocalImporting by remember { mutableStateOf(false) }
+
+        // Observe import success for summary snackbar
+        LaunchedEffect(viewModel) {
+            viewModel.importSuccess.collect { (matches: Int, players: Int) ->
+                val message = when {
+                    matches > 0 && players > 0 -> "Imported $matches matches & $players new players"
+                    matches > 0 -> "Imported $matches new matches"
+                    players > 0 -> "Imported $players new players"
+                    else -> "Data merged successfully"
+                }
+                globalSnackbarHostState.showSnackbar(message)
+            }
+        }
+
+        // Observe intent data from Flow
+        val pendingData by pendingShareDataFlow.collectAsStateWithLifecycle()
+
+        // File picker for manual import
+        val filePickerLauncher = rememberLauncherForActivityResult(
+            ActivityResultContracts.GetContent()
+        ) { uri: Uri? ->
+            uri?.let {
+                isLocalImporting = true
+                scope.launch(Dispatchers.IO) {
+                    val data = ShareUtils.decodeFromUri(this@MainActivity, it)
+                    withContext(Dispatchers.Main) {
+                        isLocalImporting = false
+                        if (data != null) {
+                            incomingShareData = data
+                            importError = null
+                        } else {
+                            importError = "Failed to import file. The file may be corrupted or in an unsupported format."
+                        }
+                    }
+                }
+            }
+        }
+
+        // Folder linker for persistent backups (survives app life & reboots)
+        val backupsFolderLauncher = rememberLauncherForActivityResult(
+            ActivityResultContracts.OpenDocumentTree()
+        ) { uri: Uri? ->
+            uri?.let { folderUri ->
+                // Grant persistent access
+                val flags = Intent.FLAG_GRANT_READ_URI_PERMISSION or 
+                            Intent.FLAG_GRANT_WRITE_URI_PERMISSION
+                try {
+                    contentResolver.takePersistableUriPermission(folderUri, flags)
+                    // Update settings via ViewModel
+                    scope.launch {
+                        viewModel.updateBackupsFolderUri(folderUri.toString())
+                    }
+                } catch (e: Exception) {
+                    Log.e("MainActivity", "Failed to take persistent permission", e)
+                }
+            }
+        }
+
+        // Permission request launcher
+        val requestPermissionLauncher = rememberLauncherForActivityResult(
+            ActivityResultContracts.RequestMultiplePermissions()
+        ) {
+            storagePermissionGranted = hasStoragePermission()
+            if (storagePermissionGranted && pendingBackupsNavigation) {
+                pendingBackupsNavigation = false
+                navController.navigate("backups")
+            }
+        }
+
+        // Initialize permissions and check for pending data
+        LaunchedEffect(Unit) {
+            storagePermissionGranted = hasStoragePermission()
+        }
+
+        // Handle data from Intent
+        LaunchedEffect(pendingData) {
+            pendingData?.let {
+                incomingShareData = it
+                pendingShareDataFlow.value = null // Clear after handling
+            }
+        }
+
+        // Lifecycle observer for permission changes (e.g. coming back from Settings)
+        val lifecycleOwner = LocalLifecycleOwner.current
+        DisposableEffect(lifecycleOwner) {
+            val observer = LifecycleEventObserver { _, event ->
+                if (event == Lifecycle.Event.ON_RESUME) {
+                    val wasGranted = storagePermissionGranted
+                    storagePermissionGranted = hasStoragePermission()
+                    // Auto-navigate to backups if permission was just granted
+                    if (!wasGranted && storagePermissionGranted && pendingBackupsNavigation) {
+                        pendingBackupsNavigation = false
+                        navController.navigate("backups")
+                    }
+                }
+            }
+            lifecycleOwner.lifecycle.addObserver(observer)
+            onDispose {
+                lifecycleOwner.lifecycle.removeObserver(observer)
+            }
+        }
+
+        // Keep screen on during active game
+        LaunchedEffect(appState.gameState.isGameActive) {
+            if (appState.gameState.isGameActive) {
+                window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+            } else {
+                window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+            }
+        }
+
+        // Theme setup
+        val darkTheme = when (appState.settings.appTheme) {
+            AppTheme.DARK -> true
+            AppTheme.LIGHT -> false
+            AppTheme.SYSTEM -> isSystemInDarkTheme()
+        }
+
+        val startDestination = if (appState.gameState.isGameActive) "game" else "setup"
+
+        val currentDensity = LocalDensity.current
+        val scaleFactor = appState.settings.globalScale
+        val customDensity = Density(
+            density = currentDensity.density * scaleFactor,
+            fontScale = currentDensity.fontScale * scaleFactor
+        )
+
+        CompositionLocalProvider(LocalDensity provides customDensity) {
+            PocketScoreTheme(
+                darkTheme = darkTheme,
+                appFont = appState.settings.appFont
+            ) {
+                Box(modifier = Modifier.fillMaxSize()) {
+                    when {
+                        showSplash && !appState.settings.hasSeenOnboarding -> {
+                            SplashScreen(
+                                onTimeout = {
+                                    showSplash = false
+                                    if (!appState.settings.hasSeenOnboarding) {
+                                        showOnboarding = true
+                                    }
+                                }
+                            )
+                        }
+                        showOnboarding -> {
+                            OnboardingScreen(
+                                onComplete = { chosenPresetName ->
+                                    showOnboarding = false
+                                    viewModel.updateSettings { settings ->
+                                        // Find the preset that matches the chosen name and apply its values
+                                        val chosenPreset = settings.ballValuePresets.find {
+                                            it.name == chosenPresetName
+                                        } ?: com.mwarrc.pocketscore.domain.model.AppSettings.DEFAULT_PRESETS.find {
+                                            it.name == chosenPresetName
+                                        }
+                                        settings.copy(
+                                            hasSeenOnboarding = true,
+                                            ballValues = chosenPreset?.values
+                                                ?: com.mwarrc.pocketscore.domain.model.AppSettings.DEFAULT_BALL_VALUES
+                                        )
+                                    }
+                                }
+                            )
+                        }
+                        else -> {
+                            // Sync navigation with game state
+                            LaunchedEffect(appState.gameState.isGameActive, appState.gameState.players.size) {
+                                val currentRoute = navController.currentDestination?.route
+                                // Only auto-navigate when on setup or game screens to avoid interrupting other flows
+                                val isOnGameFlowScreen = currentRoute == "setup" || currentRoute == "game"
+
+                                if (isOnGameFlowScreen) {
+                                    val hasValidActiveGame = appState.gameState.isGameActive && appState.gameState.players.isNotEmpty()
+                                    when {
+                                        hasValidActiveGame && currentRoute != "game" -> {
+                                            navController.navigate("game") {
+                                                popUpTo("setup") { inclusive = true }
+                                            }
+                                        }
+                                        !hasValidActiveGame && currentRoute == "game" -> {
+                                            navController.navigate("setup") {
+                                                popUpTo("game") { inclusive = true }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+
+                            // Main Navigation Host
+                            PocketScoreNavHost(
+                                navController = navController,
+                                startDestination = startDestination,
+                                appState = appState,
+                                viewModel = viewModel,
+                                storagePermissionGranted = storagePermissionGranted,
+                                onUpdateSelectedMatchId = { selectedMatchId = it },
+                                selectedMatchId = selectedMatchId,
+                                requestPermission = { pendingBackupsNavigation = true; requestStoragePermissions(requestPermissionLauncher) },
+                                onImportRecords = { filePickerLauncher.launch("application/octet-stream") },
+                                onLinkBackupsFolder = { backupsFolderLauncher.launch(null) },
+                                shareData = { share, name -> shareData(share, name) },
+                                onDataRestored = { data -> incomingShareData = data },
+                                onImportError = { error -> importError = error },
+                                onImportLoading = { loading -> isLocalImporting = loading }
+                            )
+                        }
+                    }
+
+                    // Overlay for import preview
+                    incomingShareData?.let { data ->
+                        ImportPreviewScreen(
+                            shareData = data,
+                            existingPlayers = appState.settings.savedPlayerNames,
+                            existingGames = appState.gameHistory.pastGames.map { it.id },
+                            onConfirm = { mappings ->
+                                viewModel.importData(data, mappings)
+                                incomingShareData = null
+                                importError = null
+                            },
+                            onCancel = {
+                                incomingShareData = null
+                                importError = null
+                            }
+                        )
+                    }
+
+                    // Show import error if any
+                    importError?.let { error ->
+                        AlertDialog(
+                            onDismissRequest = { importError = null },
+                            title = { Text("Import Failed") },
+                            text = { Text(error) },
+                            confirmButton = {
+                                TextButton(onClick = { importError = null }) {
+                                    Text("OK")
+                                }
+                            }
+                        )
+                    }
+
+                    // Global Snackbar for Success Notifications
+                    SnackbarHost(
+                        hostState = globalSnackbarHostState,
+                        modifier = Modifier
+                            .align(Alignment.BottomCenter)
+                            .padding(bottom = 32.dp)
+                            .padding(horizontal = 24.dp)
+                    )
+
+                    // Global High-Premium Loading Overlay
+                    AppLoadingOverlay(
+                        visible = appState.isLoading,
+                        message = appState.loadingMessage
+                    )
+
+                    // File import overlay — shown while decoding any .pscore file
+                    // Covers: external file open, in-app file picker, and backup restore
+                    AppLoadingOverlay(
+                        visible = isIntentImporting || isLocalImporting,
+                        message = "Opening file",
+                        subMessage = "Decoding your .pscore data\u2026"
+                    )
+                }
+            }
+        }
+    }
+
+    /**
+     * Hosts the navigation graph for the application.
+     */
+    @Composable
+    private fun PocketScoreNavHost(
+        navController: NavHostController,
+        startDestination: String,
+        appState: AppState,
+        viewModel: GameViewModel,
+        storagePermissionGranted: Boolean,
+        onUpdateSelectedMatchId: (String) -> Unit,
+        selectedMatchId: String?,
+        requestPermission: () -> Unit,
+        onImportRecords: () -> Unit,
+        onLinkBackupsFolder: () -> Unit,
+        shareData: (PocketScoreShare, String?) -> Unit,
+        onDataRestored: (PocketScoreShare) -> Unit,
+        onImportError: (String) -> Unit,
+        onImportLoading: (Boolean) -> Unit
+    ) {
+        val scope = rememberCoroutineScope()
+
+        NavHost(
+            navController = navController,
+            startDestination = startDestination,
+            modifier = Modifier.fillMaxSize()
+        ) {
+            composable("setup") {
+                val pausedGame = appState.gameHistory.pastGames
+                    .filter { it.isPaused && it.players.isNotEmpty() }
+                    .maxByOrNull { it.lastUpdate ?: it.startTime }
+                val hasPausedGame = pausedGame != null
+                val hasValidLiveGame = appState.gameState.isGameActive && appState.gameState.players.isNotEmpty()
+                val displayPlayers = if (hasPausedGame) pausedGame!!.players else appState.gameState.players
+                
+                HomeScreen(
+                    settings = appState.settings,
+                    history = appState.gameHistory,
+                    activePlayers = displayPlayers,
+                    hasActiveGame = hasValidLiveGame || hasPausedGame,
+                    isPaused = hasPausedGame,
+                    storagePermissionGranted = storagePermissionGranted,
+                    onStartGame = { players -> viewModel.startNewGame(players) },
+                    onResumeGame = {
+                        if (hasPausedGame) {
+                            viewModel.resumePausedGame()
+                        }
+                        navController.navigate("game")
+                    },
+                    onNavigateToHistory = { navController.navigate("history") },
+                    onNavigateToSettings = { navController.navigate("settings") },
+                    onNavigateToAbout = { navController.navigate("about") },
+                    onNavigateToHelp = { navController.navigate("help") },
+                    onUpdateSettings = { update -> viewModel.updateSettings(update) }
+                )
+            }
+
+            composable("game") {
+                GameScreen(
+                    players = appState.gameState.players,
+                    currentPlayerId = appState.gameState.currentPlayerId,
+                    settings = appState.settings,
+                    globalEvents = appState.gameState.globalEvents,
+                    canUndo = appState.gameState.canUndo,
+                    onUpdateScore = { id, pts, ball -> viewModel.updateScore(id, pts, ball) },
+                    onGlobalUndo = { viewModel.undoLastGlobalAction() },
+                    onReset = { finalized, forceSave -> viewModel.resetGame(finalized, forceSave) },
+                    onPause = { viewModel.pauseGame() },
+                    onToggleLayout = {
+                        viewModel.updateSettings {
+                            it.copy(
+                                defaultLayout = if (it.defaultLayout == ScoreboardLayout.LIST)
+                                    ScoreboardLayout.GRID
+                                else
+                                    ScoreboardLayout.LIST
+                            )
+                        }
+                    },
+                    onNavigateToSettings = { navController.navigate("settings") },
+                    onNavigateToHistory = { navController.navigate("history") },
+                    onTogglePlayerActive = { id, active -> viewModel.setPlayerActive(id, active) },
+                    onReorderPlayers = { reordered -> viewModel.reorderPlayers(reordered) },
+                    onWithdrawPlayer = { id -> viewModel.removeOrWithdrawPlayer(id) },
+                    onSetCurrentPlayer = { id -> viewModel.setCurrentPlayer(id) },
+                    onRestart = { playerNames, forceSave ->
+                        viewModel.startRestartMatch(playerNames, forceSave)
+                    },
+                    onUpdateSettings = { update -> viewModel.updateSettings(update) },
+                    onLiveScaleChange = { scale -> viewModel.setLiveGlobalScale(scale) },
+                    ballsOnTable = appState.gameState.ballsOnTable,
+                    onUpdateBallsOnTable = { balls -> viewModel.updateBallsOnTable(balls) },
+                    isLoading = appState.isLoading,
+                    loadingMessage = appState.loadingMessage
+                )
+            }
+
+            composable("history") {
+                HistoryScreen(
+                    history = appState.gameHistory,
+                    onBack = { navController.popBackStack() },
+                    onNavigateToGame = {
+                        navController.navigate("game")
+                    },
+                    onNavigateToSettings = { navController.navigate("settings") },
+                    onResumeGame = { game, override -> viewModel.resumeGame(game, override) },
+                    onDeleteGame = { id -> viewModel.deleteGameFromHistory(id) },
+                    onArchiveGame = { id -> viewModel.toggleArchiveGame(id) },
+                    settings = appState.settings,
+                    onUpdateSettings = { update -> viewModel.updateSettings(update) },
+                    onRename = { old, new -> viewModel.renamePlayer(old, new) },
+                    onViewDetails = { id ->
+                        onUpdateSelectedMatchId(id)
+                        navController.navigate("match_details")
+                    },
+                    onDeleteMultipleGames = { ids -> viewModel.deleteMultipleGames(ids) },
+                    onArchiveMultipleGames = { ids -> viewModel.toggleArchiveMultipleGames(ids) },
+                    onShareGame = { id ->
+                        scope.launch {
+                            val share = viewModel.getShareData(listOf(id))
+                            val safeId = id.take(minOf(8, id.length))
+                            shareData(share, appState.settings.customDeviceName, "pocketscore_match_${safeId}.pscore")
+                        }
+                    },
+                    onShareMultipleGames = { ids ->
+                        scope.launch {
+                            val share = viewModel.getShareData(ids.toList())
+                            shareData(share, appState.settings.customDeviceName, "pocketscore_batch_export.pscore")
+                        }
+                    }
+                )
+            }
+
+            composable("match_details") {
+                // Ensure we have a valid match ID before attempting to display
+                if (selectedMatchId != null) {
+                    val fallbackMatch = remember(selectedMatchId) {
+                        appState.gameHistory.pastGames.find { it.id == selectedMatchId }
+                    }
+                    val detailedMatch by remember(selectedMatchId) {
+                        viewModel.getGameWithDetails(selectedMatchId!!)
+                    }.collectAsStateWithLifecycle(initialValue = fallbackMatch)
+
+                    val match = detailedMatch ?: fallbackMatch
+
+                    if (match != null) {
+                        MatchDetailsScreen(
+                            game = match,
+                            onBack = { navController.popBackStack() }
+                        )
+                    } else {
+                        // Match not found, navigate back
+                        LaunchedEffect(Unit) {
+                            navController.popBackStack()
+                        }
+                    }
+                } else {
+                    // No match ID, navigate back immediately
+                    LaunchedEffect(Unit) {
+                        navController.popBackStack()
+                    }
+                }
+            }
+
+            composable("settings") {
+                SettingsScreen(
+                    settings = appState.settings,
+                    onNavigateToGame = {
+                        if (appState.gameState.isGameActive) {
+                            navController.navigate("game")
+                        } else {
+                            navController.navigate("setup")
+                        }
+                    },
+                    onNavigateToGameplay = { navController.navigate("settings_gameplay") },
+                    onNavigateToPool = { navController.navigate("settings_pool") },
+                    onNavigateToAppearance = { navController.navigate("settings_appearance") },
+                    onNavigateToUtilities = { navController.navigate("settings_utilities") },
+                    onNavigateToBackups = { navController.navigate("backups") },
+                    onNavigateToHelp = { navController.navigate("help") },
+                    onNavigateToFeedback = { navController.navigate("feedback") },
+                    onNavigateToAbout = { navController.navigate("about") }
+                )
+            }
+
+            composable("settings_gameplay") {
+                GameplaySettingsScreen(
+                    settings = appState.settings,
+                    onUpdateSettings = { update -> viewModel.updateSettings(update) },
+                    onBack = { navController.popBackStack() }
+                )
+            }
+
+            composable("settings_pool") {
+                PoolSettingsScreen(
+                    settings = appState.settings,
+                    onUpdateSettings = { update -> viewModel.updateSettings(update) },
+                    onNavigateToBallValues = { navController.navigate("ball_values") },
+                    onBack = { navController.popBackStack() }
+                )
+            }
+
+            composable("settings_appearance") {
+                AppearanceSettingsScreen(
+                    settings = appState.settings,
+                    onUpdateSettings = { update -> viewModel.updateSettings(update) },
+                    onNavigateToFont = { navController.navigate("settings_font") },
+                    onBack = { navController.popBackStack() }
+                )
+            }
+
+            composable("settings_font") {
+                FontSettingsScreen(
+                    settings = appState.settings,
+                    onUpdateSettings = { update -> viewModel.updateSettings(update) },
+                    onBack = { navController.popBackStack() }
+                )
+            }
+
+            composable("settings_utilities") {
+                UtilitiesSettingsScreen(
+                    settings = appState.settings,
+                    onUpdateSettings = { update -> viewModel.updateSettings(update) },
+                    onExportRecords = {
+                        scope.launch {
+                            val share = viewModel.getShareData(null)
+                            shareData(share, appState.settings.customDeviceName, "pocketscore_full_export.pscore")
+                        }
+                    },
+                    onImportRecords = {
+                        onImportRecords()
+                    },
+                    onBack = { navController.popBackStack() }
+                )
+            }
+
+            composable("feedback") {
+                FeedbackScreen(
+                    onNavigateBack = { navController.popBackStack() }
+                )
+            }
+
+            composable("backups") {
+                val snapshots by viewModel.snapshots.collectAsStateWithLifecycle()
+
+                BackupManagementScreen(
+                    onBack = { navController.popBackStack() },
+                    snapshots = snapshots,
+                    onRestore = { name ->
+                        onImportLoading(true)
+                        scope.launch {
+                            val data = viewModel.getSnapshotContent(name)
+                            onImportLoading(false)
+                            if (data != null) {
+                                onDataRestored(data)
+                            } else {
+                                onImportError("Failed to load snapshot data.")
+                            }
+                        }
+                    },
+                    onDelete = { viewModel.deleteSnapshot(it) },
+                    onShare = { name ->
+                        scope.launch {
+                            try {
+                                val dataToShare = viewModel.getSnapshotContent(name)
+                                if (dataToShare != null) {
+                                    shareData(dataToShare, appState.settings.customDeviceName, "$name.pscore")
+                                }
+                            } catch (e: Exception) {
+                                Log.e("MainActivity", "Failed to share snapshot", e)
+                            }
+                        }
+                    },
+                    onCreateManualSnapshot = { name -> viewModel.createLocalSnapshot(name) },
+                    onLinkBackupsFolder = onLinkBackupsFolder,
+                    backupsFolderUri = appState.settings.backupsFolderUri,
+                    onTriggerCloudBackup = { viewModel.triggerCloudBackup() },
+                    onUpdateSettings = { update -> viewModel.updateSettings(update) },
+                    onRefresh = { viewModel.refreshSnapshots() },
+                    settings = appState.settings
+                )
+            }
+
+            composable("about") {
+                AboutScreen(
+                    settings = appState.settings,
+                    history = appState.gameHistory,
+                    onNavigateBack = { navController.popBackStack() },
+                    onNavigateToFeedback = { navController.navigate("feedback") }
+                )
+            }
+
+            composable("ball_values") {
+                BallValuesScreen(
+                    settings = appState.settings,
+                    onUpdateSettings = { update -> viewModel.updateSettings(update) },
+                    onBack = { navController.popBackStack() }
+                )
+            }
+
+            composable("help") {
+                HelpScreen(
+                    onNavigateBack = { navController.popBackStack() },
+                    onNavigateToFeedback = { navController.navigate("feedback") }
+                )
+            }
+        }
+    }
+
+    /**
+     * Sets proper strict portrait orientation.
+     */
+    private fun setupOrientation() {
+        requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
+    }
+
+    /**
+     * Initializes analytics service.
+     */
+    private fun initializeAnalytics() {
+        AnalyticsManager.initialize(this)
+    }
+
+    /**
+     * Configures system bars (status/nav) to be transparent and controlled by the app.
+     */
+    private fun setupSystemBars() {
+        val windowInsetsController = WindowCompat.getInsetsController(window, window.decorView)
+        windowInsetsController.systemBarsBehavior =
+            WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+        windowInsetsController.hide(WindowInsetsCompat.Type.statusBars())
+    }
+
+    /**
+     * Processes incoming intents (like opening a file).
+     */
+    private fun handleIntent(intent: Intent?) {
+        val action = intent?.action
+        val data: Uri? = intent?.data ?: intent?.let {
+            IntentCompat.getParcelableExtra(it, Intent.EXTRA_STREAM, Uri::class.java)
+        }
+
+        if ((action == Intent.ACTION_VIEW || action == Intent.ACTION_SEND) && data != null) {
+            lifecycleScope.launch(Dispatchers.IO) {
+                isImportingFlow.value = true
+                val shareData = ShareUtils.decodeFromUri(this@MainActivity, data)
+                if (shareData != null) {
+                    pendingShareDataFlow.update { shareData }
+                }
+                isImportingFlow.value = false
+            }
+        }
+    }
+
+    /**
+     * Checks if storage permission is granted.
+     * On Android 10+ (API 29+), we use Scoped Storage, so we don't need 
+     * broad storage permissions for app-specific or shared-via-SAF operations.
+     */
+    private fun hasStoragePermission(): Boolean {
+        // Scoped Storage means we always have "permission" to our own files and shared files
+        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            true 
+        } else {
+            ContextCompat.checkSelfPermission(
+                this,
+                android.Manifest.permission.WRITE_EXTERNAL_STORAGE
+            ) == android.content.pm.PackageManager.PERMISSION_GRANTED
+        }
+    }
+
+    /**
+     * Requests necessary storage permissions based on Android version.
+     * Only needed for legacy devices (Android 9 and below).
+     */
+    private fun requestStoragePermissions(
+        launcher: ActivityResultLauncher<Array<String>>
+    ) {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) {
+            launcher.launch(
+                arrayOf(
+                    android.Manifest.permission.READ_EXTERNAL_STORAGE,
+                    android.Manifest.permission.WRITE_EXTERNAL_STORAGE
+                )
+            )
+        }
+    }
+
+    /**
+     * Initiates the flow to share data via system chooser.
+     * Uses IO dispatcher for file operations.
+     */
+    private fun shareData(share: PocketScoreShare, deviceName: String? = null, fileName: String? = null) {
+        lifecycleScope.launch(Dispatchers.IO) {
+            val intent = ShareUtils.getShareIntent(this@MainActivity, share, deviceName, fileName)
+            withContext(Dispatchers.Main) {
+                startActivity(intent)
+            }
+        }
+    }
+}
