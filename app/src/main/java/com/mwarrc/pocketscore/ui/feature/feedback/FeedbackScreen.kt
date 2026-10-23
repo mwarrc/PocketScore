@@ -151,6 +151,10 @@ fun FeedbackScreen(
                         onSuccess = {
                             isSubmitting = false
                             errorMessage = null
+                            try {
+                                com.mwarrc.pocketscore.util.analytics.PocketScoreAnalytics.get().logFeedbackSubmitted(selectedType.name, null)
+                            } catch (_: Exception) {
+                            }
                             message = ""
                             email = ""
                             scope.launch {

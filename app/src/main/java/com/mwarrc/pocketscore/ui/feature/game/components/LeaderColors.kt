@@ -15,7 +15,7 @@ import kotlin.math.abs
  * Violet comes first because it is the one hue the app never hands the active
  * player: the active card is `primaryContainer`, which follows the wallpaper,
  * and Material You rarely produces a violet primary. It is still only a
- * preference — see [resolveLeaderHue].
+ * preference - see [resolveLeaderHue].
  */
 private val LeaderHueCandidates = listOf(
     285f, // violet
@@ -39,7 +39,7 @@ private const val MinLeaderSaturation = 0.40f
  * The leader card's palette.
  *
  * The leader used to be filled with `secondaryContainer`, which Material You
- * generates as a near-neighbour of the primary — on a green wallpaper that put
+ * generates as a near-neighbour of the primary - on a green wallpaper that put
  * the leader and the active player in the same family and the two cards became
  * impossible to tell apart. The leader now claims a hue of its own.
  */
@@ -49,9 +49,9 @@ data class LeaderColors(
     val container: Color,
     /** Text ink on the container. */
     val content: Color,
-    /** Rank chip fill — the ink, so the chip inverts against the card. */
+    /** Rank chip fill - the ink, so the chip inverts against the card. */
     val chipContainer: Color,
-    /** Rank chip text — the container colour. */
+    /** Rank chip text - the container colour. */
     val chipContent: Color,
     /** Card border. */
     val accent: Color,
@@ -64,7 +64,7 @@ data class LeaderColors(
  *
  * Violet is the default because it is the one hue the app never gives the
  * active player. But the wallpaper owns the primary, so a device themed in
- * violet would hand the leader and the active player the same family — the
+ * violet would hand the leader and the active player the same family - the
  * exact confusion the leader colour exists to fix. When that happens the next
  * candidate hue is used instead.
  *

@@ -103,7 +103,7 @@ fun NoMatchingBallBanner(
                         Spacer(Modifier.height(2.dp))
                         Text(
                             "This score doesn't match any ball left on the table. " +
-                                "A ball that's already been pocketed can't be scored again — " +
+                                "A ball that's already been pocketed can't be scored again - " +
                                 "check the table before continuing.",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onErrorContainer.copy(alpha = 0.85f)

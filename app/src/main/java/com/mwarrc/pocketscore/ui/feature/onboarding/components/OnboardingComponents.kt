@@ -58,9 +58,9 @@ import androidx.compose.ui.unit.sp
 import com.mwarrc.pocketscore.ui.feature.onboarding.PointsSystemOption
 import com.mwarrc.pocketscore.ui.util.BallColors
 
-// ─────────────────────────
-// HAPTICS — one place to tune the feel of the whole screen
-// ─────────────────────────
+// ─────────
+// HAPTICS - one place to tune the feel of the whole screen
+// ─────────
 
 /**
  * Haptic vocabulary for onboarding:
@@ -76,9 +76,9 @@ object OnboardingHaptics {
     val Confirm = HapticFeedbackType.LongPress
 }
 
-// ─────────────────────────
+// ─────────
 // FELT BALL STRIP  (lives inside the primary-colored hero)
-// ─────────────────────────
+// ─────────
 
 /**
  * Shows the eight balls with their point values for [option], plus its description.
@@ -211,9 +211,9 @@ private fun PoolBallCell(
     }
 }
 
-// ─────────────────────────
+// ─────────
 // SELECTABLE ROW  (all rows are exactly the same size)
-// ─────────────────────────
+// ─────────
 
 /** Every row uses this height, selected or not, so the list never reflows. */
 private val RowHeight = 72.dp
@@ -365,9 +365,9 @@ private fun SelectionDot(selected: Boolean) {
     }
 }
 
-// ─────────────────────────
+// ─────────
 // CTA
-// ─────────────────────────
+// ─────────
 
 /**
  * Filled M3 button with a spring press-scale, an arrow that nudges forward while

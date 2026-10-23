@@ -19,7 +19,7 @@ class LeaderColorsTest {
 
     @Test
     fun `violet is the leader hue when the primary is far away`() {
-        // A green wallpaper — the case that started all this.
+        // A green wallpaper - the case that started all this.
         assertEquals(285f, resolveLeaderHue(140f), 0.01f)
     }
 
@@ -87,7 +87,7 @@ class LeaderColorsTest {
         val original = Color(0xFF3F51B5)
         val rotated = original.withHue(285f)
         assertEquals(285f, rotated.toHsl().hue, 0.5f)
-        // Only the hue moves — the wallpaper still decides how light or
+        // Only the hue moves - the wallpaper still decides how light or
         // saturated the leader's colour is.
         assertEquals(original.toHsl().lightness, rotated.toHsl().lightness, 0.01f)
         assertEquals(original.toHsl().saturation, rotated.toHsl().saturation, 0.01f)

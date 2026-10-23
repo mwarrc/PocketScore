@@ -208,7 +208,7 @@ fun BackupManagementScreen(
                                     color = MaterialTheme.colorScheme.onErrorContainer
                                 )
                                 Text(
-                                    "Backups currently live inside the app's private storage, so uninstalling PocketScore — or clearing its data — deletes every match and player record with it.",
+                                    "Backups currently live inside the app's private storage, so uninstalling PocketScore - or clearing its data - deletes every match and player record with it.",
                                     style = MaterialTheme.typography.bodySmall,
                                     color = MaterialTheme.colorScheme.onErrorContainer,
                                     lineHeight = 18.sp

@@ -75,7 +75,7 @@ import com.mwarrc.pocketscore.ui.feature.splash.SplashScreen
 import com.mwarrc.pocketscore.ui.theme.PocketScoreTheme
 import com.mwarrc.pocketscore.ui.viewmodel.GameViewModel
 import com.mwarrc.pocketscore.ui.viewmodel.GameViewModelFactory
-import com.mwarrc.pocketscore.util.AnalyticsManager
+import com.mwarrc.pocketscore.util.analytics.PocketScoreAnalytics
 import com.mwarrc.pocketscore.util.ShareUtils
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -110,7 +110,6 @@ class MainActivity : ComponentActivity() {
 
         setupOrientation()
         enableEdgeToEdge()
-        initializeAnalytics()
         setupSystemBars()
         handleIntent(intent)
 
@@ -151,7 +150,8 @@ class MainActivity : ComponentActivity() {
     private fun MainContent() {
         val app = application as PocketScoreApp
         val repository = remember { GameRepositoryImplRoom(applicationContext, app.database) }
-        val viewModel: GameViewModel = viewModel(factory = GameViewModelFactory(repository))
+        val analyticsTracker = try { com.mwarrc.pocketscore.util.analytics.PocketScoreAnalytics.get() } catch (_: Exception) { null }
+        val viewModel: GameViewModel = viewModel(factory = GameViewModelFactory(repository, analyticsManager = analyticsTracker))
         val appState by viewModel.state.collectAsStateWithLifecycle()
         val navController = rememberNavController()
         val scope = rememberCoroutineScope()
@@ -159,6 +159,36 @@ class MainActivity : ComponentActivity() {
         // Track current route and apply full immersive mode
         val currentBackStackEntry by navController.currentBackStackEntryAsState()
         val currentRoute = currentBackStackEntry?.destination?.route
+        val previousRoute = remember { mutableStateOf<String?>(null) }
+        LaunchedEffect(currentRoute) {
+            try {
+                if (currentRoute != null && currentRoute != previousRoute.value) {
+                    val analytics = com.mwarrc.pocketscore.util.analytics.PocketScoreAnalytics.get()
+                    val screenName = when (currentRoute) {
+                        "setup" -> "home"
+                        "game" -> "game"
+                        "history" -> "history"
+                        "settings" -> "settings"
+                        "settings_gameplay" -> "settings_gameplay"
+                        "settings_pool" -> "settings_pool"
+                        "settings_appearance" -> "settings_appearance"
+                        "settings_font" -> "settings_font"
+                        "settings_utilities" -> "settings_utilities"
+                        "backups" -> "backup_management"
+                        "about" -> "about"
+                        "feedback" -> "feedback"
+                        "help" -> "help"
+                        "ball_values" -> "ball_values"
+                        "match_details" -> "match_details"
+                        else -> currentRoute
+                    }
+                    analytics.logScreenView(screenName, previousRoute.value)
+                    PocketScoreApp.sessionTracker?.trackScreen()
+                    previousRoute.value = currentRoute
+                }
+            } catch (_: Exception) {
+            }
+        }
         LaunchedEffect(currentRoute) {
             val insetsController = WindowCompat.getInsetsController(window, window.decorView)
             
@@ -445,7 +475,7 @@ class MainActivity : ComponentActivity() {
                         message = appState.loadingMessage
                     )
 
-                    // File import overlay — shown while decoding any .pscore file
+                    // File import overlay - shown while decoding any .pscore file
                     // Covers: external file open, in-app file picker, and backup restore
                     AppLoadingOverlay(
                         visible = isIntentImporting || isLocalImporting,
@@ -776,7 +806,6 @@ class MainActivity : ComponentActivity() {
      * Initializes analytics service.
      */
     private fun initializeAnalytics() {
-        AnalyticsManager.initialize(this)
     }
 
     /**

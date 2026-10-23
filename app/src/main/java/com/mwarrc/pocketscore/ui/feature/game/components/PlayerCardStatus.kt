@@ -17,7 +17,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
  * Both [ActivePlayerCard] (the focused/list card) and [PassivePlayerCard]
  * (the grid tile) resolve their status through this, so the two cards can no
  * longer drift apart in label, colour, or shape. Previously each card carried
- * its own copy of this logic and they had diverged — different badge shapes,
+ * its own copy of this logic and they had diverged - different badge shapes,
  * different zero colours, and different icon choices for the same states.
  */
 @Immutable
@@ -29,7 +29,7 @@ data class PlayerCardStatus(
     val badgeContent: Color,
     /**
      * Hairline edge for the badge. Optional, but strongly recommended whenever
-     * [badgeContainer] is a surface token — surface containers barely differ
+     * [badgeContainer] is a surface token - surface containers barely differ
      * from each other in luminance, so an outline is what actually makes the
      * badge legible against the card in both light and dark mode.
      */
@@ -52,12 +52,12 @@ data class PlayerCardStatus(
  * Resolves every status flag into one coherent presentation.
  *
  * Priority order matters and is deliberate: eliminated outranks everything
- * (that player can no longer act), then the lasting role callouts — leader,
- * loser — and only then the current turn.
+ * (that player can no longer act), then the lasting role callouts - leader,
+ * loser - and only then the current turn.
  *
  * The turn comes LAST on purpose. It previously outranked the callouts, which
  * meant tapping a player (moving the turn to them) swapped their "LOSER" /
- * "LEADER" pill out for the turn presentation — the status literally changed
+ * "LEADER" pill out for the turn presentation - the status literally changed
  * on click. A role is a lasting property of the player; whose turn it is is
  * transient, and it is already communicated by the card fill and border. The
  * role branches below still receive [isTurn] = `isCurrentTurn` so turn-aware
@@ -108,7 +108,7 @@ fun resolvePlayerCardStatus(
         isLoser -> PlayerCardStatus(
             label = if (isLoserTie) "TIED LOSER" else "LOSER",
             icon = Icons.AutoMirrored.Filled.TrendingDown,
-            // Grey-on-grey trap: this used to be surfaceVariant — the exact
+            // Grey-on-grey trap: this used to be surfaceVariant - the exact
             // same token the loser's card fill uses, so the badge vanished
             // into its own background. The surfaceContainer* tokens sit
             // within a few percent of each other in both modes, so stacking
@@ -155,7 +155,7 @@ fun resolvePlayerCardStatus(
  * bypassed the theme and gave the same "zero" state three different colours
  * across two files.
  *
- * Every pair below is a solid M3 container/on-container pairing — no alpha
+ * Every pair below is a solid M3 container/on-container pairing - no alpha
  * blending at all. The previous version mixed containers with
  * `copy(alpha = 0.5f)` and derived its own border from the text colour at 35%
  * alpha, which is precisely the low-alpha pattern that made dark mode
@@ -188,7 +188,7 @@ fun resolvePointsChangeStyle(
     }
 
     // Gain / loss / neutral as solid container pairs. The undo case is treated
-    // as neutral rather than tinted, because an undo isn't a gain or a loss —
+    // as neutral rather than tinted, because an undo isn't a gain or a loss -
     // it's the reversal of one, and the text already says so.
     val container = when {
         isUndo -> scheme.surfaceVariant

@@ -79,7 +79,7 @@ private data class PottedBall(
  *
  * [Known] carries the exact ball number. [SharedValue] means the points value is
  * shared by more than one ball in the player's ball-value setup, so it must never
- * be shown as a specific numbered/coloured ball — only the value itself.
+ * be shown as a specific numbered/coloured ball - only the value itself.
  * [NonBall] means the score maps to no ball at all (manual entry or foul), drawn
  * with a distinct dashed marker so it is never mistaken for a pocketed ball.
  */
@@ -650,18 +650,18 @@ private fun derivePottedBalls(events: List<GameEvent>, ballValues: Map<Int, Int>
 
 /**
  * Resolves how each event's ball should be drawn, based purely on the player's
- * ball-value setup — not on what is left on the table.
+ * ball-value setup - not on what is left on the table.
  *
  * If a points value is shared by more than one ball in [ballValues] (for example
  * 3/4/5/6 all worth 6), that value can never be attributed to a specific ball, so
  * it is always drawn as the shared-value marker showing just the value.
  *
  * Resolution order:
- *  1. Negative scores — non-ball marker (fouls aren't balls).
- *  2. Value shared by 2+ balls in the setup — shared-value marker.
- *  3. [GameEvent.autoRemovedBall] — exact ball.
- *  4. Unique value match in the setup — exact ball.
- *  5. No match at all — non-ball marker (manual score).
+ *  1. Negative scores - non-ball marker (fouls aren't balls).
+ *  2. Value shared by 2+ balls in the setup - shared-value marker.
+ *  3. [GameEvent.autoRemovedBall] - exact ball.
+ *  4. Unique value match in the setup - exact ball.
+ *  5. No match at all - non-ball marker (manual score).
  *
  * @param events Chronological event log
  * @param ballValues Current ball-to-points mapping
@@ -907,7 +907,7 @@ private fun nonBallMarkerColor(): Color {
 
 /**
  * Marker for a score that does not correspond to any ball (manual entry or
- * foul). A dashed ring with the signed value inside — deliberately not a solid
+ * foul). A dashed ring with the signed value inside - deliberately not a solid
  * ball shape, so it can never be mistaken for a pocketed ball.
  */
 @Composable
@@ -1026,7 +1026,7 @@ private fun SharedValueMarker(
  *
  * Every ball is colour-dominant so the number always has the same weight and
  * legibility as a solid. Stripes (9–15) are signalled by two narrow white caps
- * at the poles instead of a mostly-white ball with a thin colour band — the old
+ * at the poles instead of a mostly-white ball with a thin colour band - the old
  * look left the number tiny and the ball washed out. The 8-ball keeps the classic
  * black-and-white look, with a larger number than before.
  */

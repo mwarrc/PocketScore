@@ -45,7 +45,7 @@ fun NumpadOverlay(
      *
      * This exists because a hardcoded padding constant cannot: the height
      * varies with the KeyboardHeight setting, the navigation-bar inset, and
-     * the user's globalScale — under any of them a constant leaves rows stuck
+     * the user's globalScale - under any of them a constant leaves rows stuck
      * behind the keyboard that can never be scrolled into view.
      */
     onHeightChanged: (Int) -> Unit = {},

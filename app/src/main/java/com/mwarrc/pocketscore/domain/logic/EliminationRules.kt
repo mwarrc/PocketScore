@@ -3,7 +3,7 @@ package com.mwarrc.pocketscore.domain.logic
 import com.mwarrc.pocketscore.domain.model.Player
 
 /**
- * The single source of truth for "can this player still win?" — the elimination
+ * The single source of truth for "can this player still win?" - the elimination
  * calculation that decides whether a player is skipped in the turn rotation and
  * whether their card is labelled ELIMINATED.
  *
@@ -18,7 +18,7 @@ import com.mwarrc.pocketscore.domain.model.Player
  * The four non-ViewModel copies each dropped two guards that the ViewModel had:
  * the "nobody has scored yet" check and the "the table is empty" short-circuit.
  * The visible symptom was a card reading ELIMINATED (and the top bar pulsing)
- * while the turn rotation happily passed to that same player — the UI and the
+ * while the turn rotation happily passed to that same player - the UI and the
  * rules disagreed about who was out.
  *
  * Keeping one implementation means the label and the rule can no longer diverge.
@@ -35,16 +35,16 @@ object EliminationRules {
      * Two guards keep this honest, and both are load-bearing:
      *
      *  - **Empty table** ([tableSum] <= 0): the game is over, nothing can be
-     *    added, so nobody is "eliminated" — the endgame is handled elsewhere.
+     *    added, so nobody is "eliminated" - the endgame is handled elsewhere.
      *    Without this short-circuit every non-leader reads as eliminated the
      *    moment the last ball drops.
      *  - **Nobody has scored yet** (all active scores are 0): the standings are
-     *    meaningless — the leader is just whoever the max happens to be, which
+     *    meaningless - the leader is just whoever the max happens to be, which
      *    is 0 for everyone. Negative scores in this state would otherwise be
      *    flagged as eliminated purely because they sit below a zero leader.
      *
      * A player who is currently tied for the lead is never eliminated, even if
-     * [leaderScore] would suggest it — the tie check is done against the set of
+     * [leaderScore] would suggest it - the tie check is done against the set of
      * everyone on the leading score rather than against a single player.
      *
      * @param player The player to test.
@@ -82,7 +82,7 @@ object EliminationRules {
      * shared numpad buffer and the turn rotation can't drift apart. The rule
      * used to be written out three times and had already diverged: the card
      * honoured the "allow eliminated input" setting but the numpad did not, so
-     * digits still landed in an eliminated player's field — the text appeared,
+     * digits still landed in an eliminated player's field - the text appeared,
      * it just couldn't be applied, which read to the user as a broken app
      * rather than a deliberate lock.
      *
@@ -93,7 +93,7 @@ object EliminationRules {
      *    else, not just have the buttons enabled.
      *  - [strictTurnMode] always wins. The "allow eliminated input" toggle is
      *    hidden while strict mode is on, so the setting can only be true there
-     *    if it was enabled first — and strict mode's promise is that the turn
+     *    if it was enabled first - and strict mode's promise is that the turn
      *    decides who scores, which an out-of-contention player never gets.
      *
      * @param isEliminated Whether the player is out of contention.

@@ -24,6 +24,8 @@ import com.mwarrc.pocketscore.domain.model.GameHistory
 import com.mwarrc.pocketscore.domain.model.GameState
 import com.mwarrc.pocketscore.ui.feature.history.components.*
 import androidx.compose.animation.*
+import androidx.compose.animation.core.FastOutLinearInEasing
+import androidx.compose.animation.core.LinearOutSlowInEasing
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
@@ -81,6 +83,7 @@ fun HistoryScreen(
     val scope = rememberCoroutineScope()
     var selectedMatchIds by remember { mutableStateOf(setOf<String>()) }
     var selectionMode by remember { mutableStateOf(false) }
+    var isFriendsSelectionMode by remember { mutableStateOf(false) }
     var showDeleteMultipleDialog by remember { mutableStateOf(false) }
     var showInfoSheet by remember { mutableStateOf(false) }
 
@@ -152,7 +155,8 @@ fun HistoryScreen(
                 settings = settings,
                 history = history,
                 onUpdateSettings = onUpdateSettings,
-                onRename = onRename
+                onRename = onRename,
+                onSelectionModeChange = { isFriendsSelectionMode = it }
             )
         })
         
@@ -214,14 +218,33 @@ fun HistoryScreen(
                 ),
                 windowInsets = WindowInsets.statusBars.union(WindowInsets.displayCutout)
             )
-        },
-        bottomBar = {
+        }
+    ) { padding ->
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(top = padding.calculateTopPadding())
+        ) {
+            HorizontalPager(
+                state = pagerState,
+                modifier = Modifier.fillMaxSize(),
+                verticalAlignment = Alignment.Top,
+                beyondViewportPageCount = 1
+            ) { page ->
+                activeTabs[page].content()
+            }
+
+            // Floating Island Dock Overlay at Bottom Center
             AnimatedContent(
                 targetState = selectionMode,
                 transitionSpec = {
-                    (fadeIn() + slideInVertically { it }).togetherWith(fadeOut() + slideOutVertically { it })
+                    (fadeIn(animationSpec = tween(220, easing = LinearOutSlowInEasing)) + scaleIn(initialScale = 0.94f, animationSpec = tween(220, easing = LinearOutSlowInEasing)))
+                        .togetherWith(fadeOut(animationSpec = tween(160, easing = FastOutLinearInEasing)) + scaleOut(targetScale = 0.94f, animationSpec = tween(160, easing = FastOutLinearInEasing)))
                 },
-                label = "bottom_bar_swap"
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .navigationBarsPadding(),
+                label = "floating_bar_swap"
             ) { isSelecting ->
                 if (isSelecting) {
                     MatchSelectionBar(
@@ -235,8 +258,7 @@ fun HistoryScreen(
                             selectionMode = false
                         },
                         onDelete = { showDeleteMultipleDialog = true },
-                        isVisible = true,
-                        modifier = Modifier.navigationBarsPadding()
+                        isVisible = true
                     )
                 } else {
                     FloatingHistoryNavBar(
@@ -245,25 +267,9 @@ fun HistoryScreen(
                         onTabClick = { index ->
                             scope.launch { pagerState.animateScrollToPage(index) }
                         },
-                        isVisible = true,
-                        modifier = Modifier.navigationBarsPadding()
+                        isVisible = !isFriendsSelectionMode
                     )
                 }
-            }
-        }
-    ) { padding ->
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(top = padding.calculateTopPadding(), bottom = padding.calculateBottomPadding())
-        ) {
-            HorizontalPager(
-                state = pagerState,
-                modifier = Modifier.fillMaxSize(),
-                verticalAlignment = Alignment.Top,
-                beyondViewportPageCount = 1
-            ) { page ->
-                activeTabs[page].content()
             }
         }
     }

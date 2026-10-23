@@ -219,7 +219,7 @@ object HelpContent {
                 ),
                 HelpEntry(
                     title = "Product Analytics",
-                    description = "We use standard, non-intrusive analytics to understand what features people use in the app (such as popular game modes and navigation). No personal data or private match details are ever collected or sold — it is solely used to help improve the PocketScore experience for everyone.",
+                    description = "We use standard, non-intrusive analytics to understand what features people use in the app (such as popular game modes and navigation). No personal data or private match details are ever collected or sold - it is solely used to help improve the PocketScore experience for everyone.",
                     icon = Icons.Default.BarChart
                 )
             )

@@ -18,6 +18,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Analytics
 import androidx.compose.material.icons.filled.FileDownload
 import androidx.compose.material.icons.filled.FileUpload
 import androidx.compose.material.icons.filled.Payments
@@ -43,7 +44,6 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -189,9 +189,21 @@ fun UtilitiesSettingsScreen(
             }
 
             item {
-                PrivacySettingsCard(
-                    settings = settings,
-                    onUpdateSettings = onUpdateSettings
+                SettingsItem(
+                    title = "Share usage data",
+                    subtitle = if (settings.analyticsEnabled) "Helps improve PocketScore" else "Disabled",
+                    icon = Icons.Default.Analytics,
+                    trailing = {
+                        Switch(
+                            checked = settings.analyticsEnabled,
+                            onCheckedChange = { enabled ->
+                                onUpdateSettings { it.copy(analyticsEnabled = enabled) }
+                            }
+                        )
+                    },
+                    onClick = {
+                        onUpdateSettings { it.copy(analyticsEnabled = !it.analyticsEnabled) }
+                    }
                 )
             }
 

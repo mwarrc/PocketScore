@@ -16,7 +16,7 @@ local.properties
 logs
 dev.config.ps1
 
-# Vendor / generated folders — never commit
+# Vendor / generated folders - never commit
 platform-tools/
 trash/
 test_data/

@@ -8,9 +8,11 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import kotlin.math.absoluteValue
 
 /**
- * Modern settlement receipt card displaying the total debt owed by a specific player.
+ * Modern settlement receipt card displaying the total debt owed by a specific player,
+ * styled to match the M3 Friends/Matches tab design.
  *
  * @param name Player's name
  * @param amount Amount owed
@@ -26,10 +28,21 @@ fun SplitResultCard(
     currencySymbol: String,
     decimals: Int = 2
 ) {
+    // Avatar color cycling matching PlayerStatCard design tokens
+    val colorCycleIndex = (name.hashCode().absoluteValue) % 3
+    val (avatarContainer, avatarOnContainer) = when (colorCycleIndex) {
+        0 -> MaterialTheme.colorScheme.primaryContainer to MaterialTheme.colorScheme.onPrimaryContainer
+        1 -> MaterialTheme.colorScheme.tertiaryContainer to MaterialTheme.colorScheme.onTertiaryContainer
+        else -> MaterialTheme.colorScheme.secondaryContainer to MaterialTheme.colorScheme.onSecondaryContainer
+    }
+
     Surface(
-        shape = RoundedCornerShape(18.dp),
-        color = MaterialTheme.colorScheme.surfaceContainer,
-        modifier = Modifier.fillMaxWidth()
+        shape = RoundedCornerShape(24.dp),
+        color = MaterialTheme.colorScheme.surfaceContainerLow,
+        tonalElevation = 1.dp,
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 4.dp, vertical = 2.dp)
     ) {
         Row(
             modifier = Modifier.padding(horizontal = 16.dp, vertical = 14.dp),
@@ -37,16 +50,16 @@ fun SplitResultCard(
         ) {
             // Player Initial Squircle Avatar
             Surface(
-                shape = RoundedCornerShape(12.dp),
-                color = MaterialTheme.colorScheme.primaryContainer,
-                modifier = Modifier.size(44.dp)
+                shape = RoundedCornerShape(16.dp),
+                color = avatarContainer,
+                modifier = Modifier.size(46.dp)
             ) {
                 Box(contentAlignment = Alignment.Center) {
                     Text(
                         text = name.firstOrNull()?.toString()?.uppercase() ?: "?",
                         style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onPrimaryContainer
+                        fontWeight = FontWeight.Black,
+                        color = avatarOnContainer
                     )
                 }
             }
@@ -61,6 +74,7 @@ fun SplitResultCard(
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.onSurface
                 )
+                Spacer(Modifier.height(2.dp))
                 Text(
                     text = "Owes for $matchCount ${if (matchCount == 1) "match" else "matches"}",
                     style = MaterialTheme.typography.bodySmall,
@@ -71,15 +85,16 @@ fun SplitResultCard(
             // Amount pill
             val formatString = if (decimals == 0) "%.0f" else "%.${decimals}f"
             Surface(
-                shape = RoundedCornerShape(10.dp),
-                color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.7f)
+                shape = RoundedCornerShape(12.dp),
+                color = MaterialTheme.colorScheme.primaryContainer,
+                tonalElevation = 2.dp
             ) {
                 Text(
                     text = "$currencySymbol ${String.format(formatString, amount)}",
                     style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold,
+                    fontWeight = FontWeight.Black,
                     color = MaterialTheme.colorScheme.onPrimaryContainer,
-                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
+                    modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp)
                 )
             }
         }

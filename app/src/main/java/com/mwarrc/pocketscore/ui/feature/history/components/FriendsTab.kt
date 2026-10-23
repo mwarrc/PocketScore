@@ -1,6 +1,11 @@
 package com.mwarrc.pocketscore.ui.feature.history.components
 
 import androidx.compose.animation.*
+import androidx.compose.animation.core.FastOutLinearInEasing
+import androidx.compose.animation.core.LinearOutSlowInEasing
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -11,18 +16,16 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
-import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import com.mwarrc.pocketscore.domain.model.AppSettings
 import com.mwarrc.pocketscore.domain.model.GameHistory
 
@@ -35,27 +38,26 @@ import com.mwarrc.pocketscore.domain.model.GameHistory
  * - Collapsible "What each control does" Guide card with "Got it" action
  * - Interactive player cards with inline switches and quick-action chips
  * - Multi-selection mode with bulk visibility and removal controls
- * - Extended Add Player Floating Action Button
+ * - Floating "Add Player" FAB positioned safely above the navigation dock
  * - Material 3 styled Add, Rename, and Remove dialogs
  *
  * @param settings Current application settings.
  * @param history Complete game history for calculating player stats.
  * @param onUpdateSettings Callback to update application settings.
  * @param onRename Callback to rename a player globally across all games.
+ * @param onSelectionModeChange Callback when player selection mode enters/exits.
  */
 @Composable
 fun FriendsTab(
     settings: AppSettings,
     history: GameHistory,
     onUpdateSettings: ((AppSettings) -> AppSettings) -> Unit,
-    onRename: (String, String) -> Unit
+    onRename: (String, String) -> Unit,
+    onSelectionModeChange: (Boolean) -> Unit = {}
 ) {
     // Selection state management
     var selectionMode by remember { mutableStateOf(false) }
     var selectedNames by remember { mutableStateOf(setOf<String>()) }
-
-    // Guide tip card state
-    var showGuide by remember { mutableStateOf(false) }
 
     // Dialog state management
     var showAddDialog by remember { mutableStateOf(false) }
@@ -63,9 +65,10 @@ fun FriendsTab(
     var friendToRemove by remember { mutableStateOf<PlayerStats?>(null) }
     var friendToRename by remember { mutableStateOf<PlayerStats?>(null) }
 
-    // Reset selection when exiting selection mode
+    // Sync selection state with parent HistoryScreen
     LaunchedEffect(selectionMode) {
         if (!selectionMode) selectedNames = emptySet()
+        onSelectionModeChange(selectionMode)
     }
 
     // Calculate player statistics from history
@@ -136,57 +139,24 @@ fun FriendsTab(
                     }
                 } else {
                     // Normal Stats Summary Header
-                    Row(
+                    Text(
+                        text = "${playerStats.size} players • $onLeaderboardCount on leaderboard • $inHomeCount in Home picker",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(horizontal = 20.dp, vertical = 8.dp),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text(
-                            text = "${playerStats.size} players • $onLeaderboardCount on leaderboard • $inHomeCount in Home picker",
-                            style = MaterialTheme.typography.labelMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-
-                        TextButton(
-                            onClick = { showGuide = !showGuide },
-                            contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp)
-                        ) {
-                            Icon(
-                                imageVector = Icons.Outlined.Info,
-                                contentDescription = null,
-                                modifier = Modifier.size(16.dp),
-                                tint = if (showGuide) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                            Spacer(Modifier.width(4.dp))
-                            Text(
-                                text = if (showGuide) "Hide tips" else "Tips",
-                                style = MaterialTheme.typography.labelSmall,
-                                color = if (showGuide) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
-                    }
+                            .padding(horizontal = 20.dp, vertical = 8.dp)
+                    )
                 }
 
-                // ── Player List with Guide Card at the top ──
+                // ── Player List ──
                 LazyColumn(
                     modifier = Modifier
                         .fillMaxSize()
                         .weight(1f),
-                    contentPadding = PaddingValues(bottom = 120.dp),
+                    contentPadding = PaddingValues(bottom = 150.dp),
                     verticalArrangement = Arrangement.spacedBy(2.dp)
                 ) {
-                    // Collapsible Guide Card (shown at top of list)
-                    if (showGuide && !selectionMode) {
-                        item(key = "guide_card") {
-                            FriendsGuideCard(
-                                onDismiss = { showGuide = false },
-                                modifier = Modifier.animateItem()
-                            )
-                        }
-                    }
-
                     // Player cards
                     items(playerStats, key = { it.name }) { stat ->
                         PlayerStatCard(
@@ -234,129 +204,198 @@ fun FriendsTab(
         }
 
         // ── Extended Floating Action Button (Add Player) ──
+        // Positioned safely above the floating navigation bar dock
         AnimatedVisibility(
             visible = !selectionMode && playerStats.isNotEmpty(),
-            enter = fadeIn() + scaleIn(),
-            exit = fadeOut() + scaleOut(),
+            enter = fadeIn(animationSpec = tween(220, easing = LinearOutSlowInEasing)) + scaleIn(
+                initialScale = 0.88f,
+                animationSpec = tween(220, easing = LinearOutSlowInEasing)
+            ),
+            exit = fadeOut(animationSpec = tween(160, easing = FastOutLinearInEasing)) + scaleOut(
+                targetScale = 0.88f,
+                animationSpec = tween(160, easing = FastOutLinearInEasing)
+            ),
             modifier = Modifier
                 .align(Alignment.BottomEnd)
-                .padding(bottom = 24.dp, end = 20.dp)
+                .navigationBarsPadding()
+                .padding(bottom = 89.dp, end = 20.dp)
         ) {
             ExtendedFloatingActionButton(
                 onClick = { showAddDialog = true },
                 containerColor = MaterialTheme.colorScheme.primaryContainer,
                 contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
-                shape = RoundedCornerShape(16.dp),
+                shape = RoundedCornerShape(18.dp),
+                elevation = FloatingActionButtonDefaults.elevation(
+                    defaultElevation = 0.dp,
+                    pressedElevation = 0.dp,
+                    hoveredElevation = 0.dp,
+                    focusedElevation = 0.dp
+                ),
+                modifier = Modifier.graphicsLayer {
+                    this.shadowElevation = 6.dp.toPx()
+                    this.shape = RoundedCornerShape(18.dp)
+                    this.clip = false
+                    this.ambientShadowColor = Color.Black.copy(alpha = 0.20f)
+                    this.spotShadowColor = Color.Black.copy(alpha = 0.30f)
+                },
                 icon = { Icon(Icons.Default.PersonAdd, contentDescription = null, modifier = Modifier.size(20.dp)) },
                 text = { Text("Add player", fontWeight = FontWeight.Bold) }
             )
         }
 
-        // ── Floating Selection Action Bar ──
+        // ── Floating Player Selection Action Bar ──
+        // Designed to match the glassmorphic pill capsule dock aesthetic
         AnimatedVisibility(
             visible = selectionMode,
-            enter = slideInVertically { it } + fadeIn(),
-            exit = slideOutVertically { it } + fadeOut(),
+            enter = fadeIn(animationSpec = tween(220, easing = LinearOutSlowInEasing)) + scaleIn(
+                initialScale = 0.94f,
+                animationSpec = tween(220, easing = LinearOutSlowInEasing)
+            ),
+            exit = fadeOut(animationSpec = tween(160, easing = FastOutLinearInEasing)) + scaleOut(
+                targetScale = 0.94f,
+                animationSpec = tween(160, easing = FastOutLinearInEasing)
+            ),
             modifier = Modifier
                 .align(Alignment.BottomCenter)
-                .padding(horizontal = 16.dp, vertical = 20.dp)
+                .navigationBarsPadding()
+                .padding(start = 20.dp, end = 20.dp, top = 6.dp, bottom = 10.dp)
         ) {
             val anyShownInRanks = selectedNames.any { it !in settings.hiddenPlayers }
             val anyShownOnHome = selectedNames.any { it !in settings.deactivatedPlayers }
 
             Surface(
-                shape = RoundedCornerShape(28.dp),
-                color = MaterialTheme.colorScheme.secondaryContainer,
-                contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
-                tonalElevation = 6.dp,
-                shadowElevation = 4.dp,
-                modifier = Modifier.fillMaxWidth()
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(64.dp)
+                    .graphicsLayer {
+                        this.shadowElevation = 8.dp.toPx()
+                        this.shape = CircleShape
+                        this.clip = false
+                        this.ambientShadowColor = Color.Black.copy(alpha = 0.20f)
+                        this.spotShadowColor = Color.Black.copy(alpha = 0.30f)
+                    },
+                shape = CircleShape,
+                color = MaterialTheme.colorScheme.surfaceContainerHighest,
+                border = BorderStroke(
+                    width = 1.dp,
+                    color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f)
+                ),
+                tonalElevation = 3.dp,
+                shadowElevation = 0.dp
             ) {
                 Row(
-                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 8.dp),
-                    horizontalArrangement = Arrangement.SpaceEvenly,
-                    verticalAlignment = Alignment.CenterVertically
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(horizontal = 14.dp, vertical = 6.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
                 ) {
-                    // Toggle Leaderboard
-                    TextButton(
-                        onClick = {
-                            onUpdateSettings { s ->
-                                val newHidden = if (anyShownInRanks) {
-                                    (s.hiddenPlayers + selectedNames).distinct()
-                                } else {
-                                    s.hiddenPlayers - selectedNames
-                                }
-                                s.copy(hiddenPlayers = newHidden)
-                            }
-                            selectionMode = false
-                        },
-                        modifier = Modifier.weight(1f)
+                    // Left: Selected count pill badge
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
-                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Surface(
+                            shape = CircleShape,
+                            color = MaterialTheme.colorScheme.primaryContainer
+                        ) {
+                            Text(
+                                text = "${selectedNames.size}",
+                                style = MaterialTheme.typography.labelLarge,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onPrimaryContainer,
+                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp)
+                            )
+                        }
+
+                        Column {
+                            Text(
+                                text = if (selectedNames.size == 1) "1 player selected" else "${selectedNames.size} selected",
+                                style = MaterialTheme.typography.titleSmall,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                            Text(
+                                text = "Choose action",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+
+                    // Right: Action icon buttons
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        // Toggle Leaderboard Ranks
+                        FilledTonalIconButton(
+                            onClick = {
+                                onUpdateSettings { s ->
+                                    val newHidden = if (anyShownInRanks) {
+                                        (s.hiddenPlayers + selectedNames).distinct()
+                                    } else {
+                                        s.hiddenPlayers - selectedNames
+                                    }
+                                    s.copy(hiddenPlayers = newHidden)
+                                }
+                                selectionMode = false
+                            },
+                            modifier = Modifier.size(40.dp),
+                            shape = CircleShape,
+                            colors = IconButtonDefaults.filledTonalIconButtonColors(
+                                containerColor = MaterialTheme.colorScheme.secondaryContainer,
+                                contentColor = MaterialTheme.colorScheme.onSecondaryContainer
+                            )
+                        ) {
                             Icon(
                                 imageVector = if (anyShownInRanks) Icons.Default.VisibilityOff else Icons.Default.Visibility,
-                                contentDescription = null,
-                                modifier = Modifier.size(20.dp)
-                            )
-                            Spacer(Modifier.height(2.dp))
-                            Text(
-                                text = if (anyShownInRanks) "Hide in Ranks" else "Show in Ranks",
-                                style = MaterialTheme.typography.labelSmall,
-                                textAlign = TextAlign.Center,
-                                fontWeight = FontWeight.SemiBold
+                                contentDescription = if (anyShownInRanks) "Hide in Ranks" else "Show in Ranks",
+                                modifier = Modifier.size(18.dp)
                             )
                         }
-                    }
 
-                    // Toggle Home Picker
-                    TextButton(
-                        onClick = {
-                            onUpdateSettings { s ->
-                                val newDeactivated = if (anyShownOnHome) {
-                                    (s.deactivatedPlayers + selectedNames).distinct()
-                                } else {
-                                    s.deactivatedPlayers - selectedNames
+                        // Toggle Home Picker
+                        FilledTonalIconButton(
+                            onClick = {
+                                onUpdateSettings { s ->
+                                    val newDeactivated = if (anyShownOnHome) {
+                                        (s.deactivatedPlayers + selectedNames).distinct()
+                                    } else {
+                                        s.deactivatedPlayers - selectedNames
+                                    }
+                                    s.copy(deactivatedPlayers = newDeactivated)
                                 }
-                                s.copy(deactivatedPlayers = newDeactivated)
-                            }
-                            selectionMode = false
-                        },
-                        modifier = Modifier.weight(1f)
-                    ) {
-                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                selectionMode = false
+                            },
+                            modifier = Modifier.size(40.dp),
+                            shape = CircleShape,
+                            colors = IconButtonDefaults.filledTonalIconButtonColors(
+                                containerColor = MaterialTheme.colorScheme.tertiaryContainer,
+                                contentColor = MaterialTheme.colorScheme.onTertiaryContainer
+                            )
+                        ) {
                             Icon(
                                 imageVector = if (anyShownOnHome) Icons.Default.HomeWork else Icons.Default.Home,
-                                contentDescription = null,
-                                modifier = Modifier.size(20.dp)
-                            )
-                            Spacer(Modifier.height(2.dp))
-                            Text(
-                                text = if (anyShownOnHome) "Hide on Home" else "Show on Home",
-                                style = MaterialTheme.typography.labelSmall,
-                                textAlign = TextAlign.Center,
-                                fontWeight = FontWeight.SemiBold
+                                contentDescription = if (anyShownOnHome) "Hide on Home" else "Show on Home",
+                                modifier = Modifier.size(18.dp)
                             )
                         }
-                    }
 
-                    // Remove from Roster
-                    TextButton(
-                        onClick = { showMultiRemoveDialog = true },
-                        colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error),
-                        modifier = Modifier.weight(1f)
-                    ) {
-                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        // Remove selected
+                        FilledIconButton(
+                            onClick = { showMultiRemoveDialog = true },
+                            modifier = Modifier.size(40.dp),
+                            shape = CircleShape,
+                            colors = IconButtonDefaults.filledIconButtonColors(
+                                containerColor = MaterialTheme.colorScheme.errorContainer,
+                                contentColor = MaterialTheme.colorScheme.onErrorContainer
+                            )
+                        ) {
                             Icon(
                                 imageVector = Icons.Default.Delete,
-                                contentDescription = null,
-                                modifier = Modifier.size(20.dp)
-                            )
-                            Spacer(Modifier.height(2.dp))
-                            Text(
-                                text = "Remove",
-                                style = MaterialTheme.typography.labelSmall,
-                                textAlign = TextAlign.Center,
-                                fontWeight = FontWeight.Bold
+                                contentDescription = "Remove selected",
+                                modifier = Modifier.size(18.dp)
                             )
                         }
                     }
@@ -416,119 +455,6 @@ fun FriendsTab(
             },
             existingNames = settings.savedPlayerNames
         )
-    }
-}
-
-/**
- * Collapsible Material 3 Guide Card displayed at the top of the Friends tab.
- */
-@Composable
-private fun FriendsGuideCard(
-    onDismiss: () -> Unit,
-    modifier: Modifier = Modifier
-) {
-    Surface(
-        modifier = modifier
-            .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 6.dp),
-        shape = RoundedCornerShape(24.dp),
-        color = MaterialTheme.colorScheme.tertiaryContainer,
-        contentColor = MaterialTheme.colorScheme.onTertiaryContainer
-    ) {
-        Column(
-            modifier = Modifier.padding(20.dp, 18.dp, 14.dp, 18.dp),
-            verticalArrangement = Arrangement.spacedBy(10.dp)
-        ) {
-            Text(
-                text = "What each control does",
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold
-            )
-            Text(
-                text = "Nothing here deletes match history.",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onTertiaryContainer.copy(alpha = 0.85f)
-            )
-
-            Spacer(Modifier.height(4.dp))
-
-            GuideRowItem(
-                icon = Icons.Default.Visibility,
-                title = "Leaderboard",
-                description = "Hide a player to keep them out of rankings. Their games are still saved."
-            )
-            GuideRowItem(
-                icon = Icons.Default.Home,
-                title = "Home picker",
-                description = "Turn off to stop a player showing up when you start a game. Handy for friends who aren't around."
-            )
-            GuideRowItem(
-                icon = Icons.Default.Delete,
-                title = "Remove",
-                description = "Takes someone off your roster. Past matches stay in History."
-            )
-            GuideRowItem(
-                icon = Icons.Default.Check,
-                title = "Select several",
-                description = "Tap an avatar to select players and change them all at once."
-            )
-
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.End
-            ) {
-                TextButton(
-                    onClick = onDismiss,
-                    colors = ButtonDefaults.textButtonColors(
-                        contentColor = MaterialTheme.colorScheme.onTertiaryContainer
-                    )
-                ) {
-                    Text("Got it", fontWeight = FontWeight.Bold)
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun GuideRowItem(
-    icon: ImageVector,
-    title: String,
-    description: String
-) {
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        verticalAlignment = Alignment.Top,
-        horizontalArrangement = Arrangement.spacedBy(12.dp)
-    ) {
-        Surface(
-            shape = CircleShape,
-            color = MaterialTheme.colorScheme.onTertiaryContainer.copy(alpha = 0.12f),
-            modifier = Modifier.size(36.dp)
-        ) {
-            Box(contentAlignment = Alignment.Center) {
-                Icon(
-                    imageVector = icon,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.onTertiaryContainer,
-                    modifier = Modifier.size(18.dp)
-                )
-            }
-        }
-        Column(modifier = Modifier.weight(1f)) {
-            Text(
-                text = title,
-                style = MaterialTheme.typography.titleSmall,
-                fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.onTertiaryContainer
-            )
-            Text(
-                text = description,
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onTertiaryContainer.copy(alpha = 0.85f),
-                lineHeight = 18.sp
-            )
-        }
     }
 }
 

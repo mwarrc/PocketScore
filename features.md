@@ -6,7 +6,7 @@ PocketScore is a professional-grade match management suite designed for high-sta
 
 ## 1. The Match Command Center (Game Screen)
 
-The heart of PocketScore is the Game Screen—a high-fidelity, real-time interface engineered for tactile precision, rapid input, and complete match awareness.
+The heart of PocketScore is the Game Screen-a high-fidelity, real-time interface engineered for tactile precision, rapid input, and complete match awareness.
 
 *   **Adaptive Scoring HUD (Top Bar)**
     *   **Live Table Metrics:** Floating indicator tracking total remaining table points and remaining balls in real time.

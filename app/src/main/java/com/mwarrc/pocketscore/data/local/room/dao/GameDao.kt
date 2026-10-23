@@ -73,7 +73,7 @@ interface GameDao {
     
     /**
      * Find game IDs that contain a specific player name.
-     * Used for targeted rename — avoids loading ALL games to find affected ones.
+     * Used for targeted rename - avoids loading ALL games to find affected ones.
      */
     @Query("SELECT DISTINCT gameId FROM players WHERE name = :playerName")
     suspend fun getGameIdsByPlayerName(playerName: String): List<String>

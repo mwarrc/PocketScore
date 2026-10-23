@@ -130,7 +130,7 @@ fun ActivePlayerCard(
     //    eliminated input" setting is on, in which case they can be scored
     //    like anyone else.
     // 2. In Strict Mode the turn still gates everyone else, and strict mode
-    //    always wins over the setting — the toggle is hidden there, so the
+    //    always wins over the setting - the toggle is hidden there, so the
     //    setting can only be true if it was enabled beforehand.
     // 3. In Non-Strict Mode everyone else can edit freely.
     //
@@ -176,7 +176,7 @@ fun ActivePlayerCard(
     // can't drift apart.
     val eliminated = rememberEliminatedColors(baseContainer = MaterialTheme.colorScheme.surface)
 
-    // The leader claims a hue of its own — violet by default — so a leader
+    // The leader claims a hue of its own - violet by default - so a leader
     // card can never be mistaken for the active player's card. The two used to
     // share the primary's family (Material You derives secondary as a
     // near-neighbour of primary), which made them impossible to tell apart.
@@ -292,14 +292,14 @@ fun ActivePlayerCard(
         )
     ) {
         Box(modifier = Modifier.fillMaxWidth()) {
-            // Eliminated watermark — a quiet lock, shared with the grid tile so
+            // Eliminated watermark - a quiet lock, shared with the grid tile so
             // both layouts mark elimination the same way.
             if (isEliminated) {
                 EliminatedWatermark(isCompact = false)
             }
             
             // Leader decoration. You asked for the stars back, so here they are
-            // — but rebuilt properly, clipped to the card, with proportional
+            // - but rebuilt properly, clipped to the card, with proportional
             // placement instead of the old fixed offsets.
             //
             // Note the condition: this used to also require !isCurrentTurn, so
@@ -315,7 +315,7 @@ fun ActivePlayerCard(
             }
 
             // (No floating overlays on this card. The recent-input chip lives
-            // under the score and the loser chip under the name, both inline —
+            // under the score and the loser chip under the name, both inline -
             // floating them at the vertical centre used to drop them straight
             // on top of the entry field and the +/- buttons.)
 
@@ -349,7 +349,7 @@ fun ActivePlayerCard(
                         //
                         // Elimination is deliberately NOT a chip. It is plain
                         // red text in the same slot, so the fact is stated in
-                        // words rather than as a second solid stamp — and it no
+                        // words rather than as a second solid stamp - and it no
                         // longer swallows the LOSER chip, which used to make it
                         // impossible to tell who was last once several players
                         // were out.
@@ -378,7 +378,7 @@ fun ActivePlayerCard(
                                 // Plain red text, not a chip. It replaces the
                                 // solid ELIMINATED pill that used to sit in this
                                 // slot and no longer swallows the LOSER chip
-                                // beside it — being out of the match and being
+                                // beside it - being out of the match and being
                                 // last place are independent facts.
                                 if (isEliminated) {
                                     Text(
@@ -395,7 +395,7 @@ fun ActivePlayerCard(
                         // Locked" line here for players who weren't on turn
                         // and a "Tap to Play" line for the ones who were, and
                         // the first of them was suppressed for leaders and
-                        // losers — so the same rule was stated on some cards
+                        // losers - so the same rule was stated on some cards
                         // and missing on others. The mode is now stated once,
                         // by the banner at the top of the screen, and the card
                         // can just be a card.
@@ -416,7 +416,7 @@ fun ActivePlayerCard(
                             // The corner disc is for statuses not already
                             // covered by a labelled role chip under the name.
                             // Eliminated carries its own red label there, so it
-                            // is excluded here — two marks for the same fact on
+                            // is excluded here - two marks for the same fact on
                             // one card is clutter.
                             if (!isLeader && !isLoser && !isEliminated) {
                                 PlayerStatusBadge(status = status)
@@ -593,7 +593,7 @@ fun ActivePlayerCard(
                                             // waiting for input. Previously the
                                             // field still showed "+ pts" and the
                                             // numpad could still type digits into
-                                            // the shared buffer — they just could
+                                            // the shared buffer - they just could
                                             // not be applied.
                                             Row(verticalAlignment = Alignment.CenterVertically) {
                                                 Icon(

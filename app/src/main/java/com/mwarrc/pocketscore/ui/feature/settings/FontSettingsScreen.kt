@@ -241,7 +241,7 @@ private fun FontOptionRow(
  * A static mock of the game screen used to show how the selected font renders
  * real content: score tiles, the round total and the numpad.
  *
- * Purely cosmetic — it reads no game state and handles no input.
+ * Purely cosmetic - it reads no game state and handles no input.
  *
  * @param font The font to render the mock in.
  */

@@ -181,6 +181,7 @@ data class AppSettings(
     val customDeviceName: String? = null,
     val allowEliminatedInput: Boolean = false,
     val analyticsId: String? = null,
+    val analyticsEnabled: Boolean = true,
     
     // Pool-Specific
     val poolBallManagementEnabled: Boolean = true,

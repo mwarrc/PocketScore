@@ -34,7 +34,7 @@ import androidx.compose.ui.unit.dp
  * @param expanded          Whether the section body is visible.
  * @param onExpandToggle    Toggle the expanded state.
  * @param onMappingChanged  Called when the user changes a mapping.
- *                          Passes (importedName, localName?) — null means "New Player".
+ *                          Passes (importedName, localName?) - null means "New Player".
  */
 @Composable
 fun ImportPlayerMappingSection(

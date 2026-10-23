@@ -3,7 +3,8 @@ package com.mwarrc.pocketscore
 import android.app.Application
 import com.mwarrc.pocketscore.data.local.migrator.DataStoreToRoomMigrator
 import com.mwarrc.pocketscore.data.local.room.AppDatabase
-import com.mwarrc.pocketscore.util.AnalyticsManager
+import com.mwarrc.pocketscore.util.analytics.PocketScoreAnalytics
+import com.mwarrc.pocketscore.util.analytics.SessionTracker
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -23,7 +24,21 @@ class PocketScoreApp : Application() {
     override fun onCreate() {
         super.onCreate()
         // Initialize Analytics
-        AnalyticsManager.initialize(this)
+        try {
+            PocketScoreAnalytics.init(this)
+        } catch (_: Exception) {
+        }
+
+        // Initialize SessionTracker exactly once at the process level.
+        // This avoids duplicate lifecycle observers when MainActivity is recreated.
+        try {
+            val analytics = PocketScoreAnalytics.get()
+            val prefs = getSharedPreferences("pocketscore_analytics", MODE_PRIVATE)
+            val tracker = SessionTracker(analytics, prefs)
+            tracker.start()
+            sessionTracker = tracker
+        } catch (_: Exception) {
+        }
         
         // Migrate from DataStore to Room on first launch
         applicationScope.launch {
@@ -45,5 +60,12 @@ class PocketScoreApp : Application() {
                 android.util.Log.e("PocketScoreApp", "Error during migration initialization", e)
             }
         }
+    }
+
+    companion object {
+        /** Process-level singleton so any component can increment counters. */
+        @Volatile
+        var sessionTracker: SessionTracker? = null
+            private set
     }
 }

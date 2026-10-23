@@ -48,7 +48,7 @@ fun GameHelpSheet(
         onDismissRequest = onDismiss,
         sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
         dragHandle = {
-            // No statusBarsPadding()/displayCutoutPadding() here — the content
+            // No statusBarsPadding()/displayCutoutPadding() here - the content
             // below insets, and stacking both left a band of dead space.
             Column(
                 modifier = Modifier
@@ -150,7 +150,7 @@ fun GameHelpSheet(
             HelpItem(
                 icon = Icons.Default.Lock,
                 title = "Keep the Numpad Open",
-                description = "Instead of opening and closing the keyboard per player, open the custom numpad and tap the padlock icon. The numpad is then locked open — the back button and the drag gesture can't close it — so you can shotgun scores consecutively!"
+                description = "Instead of opening and closing the keyboard per player, open the custom numpad and tap the padlock icon. The numpad is then locked open - the back button and the drag gesture can't close it - so you can shotgun scores consecutively!"
             )
 
             HelpItem(
@@ -162,7 +162,7 @@ fun GameHelpSheet(
             HelpItem(
                 icon = Icons.AutoMirrored.Filled.Undo,
                 title = "Chronological Quick Undo",
-                description = "Made a mistake? Just hit Undo. Every event is mapped, so it won't just subtract points — it physically reverses the turn order and recalculates table balls too."
+                description = "Made a mistake? Just hit Undo. Every event is mapped, so it won't just subtract points - it physically reverses the turn order and recalculates table balls too."
             )
 
             Text(

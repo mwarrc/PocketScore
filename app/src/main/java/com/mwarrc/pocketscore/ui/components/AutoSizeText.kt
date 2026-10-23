@@ -31,7 +31,7 @@ fun AutoSizeText(
 ) {
     var scaledTextStyle by remember(text, style) { mutableStateOf(style) }
     // Start visible. This used to start false, so every text change hid the
-    // content for a frame and then popped it in — a visible flash when
+    // content for a frame and then popped it in - a visible flash when
     // switching players.
     var readyToDraw by remember(text, style) { mutableStateOf(true) }
 

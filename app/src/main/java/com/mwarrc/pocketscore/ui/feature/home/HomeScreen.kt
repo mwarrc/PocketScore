@@ -52,11 +52,11 @@ fun HomeScreen(
     // onFocusEvent handler doesn't launch a competing bringIntoView().
     val suppressFocusScroll = remember { mutableStateOf(false) }
 
-    // Jump straight to the name field — used by the "+" shortcut in the roster
+    // Jump straight to the name field - used by the "+" shortcut in the roster
     // header so adding a player doesn't require scrolling past the whole pool.
     //
     // Order matters: request focus FIRST so the keyboard starts rising, then
-    // scroll. Scrolling first is what broke the cold case — `maxValue` is
+    // scroll. Scrolling first is what broke the cold case - `maxValue` is
     // measured against the un-shrunk viewport, so the list stopped exactly one
     // keyboard-height short. Focusing first grows `maxValue` by the IME inset,
     // so the scroll then travels the full distance.
@@ -67,7 +67,7 @@ fun HomeScreen(
 
             // Scroll toward the bottom via a sentinel rather than `maxValue`.
             // `animateScrollTo` clamps to maxValue internally, so this always
-            // resolves against the LIVE viewport height — no stale measurement.
+            // resolves against the LIVE viewport height - no stale measurement.
             // (The first tap's focus + IME sequence resizes the viewport, which
             // is what made a pre-measured maxValue land short.)
             scrollState.animateScrollTo(Int.MAX_VALUE)
@@ -98,7 +98,7 @@ fun HomeScreen(
                     // so only a small gap is needed here.
                     .padding(top = 8.dp, bottom = 140.dp)
             ) {
-                // ── Hero ────────────────────────────────────────────────────
+                // ── Hero ───────
                 // Swipe-to-navigate is scoped to this band only, so it can't fire
                 // while the user is dragging across the roster or the name field.
                 SwipeNavigationArea(
@@ -115,7 +115,7 @@ fun HomeScreen(
 
                 Spacer(Modifier.height(20.dp))
 
-                // ── Resume an in-progress match, or navigate ────────────────
+                // ── Resume an in-progress match, or navigate ────────
                 // Kept near the top: resuming beats everything else when a match
                 // is already running.
                 if (hasActiveGame) {
@@ -139,7 +139,7 @@ fun HomeScreen(
 
                 Spacer(Modifier.height(28.dp))
 
-                // ── The main job: choose players ────────────────────────────
+                // ── The main job: choose players ────────────
                 if (settings.showQuickSelectOnHome) {
                     RosterGridSection(
                         savedPlayerNames = settings.savedPlayerNames,
@@ -285,7 +285,7 @@ fun HomeScreen(
                     )
                 }
 
-                // ── Secondary: status note, then onboarding ────────────────
+                // ── Secondary: status note, then onboarding ────────
                 // These are informational, so they sit below the work surface.
                 if (settings.isGuestSession) {
                     Spacer(Modifier.height(24.dp))
@@ -309,7 +309,7 @@ fun HomeScreen(
             }
         }
 
-        // ── Sticky Start Match bar ─────────────────────────────────────────
+        // ── Sticky Start Match bar ────
         // Lives outside the scroll column so it's always visible regardless
         // of how many player tiles are rendered above.
         BottomStartGameBar(

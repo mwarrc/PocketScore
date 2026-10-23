@@ -8,7 +8,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ### Initial Release
 
-Official first release of PocketScore — a polished, professional-grade match management and scoring suite built with Kotlin, Jetpack Compose, and Material Design 3.
+Official first release of PocketScore - a polished, professional-grade match management and scoring suite built with Kotlin, Jetpack Compose, and Material Design 3.
 
 ### Added
 

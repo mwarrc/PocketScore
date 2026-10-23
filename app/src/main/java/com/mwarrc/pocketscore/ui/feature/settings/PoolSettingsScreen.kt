@@ -216,7 +216,7 @@ fun PoolSettingsScreen(
                     )
                 }
 
-                // Winner screen style — only meaningful while the celebration is on.
+                // Winner screen style - only meaningful while the celebration is on.
                 if (settings.endGameCelebrationEnabled) {
                     item {
                         Surface(

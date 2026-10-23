@@ -36,7 +36,7 @@ import kotlin.math.sin
  *
  * Design: Expressive Material 3, dynamic color only.
  *   - Three layered sine waves animated across the bottom of the screen (primary + surfaceVariant)
- *   - Geometric trophy mark drawn entirely in Canvas — no assets
+ *   - Geometric trophy mark drawn entirely in Canvas - no assets
  *   - Spring entrance animation on the card column
  *   - No emojis, no purple gradients, no confetti
  *
@@ -44,7 +44,7 @@ import kotlin.math.sin
  *   Single winner → eyebrow "CHAMPION",    headline = winner.name
  *   Tie           → eyebrow "MATCH ENDED", headline = "Honours Even"
  *
- * @param winners   Winning [Player] list — 1 item = sole winner, 2+ = tie
+ * @param winners   Winning [Player] list - 1 item = sole winner, 2+ = tie
  * @param onDismiss Tap "View Scores" or the close button
  * @param onRestart Tap "Play Again"
  * @param onArchive Tap "Save & Archive"
@@ -74,9 +74,9 @@ fun WinnerCelebrationOverlay(
         label = "cardAlpha"
     )
 
-    // ── Wave phase — single float drives all sine wave animation ─────────────
+    // ── Wave phase - single float drives all sine wave animation ─────
     // Runs 0 → 2π continuously. At 4800ms per cycle the waves move at a calm,
-    // meditative pace — fast enough to read as alive, slow enough to feel elegant.
+    // meditative pace - fast enough to read as alive, slow enough to feel elegant.
     val infiniteTransition = rememberInfiniteTransition(label = "bg")
 
     val wavePhase by infiniteTransition.animateFloat(
@@ -89,7 +89,7 @@ fun WinnerCelebrationOverlay(
         label = "wavePhase"
     )
 
-    // ── Root --────────────────────
+    // ── Root --────
     Box(
         modifier = Modifier
             .fillMaxSize()
@@ -102,7 +102,7 @@ fun WinnerCelebrationOverlay(
         contentAlignment = Alignment.Center
     ) {
 
-        // ── Animated sine wave background ─────────────────────────────────────
+        // ── Animated sine wave background ─────────────
         // Three staggered waves drawn as filled paths that flood from the bottom
         // upward. Each wave has a different amplitude, frequency, speed offset,
         // and opacity so they layer into a living, breathing surface.
@@ -129,7 +129,7 @@ fun WinnerCelebrationOverlay(
                 )
         ) {
 
-            // Trophy mark — geometric, Canvas-drawn, no assets
+            // Trophy mark - geometric, Canvas-drawn, no assets
             Surface(
                 shape = CircleShape,
                 color = colorScheme.primaryContainer,
@@ -275,7 +275,7 @@ fun WinnerCelebrationOverlay(
             }*/
         }
 
-        // ── Close button — top-right ──────────────────────────────────────────
+        // ── Close button - top-right ─────
         IconButton(
             onClick = onDismiss,
             modifier = Modifier
@@ -301,14 +301,14 @@ fun WinnerCelebrationOverlay(
     }
 }
 
-// --───────────────────────────────
+// --───────
 // Animated sine wave background
-// --───────────────────────────────
+// --───────
 
 /**
  * Draws three layered sine waves as filled paths that rise from the bottom of
  * the screen. Each layer has a distinct amplitude, frequency, phase offset, and
- * opacity — together they produce a gentle, breathing wave effect.
+ * opacity - together they produce a gentle, breathing wave effect.
  *
  * Wave anatomy:
  *   back   → tallest, slowest, most transparent   (surfaceVariant tint)
@@ -316,8 +316,8 @@ fun WinnerCelebrationOverlay(
  *   front  → shortest, fastest, most opaque        (primary, mid alpha)
  *
  * @param phase              Current animation phase in radians (0 → 2π, looping)
- * @param primaryColor       [ColorScheme.primary] — tints front & mid wave
- * @param surfaceVariantColor [ColorScheme.surfaceVariant] — tints back wave
+ * @param primaryColor       [ColorScheme.primary] - tints front & mid wave
+ * @param surfaceVariantColor [ColorScheme.surfaceVariant] - tints back wave
  * @param width              Canvas width in px
  * @param height             Canvas height in px
  */
@@ -337,7 +337,7 @@ private fun DrawScope.drawAnimatedWaves(
     )
 
     val waves = listOf(
-        // Back wave — tall, slow, very faint surfaceVariant tint
+        // Back wave - tall, slow, very faint surfaceVariant tint
         WaveConfig(
             amplitudeFraction = 0.11f,
             frequency = 1.4f,
@@ -345,7 +345,7 @@ private fun DrawScope.drawAnimatedWaves(
             yBaseFraction = 0.72f,
             color = surfaceVariantColor.copy(alpha = 0.18f)
         ),
-        // Mid wave — medium, phase-offset 120°, primary tint
+        // Mid wave - medium, phase-offset 120°, primary tint
         WaveConfig(
             amplitudeFraction = 0.085f,
             frequency = 1.8f,
@@ -353,7 +353,7 @@ private fun DrawScope.drawAnimatedWaves(
             yBaseFraction = 0.76f,
             color = primaryColor.copy(alpha = 0.10f)
         ),
-        // Front wave — shortest, fastest (phase 240°), strongest primary tint
+        // Front wave - shortest, fastest (phase 240°), strongest primary tint
         WaveConfig(
             amplitudeFraction = 0.065f,
             frequency = 2.2f,
@@ -363,7 +363,7 @@ private fun DrawScope.drawAnimatedWaves(
         )
     )
 
-    val steps = 180  // horizontal sample count — smooth curve, not expensive
+    val steps = 180  // horizontal sample count - smooth curve, not expensive
 
     waves.forEach { wave ->
         val amplitude = wave.amplitudeFraction * height
@@ -403,7 +403,7 @@ private fun DrawScope.drawAnimatedWaves(
  *   stem       → filled rectangle
  *   base       → round-rect bar
  *
- * @param color   Solid fill / stroke color — use [ColorScheme.onPrimaryContainer]
+ * @param color   Solid fill / stroke color - use [ColorScheme.onPrimaryContainer]
  * @param center  Center of the bounding circle (from Canvas)
  * @param sizePx  Diameter of the trophy's bounding box in pixels
  */
@@ -416,7 +416,7 @@ private fun DrawScope.drawTrophyMark(
     val cx = center.x
     val cy = center.y
 
-    // ── Cup body --────────────────
+    // ── Cup body --────────
     val cupPath = Path().apply {
         val left       = cx - h * 0.54f
         val right      = cx + h * 0.54f
@@ -442,7 +442,7 @@ private fun DrawScope.drawTrophyMark(
     }
     drawPath(cupPath, color = color)
 
-    // ── Handles --─────────────────
+    // ── Handles --─────────
     val handleStroke = Stroke(width = sizePx * 0.072f, cap = StrokeCap.Round)
     val handleTop    = cy - h * 0.54f
     val handleBottom = cy - h * 0.06f
@@ -469,7 +469,7 @@ private fun DrawScope.drawTrophyMark(
         style = handleStroke
     )
 
-    // ── Stem --────────────────────
+    // ── Stem --────
     val stemTop    = cy + h * 0.34f
     val stemBottom = cy + h * 0.60f
     val stemW      = h * 0.13f
@@ -479,7 +479,7 @@ private fun DrawScope.drawTrophyMark(
         size = Size(stemW * 2f, stemBottom - stemTop)
     )
 
-    // ── Base --────────────────────
+    // ── Base --────
     val baseH = h * 0.14f
     val baseW = h * 0.78f
     drawRoundRect(

@@ -66,7 +66,7 @@ fun BackupSection(
             modifier = Modifier.padding(start = 4.dp, bottom = 4.dp)
         )
 
-        // ── Backup Center — navigable card ──
+        // ── Backup Center - navigable card ──
         Surface(
             onClick = onNavigateToBackups,
             modifier = Modifier.fillMaxWidth(),

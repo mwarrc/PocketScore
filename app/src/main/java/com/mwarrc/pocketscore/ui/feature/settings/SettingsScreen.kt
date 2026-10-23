@@ -201,7 +201,7 @@ fun SettingsScreen(
                     icon = Icons.Default.Backup,
                     statusBadge = if (settings.localSnapshotsEnabled) "Active" else "Paused",
                     isStatusSuccess = settings.localSnapshotsEnabled,
-                    // Draws attention here while no persistent folder is linked —
+                    // Draws attention here while no persistent folder is linked -
                     // without one, backups are lost on uninstall.
                     showAlertDot = settings.backupsFolderUri == null,
                     onClick = onNavigateToBackups

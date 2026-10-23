@@ -1,5 +1,5 @@
 """
-PocketScore Stress-Test Data Generator  —  FIXED v2
+PocketScore Stress-Test Data Generator  -  FIXED v2
 ====================================================
 Generates a .pscore.json file in the exact format used by PocketScore.
 
@@ -10,7 +10,7 @@ BUGS FIXED vs original:
   2. history initial value: generator started history with [0] even for players
      with no events → now history=[] when no events
   3. eventHistory ordering: generator reversed eventHistory (newest-first)
-     but real data is also newest-first — this was correct. However the
+     but real data is also newest-first - this was correct. However the
      cumulative was built wrong, so scores were off.
   4. isGameActive: was set True even for archived/finalized games.
      Real exports always have isGameActive=True (games are live snapshots),
@@ -290,7 +290,7 @@ def generate(num_games: int, num_players: int, events_per_player: int, output_pa
 
 def main():
     parser = argparse.ArgumentParser(
-        description="PocketScore stress-test data generator (.pscore.json) — fixed v2"
+        description="PocketScore stress-test data generator (.pscore.json) - fixed v2"
     )
     parser.add_argument("--games",   type=int, default=500,  help="Number of games (default: 500)")
     parser.add_argument("--players", type=int, default=200,  help="Players in roster (default: 200)")

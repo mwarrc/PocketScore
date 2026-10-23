@@ -27,7 +27,7 @@ import kotlin.math.abs
  * Confines swipe-to-navigate to a specific, bounded area (the header band).
  *
  * The gesture used to sit on the entire scrolling column, which meant a stray
- * horizontal drag anywhere — over the roster, a player tile, or the name field —
+ * horizontal drag anywhere - over the roster, a player tile, or the name field -
  * could fire a navigation. Scoping it to the header keeps the shortcut available
  * while removing the accidental-trigger surface.
  *

@@ -67,7 +67,7 @@ fun PlayerInputSection(
         if (justAdded) { delay(800); justAdded = false }
     }
 
-    // ── colour tokens --──────────
+    // ── colour tokens --──
     val borderStroke = when {
         justAdded   -> androidx.compose.foundation.BorderStroke(1.dp, colorScheme.tertiary.copy(alpha = 0.6f))
         isDuplicate -> androidx.compose.foundation.BorderStroke(1.dp, colorScheme.error.copy(alpha = 0.6f))
@@ -100,7 +100,7 @@ fun PlayerInputSection(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(10.dp)
             ) {
-                // ── Leading badge ────────────────────────────────────────────
+                // ── Leading badge ───────
                 // A fixed-size slot in every state. This used to swap between wide
                 // text chips ("Already in match", "Continuing Record", …) and a 36dp
                 // box, which resized the row and shoved the text field sideways as
@@ -226,7 +226,7 @@ fun PlayerInputSection(
             }
         }
 
-        // ── Helper line ──────────────────────────────────────────────────────
+        // ── Helper line ─────────
         // Carries the status that the leading badge used to spell out inline,
         // so the field itself never has to change width.
         val helper = when {

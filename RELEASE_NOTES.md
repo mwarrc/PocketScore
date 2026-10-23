@@ -1,4 +1,4 @@
-# PocketScore v0.0.1 — Initial Official Release
+# PocketScore v0.0.1 - Initial Official Release
 
 Welcome to the official launch of **PocketScore**! 
 

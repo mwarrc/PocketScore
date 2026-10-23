@@ -19,15 +19,15 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
 /**
- * Import Preview Screen — the entry point for the import flow.
+ * Import Preview Screen - the entry point for the import flow.
  *
  * Orchestrates all import sub-components:
- * - [ImportSourceHeader]          — source device + date + stat chips
- * - [ImportBreakdownCard]         — new/duplicate/player count grid
- * - [ImportPlayerMappingSection]  — collapsible player identity mapper
- * - [ImportMatchPreviewSection]   — collapsible match record previews
- * - [ImportSmartMergeCard]        — smart merge footer info
- * - [ImportBottomBar]             — cancel / confirm action bar
+ * - [ImportSourceHeader]          - source device + date + stat chips
+ * - [ImportBreakdownCard]         - new/duplicate/player count grid
+ * - [ImportPlayerMappingSection]  - collapsible player identity mapper
+ * - [ImportMatchPreviewSection]   - collapsible match record previews
+ * - [ImportSmartMergeCard]        - smart merge footer info
+ * - [ImportBottomBar]             - cancel / confirm action bar
  *
  * All heavy computation (fuzzy name matching) runs on [Dispatchers.Default]
  * to keep the UI thread responsive.

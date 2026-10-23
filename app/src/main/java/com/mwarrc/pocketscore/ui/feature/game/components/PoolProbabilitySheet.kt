@@ -123,7 +123,7 @@ fun PoolProbabilitySheet(
     ) {
         ImmersiveMode()
         // heightIn(max) on the content Column caps the sheet's expanded anchor.
-        // The sheet sizes itself to its content — so this IS what limits sheet height.
+        // The sheet sizes itself to its content - so this IS what limits sheet height.
         Column(
             modifier = Modifier
                 .fillMaxWidth()
@@ -155,7 +155,7 @@ fun PoolProbabilitySheet(
                     .nestedScroll(nestedScrollConnection),
                 contentPadding = PaddingValues(bottom = 24.dp)
             ) {
-                // ── Header Section ──────────────────────────────────────────
+                // ── Header Section ─────
                 item {
                     Row(
                         modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 16.dp),
@@ -204,7 +204,7 @@ fun PoolProbabilitySheet(
                     }
                 }
 
-                // ── Settings Quick Toggle ──────────────────────────────────
+                // ── Settings Quick Toggle ──────────
                 item {
                     Surface(
                         modifier = Modifier.padding(horizontal = 24.dp).fillMaxWidth(),
@@ -253,7 +253,7 @@ fun PoolProbabilitySheet(
                     Spacer(Modifier.height(24.dp))
                 }
 
-                // ── Points System Selection ─────────────────────────────────
+                // ── Points System Selection ─────────
                 item {
                     Column(modifier = Modifier.padding(horizontal = 24.dp).fillMaxWidth()) {
                         Text(
@@ -283,7 +283,7 @@ fun PoolProbabilitySheet(
                     Spacer(Modifier.height(24.dp))
                 }
 
-                // ── Ball Selection Table ─────────────────────────────────────
+                // ── Ball Selection Table ─────────────
                 item {
                     Column(modifier = Modifier.padding(horizontal = 24.dp)) {
                         Row(
@@ -355,7 +355,7 @@ fun PoolProbabilitySheet(
                     Spacer(Modifier.height(32.dp))
                 }
 
-                // ── Win Probabilities ───────────────────────────────────────
+                // ── Win Probabilities ──
                 item {
                     Row(
                         modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 8.dp),
@@ -613,7 +613,7 @@ fun PlayerStatusRow(
                         isLeader -> "Potential: $potentialMax"
                         isOut -> "-${leaderScore - potentialMax} from lead"
                         // tableSum == 0 means nothing is left to score, so
-                        // "Need N to tie" would be nonsense — the match is over.
+                        // "Need N to tie" would be nonsense - the match is over.
                         tableSum <= 0 -> "Table cleared"
                         else -> "Need ${leaderScore - player.score} to tie"
                     },
@@ -696,7 +696,7 @@ fun QuickBallSelectDialog(
             ) {
                 // Consistent 3 x 5 grid. The columns are evenly weighted and
                 // the gap is modest so the balls themselves take the extra
-                // width the dialog now provides — previously 30dp of
+                // width the dialog now provides - previously 30dp of
                 // inter-column spacing plus 16dp content padding ate most of
                 // it, which is exactly why the balls looked cramped against
                 // empty side margins.

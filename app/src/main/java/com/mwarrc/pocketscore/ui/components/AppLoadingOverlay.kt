@@ -22,17 +22,17 @@ import androidx.compose.ui.unit.sp
 import com.mwarrc.pocketscore.ui.util.ImmersiveMode
 
 /**
- * Immersive loading overlay — billiard rack formation.
+ * Immersive loading overlay - billiard rack formation.
  *
  * Balls light up in a staggered wave that ripples across the triangle,
- * then fades back — giving the sense of a rack being broken.
+ * then fades back - giving the sense of a rack being broken.
  *
  * Optimisations vs previous version:
  *  - Removed Brush gradients and blur modifiers (expensive on every frame).
  *  - Single InfiniteTransition drives all animations (fewer coroutines).
- *  - Ball colours pulled directly from M3 colour scheme — no hardcoded hex.
+ *  - Ball colours pulled directly from M3 colour scheme - no hardcoded hex.
  *  - No trigonometry at runtime; rack positions are static offsets computed once.
- *  - drawBehind used for the rack triangle outline — zero extra composable nodes.
+ *  - drawBehind used for the rack triangle outline - zero extra composable nodes.
  *  - AnimatedVisibility enter/exit kept intentionally snappy (300/250 ms).
  */
 @Composable

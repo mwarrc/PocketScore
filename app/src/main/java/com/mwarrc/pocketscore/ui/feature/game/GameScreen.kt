@@ -117,7 +117,7 @@ fun GameScreen(
     // Measured height of the custom numpad, in pixels. NumpadOverlay reports
     // it on first layout and on changes (keyboard-height setting, nav-bar
     // inset, globalScale). The scoreboard's bottom padding derives from this,
-    // so the list can always scroll every card clear of the keyboard — a
+    // so the list can always scroll every card clear of the keyboard - a
     // hardcoded constant couldn't: at high globalScale or with a taller
     // keyboard setting, ~100dp of rows were stuck behind the numpad and could
     // never be scrolled into view.
@@ -180,7 +180,7 @@ fun GameScreen(
                 lastAutoRemovedBall = matchingBall
             } else {
                 // Negative score deducts the value but the ball stays
-                // on the table — nothing to remove.
+                // on the table - nothing to remove.
                 lastAutoRemovedBall = null
             }
         }
@@ -192,7 +192,7 @@ fun GameScreen(
         // "advance now" call to race with this one. The old UI-side fallback
         // (advance 50ms later when strict mode was on but auto-advance was
         // off) read the game state before this score had been persisted and
-        // wrote the whole thing back — which could undo the score it was
+        // wrote the whole thing back - which could undo the score it was
         // supposed to follow, and could skip a player when it did land.
         onUpdateScore(pid, pts, ballToRemove)
     }
@@ -229,7 +229,7 @@ fun GameScreen(
     //
     // Delegates to EliminationRules rather than recomputing `score + tableSum <
     // leaderScore` inline. That inline copy lacked the guards the turn rotation
-    // has, so the pulse could fire — and cards could read ELIMINATED — for a
+    // has, so the pulse could fire - and cards could read ELIMINATED - for a
     // player the rotation was still passing the turn to.
     val eliminatedIds = remember(activePlayers, tableSum, leaderScore, settings.poolBallManagementEnabled) {
         if (!settings.poolBallManagementEnabled) {
@@ -250,7 +250,7 @@ fun GameScreen(
     LaunchedEffect(eliminatedIds) {
         val newlyEliminated = eliminatedIds - previouslyEliminated
         // Ignore the first computation (game start / resume) so entering a match
-        // never triggers a pulse. Never pulse once the table is cleared — that is
+        // never triggers a pulse. Never pulse once the table is cleared - that is
         // the endgame, handled by the celebration overlay.
         if (eliminationDetected && newlyEliminated.isNotEmpty() && tableSum > 0) {
             showEliminationPulse = true
@@ -337,11 +337,11 @@ fun GameScreen(
     //
     //  - Strict mode: the turn decides. The header is always the turn holder.
     //    It used to honour a tapped tile instead, which pinned the header to
-    //    whoever was tapped — so after the auto-advance the turn had moved on
+    //    whoever was tapped - so after the auto-advance the turn had moved on
     //    while the card you were still typing into belonged to the previous
     //    player. The advance looked like it had done nothing.
-    //  - Otherwise: a tapped tile pins the header, so you can look at — and
-    //    score — a player other than the current turn holder.
+    //  - Otherwise: a tapped tile pins the header, so you can look at - and
+    //    score - a player other than the current turn holder.
     val selectionForHeader = remember(
         localHeaderSelection,
         currentPlayerId,
@@ -360,11 +360,11 @@ fun GameScreen(
     // Reset the pending entry when the header's player changes, but deliberately
     // KEEP any manually-picked header selection. Previously this also nulled
     // localHeaderSelection, so tapping a player and then having the turn advance
-    // relocated the header a second time — the double-jump on tap.
+    // relocated the header a second time - the double-jump on tap.
     //
     // Keyed on the HEADER's player, not on currentPlayerId. scoreInput is a
     // single buffer shared by every card, so what it must be cleared for is
-    // whoever the input will be submitted against — which is the header player.
+    // whoever the input will be submitted against - which is the header player.
     // Keying on the turn alone missed the case where the header moves without the
     // turn moving (tapping a tile in strict mode sets localHeaderSelection but
     // not currentPlayerId), leaving a half-typed value attached to the
@@ -443,7 +443,7 @@ fun GameScreen(
         
         // Last man standing: the lead is held by exactly one player and everyone
         // else is mathematically out. Expressed through EliminationRules so this
-        // agrees with the cards and the turn rotation — a leader is never
+        // agrees with the cards and the turn rotation - a leader is never
         // eliminated by that rule, so "all non-leaders eliminated" is precisely
         // "everyone except the unique leader is eliminated".
         val leaders = activePlayers.filter { it.score == maxScore }
@@ -708,7 +708,7 @@ fun GameScreen(
             )
         }
 
-        // "No matching ball" warning — drops down over the top bar.
+        // "No matching ball" warning - drops down over the top bar.
         NoMatchingBallBanner(
             visible = showNoBallWarning,
             hapticEnabled = settings.hapticFeedbackEnabled,
@@ -747,11 +747,19 @@ fun GameScreen(
             )
         }
 
-        // Winner Celebration overlay — sits on top of everything
+        // Winner Celebration overlay - sits on top of everything
+        LaunchedEffect(showCelebration) {
+            if (showCelebration) {
+                try {
+                    com.mwarrc.pocketscore.util.analytics.PocketScoreAnalytics.get().logWinnerScreenShown("", settings.winnerScreenStyle.name)
+                } catch (_: Exception) {
+                }
+            }
+        }
         if (showCelebration) {
             // maxScore must be taken over ACTIVE players only. This used to scan
             // the full roster, so a withdrawn player holding the top score set
-            // maxScore to a value no active player could match — `winners` came
+            // maxScore to a value no active player could match - `winners` came
             // back empty and the celebration dismissed itself with no winner.
             val maxScore = activePlayers.maxOfOrNull { it.score } ?: 0
             val winners = activePlayers.filter { it.score == maxScore }

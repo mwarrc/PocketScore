@@ -2,11 +2,14 @@ package com.mwarrc.pocketscore.ui.viewmodel
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.mwarrc.pocketscore.PocketScoreApp
 import com.mwarrc.pocketscore.data.repository.GameRepository
 import com.mwarrc.pocketscore.domain.logic.EliminationRules
 import com.mwarrc.pocketscore.domain.model.*
-import com.mwarrc.pocketscore.util.AnalyticsManager
 import com.mwarrc.pocketscore.util.DeviceInfoProvider
+import com.mwarrc.pocketscore.util.analytics.AnalyticsTracker
+import com.mwarrc.pocketscore.util.analytics.NoOpAnalytics
+import com.mwarrc.pocketscore.util.analytics.PocketScoreAnalytics
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.supervisorScope
@@ -17,22 +20,11 @@ import java.util.Locale
 
 /**
  * ViewModel for managing game state and business logic.
- * 
- * This ViewModel handles:
- * - Game state management and player interactions
- * - Score tracking and turn management
- * - Game history and archival
- * - Settings and preferences
- * - Data import/export and snapshots
- * 
- * @param repository The game data repository
- * @param deviceInfoProvider Provider for device-specific information
- * @param analyticsManager Manager for analytics events (injected for testability)
  */
 class GameViewModel(
     private val repository: GameRepository,
     private val deviceInfoProvider: DeviceInfoProvider = DeviceInfoProvider.Default,
-    private val analyticsManager: AnalyticsManager = AnalyticsManager
+    private val analyticsManager: AnalyticsTracker = NoOpAnalytics
 ) : ViewModel() {
 
     private val _state = MutableStateFlow(AppState())
@@ -84,30 +76,74 @@ class GameViewModel(
 
     /**
      * Initializes analytics with a stable user ID.
-     * Ensures ID is created once and persisted.
      */
     private fun initializeAnalytics() {
         viewModelScope.launch {
             supervisorScope {
                 try {
-                    // Wait for settings to be available
                     val settings = repository.appSettings.first()
-                    
+                    try {
+                        val analytics = PocketScoreAnalytics.get()
+                        analytics.setEnabled(settings.analyticsEnabled)
+                    } catch (_: Exception) {
+                    }
                     val finalId = if (settings.analyticsId == null) {
                         val newId = java.util.UUID.randomUUID().toString()
                         repository.updateSettings(settings.copy(analyticsId = newId))
-                        com.mwarrc.pocketscore.util.CloudAnalyticsManager.logInstallation(newId)
                         newId
                     } else {
                         settings.analyticsId!!
                     }
-                    
-                    // Log app open with stable ID
-                    analyticsManager.logAppOpen(finalId)
+                    try {
+                        (analyticsManager as? PocketScoreAnalytics)?.setEnabled(settings.analyticsEnabled)
+                        // Set user properties for Firebase segmentation
+                        setUserProperties(settings)
+                        // Fire config snapshot once per session
+                        logDeviceConfigSnapshot(settings)
+                    } catch (_: Exception) {
+                    }
                 } catch (e: Exception) {
                     Log.e(TAG, "Error initializing analytics", e)
                 }
             }
+        }
+    }
+
+    /**
+     * Sets Firebase user properties for audience segmentation.
+     */
+    private fun setUserProperties(settings: AppSettings) {
+        try {
+            analyticsManager.setUserProperty("app_theme", settings.appTheme.name.lowercase())
+            analyticsManager.setUserProperty("keyboard_type", if (settings.useCustomKeyboard) "custom" else "system")
+            analyticsManager.setUserProperty("pool_ball_mgmt", if (settings.poolBallManagementEnabled) "enabled" else "disabled")
+            analyticsManager.setUserProperty("match_split", if (settings.matchSplitEnabled) "enabled" else "disabled")
+        } catch (_: Exception) {
+        }
+    }
+
+    /**
+     * Fires a device_config_snapshot event once per session with all current settings.
+     */
+    private fun logDeviceConfigSnapshot(settings: AppSettings) {
+        try {
+            val b = android.os.Bundle()
+            b.putString("theme", settings.appTheme.name)
+            b.putString("font", settings.appFont.name)
+            b.putString("keyboard_type", if (settings.useCustomKeyboard) "custom" else "system")
+            b.putString("layout", settings.defaultLayout.name)
+            b.putBoolean("strict_mode", settings.strictTurnMode)
+            b.putBoolean("auto_next_turn", settings.autoNextTurn)
+            b.putBoolean("pool_ball_mgmt", settings.poolBallManagementEnabled)
+            b.putBoolean("match_split", settings.matchSplitEnabled)
+            b.putString("settlement_method", settings.settlementMethod.name)
+            b.putBoolean("haptic", settings.hapticFeedbackEnabled)
+            b.putString("winner_screen_style", settings.winnerScreenStyle.name)
+            b.putString("device_model", android.os.Build.MODEL)
+            b.putString("android_version", android.os.Build.VERSION.RELEASE)
+            b.putString("app_version", com.mwarrc.pocketscore.BuildConfig.VERSION_NAME)
+            analyticsManager.logConfigSnapshot(b)
+        } catch (_: Exception) {
         }
     }
 
@@ -184,7 +220,7 @@ class GameViewModel(
                 // so a match that netted out to 0 after real play is still kept
                 // while a session of idle 0 taps is not.
                 //
-                // ALSO: Always archive a paused game — the user explicitly chose
+                // ALSO: Always archive a paused game - the user explicitly chose
                 // to suspend it with intent to resume, so it deserves preservation
                 // even without any scores recorded.
                 if (!skipArchiveCurrent) {
@@ -210,10 +246,23 @@ class GameViewModel(
                 )
                 
                 repository.saveGameState(newState)
-                analyticsManager.logGameStarted(
-                    newPlayers.size,
-                    analyticsId = _state.value.settings.analyticsId
-                )
+                try {
+                    val settingsNow = _state.value.settings
+                    (analyticsManager as? PocketScoreAnalytics)?.setEnabled(settingsNow.analyticsEnabled)
+                    analyticsManager.logGameStarted(
+                        newState.id,
+                        newPlayers.size,
+                        false,
+                        null,
+                        settingsNow.poolBallManagementEnabled,
+                        settingsNow.strictTurnMode,
+                        settingsNow.autoNextTurn,
+                        settingsNow.defaultLayout.name,
+                        if (settingsNow.useCustomKeyboard) "custom_keyboard" else "system"
+                    )
+                    PocketScoreApp.sessionTracker?.trackGamePlayed()
+                } catch (_: Exception) {
+                }
             } catch (e: Exception) {
                 Log.e(TAG, "Error starting new game", e)
                 emitError("Failed to start game")
@@ -249,7 +298,7 @@ class GameViewModel(
         }
         
         // Strict turn mode owns the turn. The rotation decides who plays, and
-        // a tap must not hand it to somebody else — that is exactly how the
+        // a tap must not hand it to somebody else - that is exactly how the
         // previous player stayed reachable after their turn had ended. Setting
         // the player who already holds the turn is a no-op and stays allowed.
         //
@@ -401,6 +450,13 @@ class GameViewModel(
                     repository.clearGameState()
                     return@launch
                 }
+                // Log pause analytics
+                try {
+                    val durationSoFar = (System.currentTimeMillis() - currentGame.startTime) / 1000L
+                    val turnNumber = currentGame.globalEvents.count { it.type == GameEventType.SCORE }
+                    analyticsManager.logGamePaused(currentGame.id, durationSoFar, turnNumber)
+                } catch (_: Exception) {
+                }
                 // Archive to history with paused state preserved
                 repository.archiveCurrentGame(currentGame, saveOverride = false, isPause = true)
                 // Clear active game state
@@ -466,7 +522,7 @@ class GameViewModel(
             _isLoading.value = true
             try {
                 // Archive existing active game before resuming another one.
-                // Same recorded-score guard as startNewGame — a match played out
+                // Same recorded-score guard as startNewGame - a match played out
                 // to a 0 net score is still worth keeping; idle 0 taps are not.
                 val currentActive = _state.value.gameState
                 if ((currentActive.isGameActive || currentActive.isPaused) &&
@@ -508,11 +564,28 @@ class GameViewModel(
 
                 repository.saveGameState(finalState)
                 
-                analyticsManager.logGameStarted(
-                    game.players.size,
-                    isResume = true,
-                    analyticsId = _state.value.settings.analyticsId
-                )
+                try {
+                    val settingsNow = _state.value.settings
+                    (analyticsManager as? PocketScoreAnalytics)?.setEnabled(settingsNow.analyticsEnabled)
+                    analyticsManager.logGameStarted(
+                        finalState.id,
+                        game.players.size,
+                        true,
+                        if (shouldOverrideHistory) baseGame.id else game.id,
+                        settingsNow.poolBallManagementEnabled,
+                        settingsNow.strictTurnMode,
+                        settingsNow.autoNextTurn,
+                        settingsNow.defaultLayout.name,
+                        if (settingsNow.useCustomKeyboard) "custom_keyboard" else "system"
+                    )
+                    PocketScoreApp.sessionTracker?.trackGamePlayed()
+                    // Log resume with pause duration if the game was paused
+                    if (game.isPaused) {
+                        val pauseDuration = (now - (game.lastUpdate ?: game.startTime)) / 1000L
+                        analyticsManager.logGameResumed(finalState.id, pauseDuration)
+                    }
+                } catch (_: Exception) {
+                }
             } catch (e: Exception) {
                 Log.e(TAG, "Error resuming game", e)
                 emitError("Failed to resume game")
@@ -634,7 +707,7 @@ class GameViewModel(
     /**
      * Updates a player's score and optionally removes a pool ball, all in a single atomic state update.
      *
-     * The ball removal is handled here — NOT in the UI layer — to avoid an async race condition
+     * The ball removal is handled here - NOT in the UI layer - to avoid an async race condition
      * where two sequential `updateGameState` calls (one for score, one for balls) could overwrite
      * each other, causing the score to appear to revert.
      *
@@ -690,6 +763,29 @@ class GameViewModel(
         )
         val updatedGlobalEvents = currentState.globalEvents + globalEvent
 
+        // Log score entry analytics (rate-limited at 200 turns per game)
+        val turnNumber = updatedGlobalEvents.count { it.type == GameEventType.SCORE }
+        if (turnNumber <= 200) {
+            try {
+                val playerIndex = currentState.players.indexOfFirst { it.id == playerId }
+                val lastScoreTime = currentState.globalEvents
+                    .lastOrNull { it.type == GameEventType.SCORE }?.timestamp
+                val timeSinceLast = if (lastScoreTime != null) {
+                    (System.currentTimeMillis() - lastScoreTime) / 1000L
+                } else null
+                analyticsManager.logGameScoreEntered(
+                    currentState.id,
+                    playerIndex,
+                    points,
+                    newScore,
+                    turnNumber,
+                    if (_state.value.settings.useCustomKeyboard) "custom_keyboard" else "system",
+                    timeSinceLast
+                )
+            } catch (_: Exception) {
+            }
+        }
+
         // Atomically remove the ball in the same state update to avoid race conditions
         val updatedBalls = if (autoRemoveBallNumber != null) {
             currentState.ballsOnTable - autoRemoveBallNumber
@@ -710,7 +806,7 @@ class GameViewModel(
         // two switches behind it. Both are forced on when strict mode is
         // turned on, but they are persisted settings: a session restored from
         // an older build could still have autoNextTurn off, and then the turn
-        // would sit on the player who just scored — which reads exactly like
+        // would sit on the player who just scored - which reads exactly like
         // the auto-advance being broken. Strict mode's whole contract is "the
         // turn rotates on its own", so it can't depend on a switch the user
         // cannot reach while strict mode is on.
@@ -782,6 +878,16 @@ class GameViewModel(
             currentState.ballsOnTable
         }
 
+        // Log undo analytics
+        try {
+            analyticsManager.logGameUndo(
+                currentState.id,
+                currentState.globalEvents.count { it.type == GameEventType.SCORE },
+                lastScoreEvent.points
+            )
+        } catch (_: Exception) {
+        }
+
         updateGameState(currentState.copy(
             players = updatedPlayers,
             currentPlayerId = lastScoreEvent.previousPlayerId ?: currentState.currentPlayerId,
@@ -799,7 +905,7 @@ class GameViewModel(
      * `tempState.currentPlayerId`, which was the ID of the player *being*
      * removed. When the removal was a full delete that ID no longer exists in
      * `players` at all, and when it was a withdrawal the ID belonged to a player
-     * marked inactive — either way [GameState.currentPlayerId] was left pointing
+     * marked inactive - either way [GameState.currentPlayerId] was left pointing
      * somewhere invalid, and the UI silently fell back to a different player than
      * the turn logic believed.
      *
@@ -1012,7 +1118,7 @@ class GameViewModel(
      * "Play Again" straight after a win that was already archived, or in guest
      * mode) the guard fell through and the finished game was left sitting in
      * the repository as the active game. The new match then either failed to
-     * start or was overwritten, and the stale game reappeared later — the
+     * start or was overwritten, and the stale game reappeared later - the
      * "I'm back in the old game" symptom.
      *
      * @param playerNames Names for the new game
@@ -1025,7 +1131,7 @@ class GameViewModel(
             try {
                 val currentGame = _state.value.gameState
 
-                // Recorded score, not non-zero final score — a match that washed
+                // Recorded score, not non-zero final score - a match that washed
                 // out to 0 after real play is still worth archiving.
                 val hasSomethingToSave = currentGame.hasRecordedScore()
 
@@ -1056,32 +1162,55 @@ class GameViewModel(
 
     /**
      * Logs game ended analytics.
-     * Extracted to avoid code duplication.
      */
     private fun logGameEndedAnalytics(game: GameState, finalized: Boolean) {
-        val winnerScore = game.players.maxOfOrNull { it.score } ?: 0
-        val analyticsId = _state.value.settings.analyticsId
-        
-        analyticsManager.logGameEnded(
-            playerCount = game.players.size,
-            totalTurns = game.globalEvents.count { it.type == GameEventType.SCORE },
-            isFinalized = finalized,
-            winnerScore = winnerScore,
-            durationMillis = System.currentTimeMillis() - game.startTime,
-            analyticsId = analyticsId
-        )
+        try {
+            val settingsNow = _state.value.settings
+            (analyticsManager as? PocketScoreAnalytics)?.setEnabled(settingsNow.analyticsEnabled)
+            val b = android.os.Bundle()
+            b.putString("game_id", game.id)
+            b.putInt("player_count", game.players.size)
+            val scoreEvents = game.globalEvents.filter { it.type == GameEventType.SCORE }
+            b.putInt("total_turns", scoreEvents.size)
+            b.putInt("total_scoring_events", scoreEvents.size)
+            val dur = System.currentTimeMillis() - game.startTime
+            b.putLong("game_duration_sec", dur / 1000L)
+            val scores = game.players.map { it.score }
+            val winnerScore = scores.maxOrNull() ?: 0
+            val loserScore = scores.minOrNull() ?: 0
+            b.putInt("winner_score", winnerScore)
+            b.putInt("loser_score", loserScore)
+            b.putInt("score_spread", if (scores.isNotEmpty()) (winnerScore - loserScore) else 0)
+            b.putDouble("avg_score", if (scores.isNotEmpty()) scores.average() else 0.0)
+            b.putBoolean("is_finalized", finalized)
+            b.putInt("undo_count", game.globalEvents.count { it.type == GameEventType.UNDO })
+            b.putInt("correction_count", game.globalEvents.count { it.type == GameEventType.CORRECTION })
+            b.putInt("pool_balls_remaining", game.ballsOnTable.size)
+            b.putString("device_model", android.os.Build.MODEL)
+            b.putString("app_version", com.mwarrc.pocketscore.BuildConfig.VERSION_NAME)
+            if (finalized && game.hasRecordedScore()) {
+                analyticsManager.logGameCompleted(b)
+            } else {
+                val reason = if (!finalized) "reset" else "abandon"
+                b.putString("abandon_reason", reason)
+                analyticsManager.logGameAbandoned(b)
+            }
+        } catch (_: Exception) {
+        }
     }
 
     /**
      * Updates application settings using the provided transformation function.
-     * 
-     * @param update Function to transform current settings to new settings
      */
     fun updateSettings(update: (AppSettings) -> AppSettings) {
         viewModelScope.launch {
             try {
                 val currentSettings = repository.appSettings.first()
                 val newSettings = update(currentSettings)
+                try {
+                    (analyticsManager as? PocketScoreAnalytics)?.setEnabled(newSettings.analyticsEnabled)
+                } catch (_: Exception) {
+                }
 
                 // Log strict mode changes to game events
                 if (currentSettings.strictTurnMode != newSettings.strictTurnMode) {
@@ -1104,6 +1233,44 @@ class GameViewModel(
                         globalEvents = updatedGlobalEvents,
                         lastUpdate = System.currentTimeMillis()
                     ))
+                    analyticsManager.logSettingChanged(
+                        "strict_turn_mode",
+                        currentSettings.strictTurnMode.toString(),
+                        newSettings.strictTurnMode.toString()
+                    )
+                }
+                if (currentSettings.poolBallManagementEnabled != newSettings.poolBallManagementEnabled) {
+                    analyticsManager.logSettingChanged(
+                        "pool_ball_management",
+                        currentSettings.poolBallManagementEnabled.toString(),
+                        newSettings.poolBallManagementEnabled.toString()
+                    )
+                }
+                if (currentSettings.matchSplitEnabled != newSettings.matchSplitEnabled) {
+                    analyticsManager.logSettingChanged(
+                        "match_split_enabled",
+                        currentSettings.matchSplitEnabled.toString(),
+                        newSettings.matchSplitEnabled.toString()
+                    )
+                }
+                if (currentSettings.useCustomKeyboard != newSettings.useCustomKeyboard) {
+                    analyticsManager.logSettingChanged(
+                        "use_custom_keyboard",
+                        currentSettings.useCustomKeyboard.toString(),
+                        newSettings.useCustomKeyboard.toString()
+                    )
+                }
+                if (currentSettings.appTheme != newSettings.appTheme) {
+                    analyticsManager.logSettingChanged("app_theme", currentSettings.appTheme.name, newSettings.appTheme.name)
+                }
+                if (currentSettings.appFont != newSettings.appFont) {
+                    analyticsManager.logSettingChanged("app_font", currentSettings.appFont.name, newSettings.appFont.name)
+                }
+                if (currentSettings.defaultLayout != newSettings.defaultLayout) {
+                    analyticsManager.logSettingChanged("scoreboard_layout", currentSettings.defaultLayout.name, newSettings.defaultLayout.name)
+                }
+                if (currentSettings.analyticsEnabled != newSettings.analyticsEnabled) {
+                    analyticsManager.logSettingChanged("analytics_enabled", currentSettings.analyticsEnabled.toString(), newSettings.analyticsEnabled.toString())
                 }
 
                 repository.updateSettings(newSettings)
@@ -1223,6 +1390,10 @@ class GameViewModel(
             try {
                 repository.createLocalSnapshot(name.trim())
                 refreshSnapshots()
+                try {
+                    analyticsManager.logSnapshotCreated("manual", 0L)
+                } catch (_: Exception) {
+                }
             } catch (e: Exception) {
                 Log.e(TAG, "Error creating snapshot", e)
                 emitError("Failed to create snapshot")

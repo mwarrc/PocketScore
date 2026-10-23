@@ -13,7 +13,7 @@ import org.junit.Test
  * they are.
  *
  * Both used to be written out inline in several places and had already drifted
- * apart — the card honoured the "allow eliminated input" setting while the
+ * apart - the card honoured the "allow eliminated input" setting while the
  * numpad did not, so digits still landed in an eliminated player's field.
  * They now live in [EliminationRules] and are pinned here.
  */

@@ -295,7 +295,7 @@ class GameRepositoryImplRoom(
                 return normalizedMappings[trimmed.lowercase()] ?: trimmed
             }
             
-            // FORCE all imported games inactive and finalized — regardless of source data
+            // FORCE all imported games inactive and finalized - regardless of source data
             val mappedGames = share.games.map { game ->
                 game.copy(
                     deviceInfo = game.deviceInfo ?: share.sourceDevice,
@@ -320,14 +320,14 @@ class GameRepositoryImplRoom(
             // Wrap entire import in a single transaction so the Room Flow
             // doesn't emit intermediate states (prevents the "open 500 games" bug)
             database.withTransaction {
-                // Insert games — all forced inactive
+                // Insert games - all forced inactive
                 mappedGames.forEach { gameState ->
                     val existing = database.gameDao().getGameWithDetailsOnce(gameState.id)
                     if (existing == null) {
                         val safeGame = gameState.copy(isGameActive = false, isFinalized = true, isArchived = false)
                         database.gameDao().saveFullGame(safeGame.toGameWithDetails())
                     } else {
-                        // If exists, ensure it's not active — preserve all other fields
+                        // If exists, ensure it's not active - preserve all other fields
                         val updated = existing.game.copy(isGameActive = false, isFinalized = true)
                         database.gameDao().saveFullGame(existing.copy(game = updated))
                     }
@@ -487,7 +487,7 @@ class GameRepositoryImplRoom(
     /**
      * Copies an internal snapshot into the public documents folder.
      *
-     * This used to be `= true` — a stub that reported success without writing
+     * This used to be `= true` - a stub that reported success without writing
      * anything, so any UI surfacing the result claimed an export that never
      * happened. Now it mirrors the DataStore implementation: verify the source
      * exists, copy it, and return false on any failure so callers can tell the

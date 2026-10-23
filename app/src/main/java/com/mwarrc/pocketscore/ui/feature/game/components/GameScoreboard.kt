@@ -171,7 +171,7 @@ private fun GridScoreboard(
     // worst-case contents: name line + a role-chip row on the left (leader and
     // loser chips sit side by side on that one line, so holding both costs no
     // extra height), score line + status badge + recent-input chip on the
-    // right, then the 56dp input row, plus 24dp of card padding — chips
+    // right, then the 56dp input row, plus 24dp of card padding - chips
     // included, since they're inline slots in the flow now rather than
     // floating overlays (which used to overlap the +/- buttons and the field).
     val headerHeight = with(LocalDensity.current) {
@@ -191,13 +191,13 @@ private fun GridScoreboard(
         // Header card for selected player
         if (selectionForHeader != null) {
             // Keyed on the player id so switching players reuses this slot
-            // instead of tearing the card down and rebuilding it — an unkeyed
+            // instead of tearing the card down and rebuilding it - an unkeyed
             // card replays all its entry state (including the controls
             // animation and the input error flash) on every tap.
             androidx.compose.runtime.key(selectionForHeader.id) {
                 // Fixed height, always. The header used to size itself to its
                 // content, so selecting a leader (badge + status line) made it
-                // taller than selecting anyone else — the whole column then
+                // taller than selecting anyone else - the whole column then
                 // reflowed and the grid below visibly jumped. One constant
                 // height means the header can never stretch the screen and the
                 // grid always starts at the same place.

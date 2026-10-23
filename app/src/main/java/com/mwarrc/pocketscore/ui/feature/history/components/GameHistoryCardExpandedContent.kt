@@ -19,13 +19,13 @@ import com.mwarrc.pocketscore.domain.model.Player
 
 /**
  * Expanded content section of a game history card.
- * 
- * Displays:
- * - Next turn player banner (if game is resumable)
+ *
+ * Matches the larger Friends tab styling:
+ * - Next turn banner (if the game can be resumed)
  * - Ranked player score list with position badges
- * - Resume button (if not finalized) or match completion badge
- * - Quick stats and share action buttons
- * 
+ * - Resume button (if unfinished) or a subtle completion badge
+ * - Stats and Share actions
+ *
  * @param game The game state to display
  * @param winners List of winning players
  * @param nextTurnPlayer The player whose turn is next (if resumable)
@@ -47,24 +47,28 @@ fun GameHistoryCardExpandedContent(
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 16.dp)
-            .padding(top = 4.dp, bottom = 16.dp),
+            .padding(top = 12.dp),
         verticalArrangement = Arrangement.spacedBy(10.dp)
     ) {
+        HorizontalDivider(
+            color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f),
+            thickness = 1.dp
+        )
+
         // Next turn indicator for resumable games
         if (nextTurnPlayer != null && isResumable) {
             Surface(
                 modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(12.dp),
-                color = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.45f)
+                shape = RoundedCornerShape(14.dp),
+                color = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.55f)
             ) {
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)
+                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp)
                 ) {
                     Box(
                         modifier = Modifier
-                            .size(24.dp)
+                            .size(26.dp)
                             .clip(CircleShape)
                             .background(MaterialTheme.colorScheme.secondary),
                         contentAlignment = Alignment.Center
@@ -72,13 +76,13 @@ fun GameHistoryCardExpandedContent(
                         Icon(
                             Icons.Default.PlayArrow,
                             contentDescription = null,
-                            modifier = Modifier.size(14.dp),
+                            modifier = Modifier.size(15.dp),
                             tint = MaterialTheme.colorScheme.onSecondary
                         )
                     }
-                    Spacer(Modifier.width(8.dp))
+                    Spacer(Modifier.width(10.dp))
                     Text(
-                        "Next Turn: ${nextTurnPlayer.name}",
+                        text = "Next turn: ${nextTurnPlayer.name}",
                         style = MaterialTheme.typography.labelMedium,
                         color = MaterialTheme.colorScheme.onSecondaryContainer,
                         fontWeight = FontWeight.Bold
@@ -87,12 +91,15 @@ fun GameHistoryCardExpandedContent(
             }
         }
 
-        HorizontalDivider(
-            color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f),
-            modifier = Modifier.padding(vertical = 2.dp)
+        // Board standings
+        Text(
+            text = if (game.isFinalized) "Final standings" else "Current standings",
+            style = MaterialTheme.typography.labelMedium,
+            fontWeight = FontWeight.SemiBold,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(start = 2.dp)
         )
 
-        // Player scores leaderboard
         val sortedPlayers = game.players.sortedByDescending { it.score }
         Column(
             modifier = Modifier.fillMaxWidth(),
@@ -108,7 +115,7 @@ fun GameHistoryCardExpandedContent(
             }
         }
 
-        Spacer(Modifier.height(4.dp))
+        Spacer(Modifier.height(2.dp))
 
         // Resume or completion status
         if (!game.isFinalized) {
@@ -145,9 +152,9 @@ private fun PlayerScoreRow(
 ) {
     Surface(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(10.dp),
+        shape = RoundedCornerShape(14.dp),
         color = if (isWinner) {
-            MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.35f)
+            MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.4f)
         } else {
             MaterialTheme.colorScheme.surfaceContainerHighest.copy(alpha = 0.4f)
         }
@@ -155,7 +162,7 @@ private fun PlayerScoreRow(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 10.dp, vertical = 8.dp),
+                .padding(horizontal = 12.dp, vertical = 10.dp),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
@@ -172,12 +179,12 @@ private fun PlayerScoreRow(
                     } else {
                         MaterialTheme.colorScheme.surfaceVariant
                     },
-                    modifier = Modifier.size(24.dp)
+                    modifier = Modifier.size(28.dp)
                 ) {
                     Box(contentAlignment = Alignment.Center) {
                         Text(
                             text = "$rank",
-                            style = MaterialTheme.typography.labelSmall,
+                            style = MaterialTheme.typography.labelMedium,
                             fontWeight = FontWeight.Bold,
                             color = if (isWinner) {
                                 MaterialTheme.colorScheme.onPrimary
@@ -218,8 +225,10 @@ private fun PlayerScoreRow(
 private fun ResumeGameButton(onClick: () -> Unit) {
     Button(
         onClick = onClick,
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(12.dp)
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(46.dp),
+        shape = RoundedCornerShape(20.dp)
     ) {
         Icon(
             Icons.Default.Restore,
@@ -227,7 +236,7 @@ private fun ResumeGameButton(onClick: () -> Unit) {
             modifier = Modifier.size(18.dp)
         )
         Spacer(Modifier.width(8.dp))
-        Text("Resume Game", fontWeight = FontWeight.Bold)
+        Text("Resume game", fontWeight = FontWeight.Bold)
     }
 }
 
@@ -239,10 +248,10 @@ private fun MatchCompletedIndicator() {
     Surface(
         modifier = Modifier.fillMaxWidth(),
         color = MaterialTheme.colorScheme.surfaceContainerHighest.copy(alpha = 0.5f),
-        shape = RoundedCornerShape(12.dp)
+        shape = RoundedCornerShape(14.dp)
     ) {
         Row(
-            modifier = Modifier.padding(10.dp),
+            modifier = Modifier.padding(vertical = 10.dp, horizontal = 12.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.Center
         ) {
@@ -254,7 +263,7 @@ private fun MatchCompletedIndicator() {
             )
             Spacer(Modifier.width(8.dp))
             Text(
-                "Match Completed & Locked",
+                "Match completed & locked",
                 style = MaterialTheme.typography.labelMedium,
                 fontWeight = FontWeight.Bold,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
@@ -273,8 +282,8 @@ private fun ViewDetailsButton(
 ) {
     FilledTonalButton(
         onClick = onClick,
-        modifier = modifier,
-        shape = RoundedCornerShape(12.dp),
+        modifier = modifier.height(46.dp),
+        shape = RoundedCornerShape(20.dp),
         contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp)
     ) {
         Icon(
@@ -297,8 +306,8 @@ private fun ShareMatchButton(
 ) {
     FilledTonalButton(
         onClick = onClick,
-        modifier = modifier,
-        shape = RoundedCornerShape(12.dp),
+        modifier = modifier.height(46.dp),
+        shape = RoundedCornerShape(20.dp),
         contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp)
     ) {
         Icon(

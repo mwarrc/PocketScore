@@ -1,14 +1,21 @@
 package com.mwarrc.pocketscore.ui.feature.history.components.match
 
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.Undo
+import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.mwarrc.pocketscore.domain.model.GameEvent
@@ -18,13 +25,14 @@ import java.text.SimpleDateFormat
 import java.util.*
 
 /**
- * Tab component that displaying a reverse-chronological timeline of all match events.
+ * Tab component displaying a reverse-chronological timeline of all match events.
+ * Redesigned according to modern Material 3 specifications.
  * 
  * Features:
- * - **Player Filtering**: Quick-select chips to filter events by a specific player.
- * - **System Events**: Integration of match-level status changes (pause/resume).
- * - **Detailed Event Breakdown**: Shows points gained, previous/new score, and timestamps.
- * - **Correction Highlighting**: Visual indicators for match corrections (undofill).
+ * - **Player Filtering**: Clean M3 filter chips with player color dots.
+ * - **Event Cards**: Rounded cards with leading event category icons and timestamp badges.
+ * - **Points Badges**: High-contrast tonal pill chips for positive, negative, and zero scores.
+ * - **Polished Empty State**: Informative placeholder when no events match the filter.
  * 
  * @param game The game state containing the event history to display.
  */
@@ -42,7 +50,7 @@ fun MatchTimelineTab(game: GameState) {
         LazyRow(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 24.dp, vertical = 12.dp),
+                .padding(horizontal = 20.dp, vertical = 12.dp),
             horizontalArrangement = Arrangement.spacedBy(8.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
@@ -51,8 +59,19 @@ fun MatchTimelineTab(game: GameState) {
                 FilterChip(
                     selected = selectedPlayerFilter == null,
                     onClick = { selectedPlayerFilter = null },
-                    label = { Text("All Events") },
-                    border = null,
+                    label = { 
+                        Text(
+                            text = "All Events",
+                            style = MaterialTheme.typography.labelSmall,
+                            fontWeight = FontWeight.Bold
+                        ) 
+                    },
+                    border = FilterChipDefaults.filterChipBorder(
+                        enabled = true,
+                        selected = selectedPlayerFilter == null,
+                        borderColor = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f),
+                        selectedBorderColor = MaterialTheme.colorScheme.primary
+                    ),
                     colors = FilterChipDefaults.filterChipColors(
                         containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
                         selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
@@ -64,18 +83,39 @@ fun MatchTimelineTab(game: GameState) {
             }
             
             // Individual player selectors
-            items(players) { playerName ->
+            items(players, key = { it }) { playerName ->
                 val color = getPlayerColor(playerName)
+                val isSelected = selectedPlayerFilter == playerName
+
                 FilterChip(
-                    selected = selectedPlayerFilter == playerName,
+                    selected = isSelected,
                     onClick = { 
-                        selectedPlayerFilter = if (selectedPlayerFilter == playerName) null else playerName 
+                        selectedPlayerFilter = if (isSelected) null else playerName 
                     },
-                    label = { Text(playerName) },
-                    border = null,
+                    label = { 
+                        Text(
+                            text = playerName,
+                            style = MaterialTheme.typography.labelSmall,
+                            fontWeight = FontWeight.Bold
+                        ) 
+                    },
+                    leadingIcon = {
+                        Box(
+                            modifier = Modifier
+                                .size(10.dp)
+                                .clip(CircleShape)
+                                .background(if (isSelected) color else color.copy(alpha = 0.4f))
+                        )
+                    },
+                    border = FilterChipDefaults.filterChipBorder(
+                        enabled = true,
+                        selected = isSelected,
+                        borderColor = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f),
+                        selectedBorderColor = color
+                    ),
                     colors = FilterChipDefaults.filterChipColors(
                         containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
-                        selectedContainerColor = color.copy(alpha = 0.2f),
+                        selectedContainerColor = color.copy(alpha = 0.14f),
                         labelColor = MaterialTheme.colorScheme.onSurfaceVariant,
                         selectedLabelColor = color
                     ),
@@ -100,11 +140,11 @@ fun MatchTimelineTab(game: GameState) {
         } else {
             LazyColumn(
                 modifier = Modifier.fillMaxSize(),
-                contentPadding = PaddingValues(horizontal = 24.dp, vertical = 8.dp),
-                verticalArrangement = Arrangement.spacedBy(16.dp)
+                contentPadding = PaddingValues(horizontal = 20.dp, vertical = 8.dp),
+                verticalArrangement = Arrangement.spacedBy(10.dp)
             ) {
                 // Show latest events first
-                items(filteredEvents.reversed()) { event ->
+                items(filteredEvents.reversed(), key = { "${it.timestamp}_${it.playerName}_${it.points}" }) { event ->
                     DetailEventItem(event)
                 }
             }
@@ -113,7 +153,7 @@ fun MatchTimelineTab(game: GameState) {
 }
 
 /**
- * Individual item in the match timeline.
+ * Individual event card in the match timeline.
  */
 @Composable
 private fun DetailEventItem(event: GameEvent) {
@@ -126,90 +166,131 @@ private fun DetailEventItem(event: GameEvent) {
     val isNegative = isScore && event.points < 0
     val isZero = isScore && event.points == 0
 
-    Row(
+    Surface(
         modifier = Modifier.fillMaxWidth(),
-        verticalAlignment = Alignment.Top
+        shape = RoundedCornerShape(18.dp),
+        color = MaterialTheme.colorScheme.surfaceContainerLow,
+        border = BorderStroke(
+            width = 1.dp,
+            color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.2f)
+        )
     ) {
-        // Timeline visual indicator (Dot)
-        Column(
-            horizontalAlignment = Alignment.CenterHorizontally, 
-            modifier = Modifier.width(24.dp)
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 12.dp),
+            verticalAlignment = Alignment.CenterVertically
         ) {
+            // Leading Event Icon Indicator
             Surface(
                 shape = CircleShape,
                 color = when {
-                    isUndo -> MaterialTheme.colorScheme.error.copy(alpha = 0.1f)
-                    isSystem -> MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.1f)
-                    isNegative -> MaterialTheme.colorScheme.error
-                    isZero -> MaterialTheme.colorScheme.outlineVariant
-                    else -> playerColor
+                    isUndo -> MaterialTheme.colorScheme.errorContainer
+                    isSystem -> MaterialTheme.colorScheme.surfaceContainerHighest
+                    isNegative -> MaterialTheme.colorScheme.errorContainer
+                    isZero -> MaterialTheme.colorScheme.surfaceContainerHighest
+                    else -> playerColor.copy(alpha = 0.14f)
                 },
-                modifier = Modifier.size(10.dp).padding(top = 6.dp)
-            ) {}
-        }
-        
-        Spacer(Modifier.width(16.dp))
-        
-        // Event Content
-        Column(modifier = Modifier.weight(1f)) {
-            val headerText = when (event.type) {
-                GameEventType.SCORE -> event.playerName ?: "Unknown"
-                GameEventType.UNDO -> "Correction"
-                GameEventType.STATUS_CHANGE -> "System"
-                else -> event.playerName ?: "Event"
+                modifier = Modifier.size(38.dp)
+            ) {
+                Box(contentAlignment = Alignment.Center) {
+                    Icon(
+                        imageVector = when {
+                            isUndo -> Icons.AutoMirrored.Filled.Undo
+                            isSystem -> Icons.Default.Info
+                            isNegative -> Icons.Default.Warning
+                            isZero -> Icons.Default.Close
+                            else -> Icons.Default.SportsScore
+                        },
+                        contentDescription = null,
+                        tint = when {
+                            isUndo -> MaterialTheme.colorScheme.onErrorContainer
+                            isSystem -> MaterialTheme.colorScheme.onSurfaceVariant
+                            isNegative -> MaterialTheme.colorScheme.onErrorContainer
+                            isZero -> MaterialTheme.colorScheme.onSurfaceVariant
+                            else -> playerColor
+                        },
+                        modifier = Modifier.size(18.dp)
+                    )
+                }
             }
-            
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(
-                    text = headerText,
-                    style = MaterialTheme.typography.labelLarge,
-                    fontWeight = FontWeight.Bold,
-                    color = if (isSystem) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onSurface
-                )
-                Spacer(Modifier.width(8.dp))
-                Text(
-                    text = SimpleDateFormat("HH:mm", Locale.getDefault()).format(Date(event.timestamp)),
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
-                )
-            }
-            
-            val detailText = when (event.type) {
-                GameEventType.SCORE -> {
-                    if (event.previousScore != null && event.newScore != null) {
-                        "Score updated (${event.previousScore} → ${event.newScore})"
-                    } else if (isZero) {
-                        "Missed turn (0 pts)"
-                    } else if (isNegative) {
-                        "Penalty: ${event.points} pts"
-                    } else {
-                        "Scored ${event.points} pts"
+
+            Spacer(Modifier.width(14.dp))
+
+            // Event Content
+            Column(modifier = Modifier.weight(1f)) {
+                val headerText = when (event.type) {
+                    GameEventType.SCORE -> event.playerName ?: "Unknown"
+                    GameEventType.UNDO -> "Correction (Undo)"
+                    GameEventType.STATUS_CHANGE -> "System Status"
+                    else -> event.playerName ?: "Event"
+                }
+
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Text(
+                        text = headerText,
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                    Text(
+                        text = SimpleDateFormat("HH:mm", Locale.getDefault()).format(Date(event.timestamp)),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
+                    )
+                }
+
+                val detailText = when (event.type) {
+                    GameEventType.SCORE -> {
+                        if (event.previousScore != null && event.newScore != null) {
+                            "Score updated (${event.previousScore} → ${event.newScore})"
+                        } else if (isZero) {
+                            "Missed turn (0 pts)"
+                        } else if (isNegative) {
+                            "Penalty: ${event.points} pts"
+                        } else {
+                            "Scored ${event.points} pts"
+                        }
                     }
+                    GameEventType.UNDO -> "Reverted previous action"
+                    GameEventType.STATUS_CHANGE -> event.message ?: "Match status updated"
+                    else -> event.message ?: ""
                 }
-                GameEventType.UNDO -> "Undo previous action"
-                GameEventType.STATUS_CHANGE -> event.message ?: "Status changed"
-                else -> event.message ?: ""
+
+                Text(
+                    text = detailText,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
             }
-            
-            Text(
-                text = detailText,
-                style = MaterialTheme.typography.bodyMedium,
-                color = if (isNegative || isUndo) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant
-            )
-        }
-        
-        // Right-side Points Badge (for score events)
-        if (isScore) {
-            Text(
-                text = "${if (event.points > 0) "+" else ""}${event.points}",
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold,
-                color = when {
-                    isNegative -> MaterialTheme.colorScheme.error
-                    isZero -> MaterialTheme.colorScheme.outline
-                    else -> playerColor
+
+            // Right-side Points Badge (for score events)
+            if (isScore) {
+                Spacer(Modifier.width(10.dp))
+                Surface(
+                    shape = CircleShape,
+                    color = when {
+                        isNegative -> MaterialTheme.colorScheme.errorContainer
+                        isZero -> MaterialTheme.colorScheme.surfaceContainerHighest
+                        else -> MaterialTheme.colorScheme.primaryContainer
+                    }
+                ) {
+                    Text(
+                        text = "${if (event.points > 0) "+" else ""}${event.points}",
+                        style = MaterialTheme.typography.labelLarge,
+                        fontWeight = FontWeight.Black,
+                        color = when {
+                            isNegative -> MaterialTheme.colorScheme.onErrorContainer
+                            isZero -> MaterialTheme.colorScheme.onSurfaceVariant
+                            else -> MaterialTheme.colorScheme.onPrimaryContainer
+                        },
+                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
+                    )
                 }
-            )
+            }
         }
     }
 }
@@ -219,10 +300,43 @@ private fun DetailEventItem(event: GameEvent) {
  */
 @Composable
 private fun EmptyTimelineState() {
-    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-        Text(
-            text = "No events to show.",
-            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
-        )
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(32.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center
+        ) {
+            Surface(
+                shape = CircleShape,
+                color = MaterialTheme.colorScheme.surfaceContainerHigh,
+                modifier = Modifier.size(56.dp)
+            ) {
+                Box(contentAlignment = Alignment.Center) {
+                    Icon(
+                        imageVector = Icons.Default.History,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.size(28.dp)
+                    )
+                }
+            }
+            Spacer(Modifier.height(16.dp))
+            Text(
+                text = "No events to show",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onSurface
+            )
+            Spacer(Modifier.height(4.dp))
+            Text(
+                text = "Match actions and score changes will appear here.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
     }
 }

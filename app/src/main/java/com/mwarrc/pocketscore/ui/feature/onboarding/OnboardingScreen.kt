@@ -27,6 +27,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -110,11 +111,18 @@ private const val StaggerMillis = 70
 fun OnboardingScreen(
     onComplete: (chosenPresetName: String) -> Unit
 ) {
+    val onboardingStartMs = remember { System.currentTimeMillis() }
+    LaunchedEffect(Unit) {
+        try {
+            com.mwarrc.pocketscore.util.analytics.PocketScoreAnalytics.get().logOnboardingStarted()
+        } catch (_: Exception) {
+        }
+    }
     val colorScheme = MaterialTheme.colorScheme
     val haptic = LocalHapticFeedback.current
 
     // The hero is a *soft* wash of the brand colour rather than a solid slab of
-    // full-saturation `primary`. Large areas of raw `primary` read as harsh —
+    // full-saturation `primary`. Large areas of raw `primary` read as harsh -
     // especially under Material You, where the wallpaper can produce a very
     // loud hue. Blending almost all the way to `surface` keeps the colour
     // identity while dropping the intensity to something comfortable.
@@ -133,7 +141,7 @@ fun OnboardingScreen(
             .fillMaxSize()
             .background(colorScheme.surface)
     ) {
-        // ── HERO ──────────
+        // ── HERO ──
         Surface(
             color = heroColor,
             contentColor = colorScheme.onSurface,
@@ -189,7 +197,7 @@ fun OnboardingScreen(
             }
         }
 
-        // ── OPTIONS (flexible middle) ─────────────────────────────────────────
+        // ── OPTIONS (flexible middle) ────
         Column(
             modifier = Modifier
                 .weight(1f)
@@ -237,7 +245,14 @@ fun OnboardingScreen(
                 slideInVertically(tween(340, delayMillis = ctaDelay, easing = FastOutSlowInEasing)) { it / 2 }
         ) {
             GetStartedButton(
-                onClick = { onComplete(selectedOption.presetName) },
+                onClick = {
+                    try {
+                        val durationSec = (System.currentTimeMillis() - onboardingStartMs) / 1000L
+                        com.mwarrc.pocketscore.util.analytics.PocketScoreAnalytics.get().logOnboardingCompleted(durationSec)
+                    } catch (_: Exception) {
+                    }
+                    onComplete(selectedOption.presetName)
+                },
                 modifier = Modifier
                     .padding(horizontal = 20.dp)
                     .padding(top = 12.dp, bottom = 20.dp)

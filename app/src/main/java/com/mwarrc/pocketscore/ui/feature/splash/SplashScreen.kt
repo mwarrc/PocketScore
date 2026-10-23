@@ -103,7 +103,7 @@ fun SplashScreen(
         contentAlignment = Alignment.Center
     ) {
 
-        // ── Centre: logo + wordmark ───────────────────────────────────────
+        // ── Centre: logo + wordmark ──
         Column(
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center,
@@ -164,7 +164,7 @@ fun SplashScreen(
             )
         }
 
-        // ── Bottom: spinner + label ───────────────────────────────────────
+        // ── Bottom: spinner + label ──
         Column(
             modifier = Modifier
                 .align(Alignment.BottomCenter)

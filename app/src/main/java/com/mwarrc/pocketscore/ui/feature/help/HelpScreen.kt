@@ -57,7 +57,7 @@ import androidx.compose.ui.res.painterResource
  * Help Center screen.
  *
  * Content is inset from [WindowInsets.safeDrawing] which merges statusBar +
- * displayCutout + navigationBar — correctly handling punch-hole cameras,
+ * displayCutout + navigationBar - correctly handling punch-hole cameras,
  * notches, and Dynamic Islands on all Android devices.
  *
  *
@@ -148,9 +148,9 @@ fun HelpScreen(
 // Category card
 //
 // Design decisions:
-//  • No border — surfaceContainerLow already creates gentle separation from
+//  • No border - surfaceContainerLow already creates gentle separation from
 //    the surface background without any outline artifact.
-//  • Zero elevation — avoids shadow clutter in a list context.
+//  • Zero elevation - avoids shadow clutter in a list context.
 //  • Chevron rotates via spring animation; no icon swap avoids visual jump.
 // --
 
@@ -191,7 +191,7 @@ private fun HelpCategoryCard(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(14.dp)
             ) {
-                // Tonal icon badge — secondaryContainer avoids the harsh blue-
+                // Tonal icon badge - secondaryContainer avoids the harsh blue-
                 // on-white look of primaryContainer in bright themes.
                 Surface(
                     modifier = Modifier.size(40.dp),

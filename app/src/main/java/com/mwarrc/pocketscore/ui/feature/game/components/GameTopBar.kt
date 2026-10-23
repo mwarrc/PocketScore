@@ -106,7 +106,7 @@ fun GameTopBar(
         }
     }
 
-    // Gentle scale — kept subtle so the bar doesn't feel jumpy.
+    // Gentle scale - kept subtle so the bar doesn't feel jumpy.
     val pulseScale = 1f + (pulse.value * 0.06f)
     val glowAlpha = pulse.value * 0.55f
     val glowColor = MaterialTheme.colorScheme.error
@@ -280,7 +280,7 @@ fun GameTopBar(
  * Minimal pool ball used inside the top bar pill.
  *
  * Solids are a flat colour with the number. Stripes (9–15) stay fully coloured and
- * only get two very thin white slivers — one near the top, one near the bottom —
+ * only get two very thin white slivers - one near the top, one near the bottom -
  * so the stripe reads at a glance without becoming a heavy band.
  */
 @Composable

@@ -46,7 +46,7 @@ fun DeveloperSocials() {
     ) {
         // Call to Action
         Text(
-            text = "Reach out on WhatsApp, IG or email — a follow is always appreciated.",
+            text = "Reach out on WhatsApp, IG or email - a follow is always appreciated.",
             style = MaterialTheme.typography.labelMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f),
             textAlign = TextAlign.Center,

@@ -39,11 +39,11 @@ import com.mwarrc.pocketscore.domain.model.Player
  * Persistent banner stating that the game is running in strict turn mode.
  *
  * Strict mode is a rule, not an event, so it is stated once and stays on for
- * as long as it is in force — no toggle, no timeout, no free-mode variant.
+ * as long as it is in force - no toggle, no timeout, no free-mode variant.
  *
  * It used to be a setting ("In-Match Mode Alerts") that switched a banner on
  * and off, and the per-card "Turn Locked" label tried to say the same thing
- * on every card that wasn't the turn holder — inconsistently, because the
+ * on every card that wasn't the turn holder - inconsistently, because the
  * label was suppressed for leaders and losers. One banner at the top says it
  * once, for everybody, and the cards can stay quiet.
  *

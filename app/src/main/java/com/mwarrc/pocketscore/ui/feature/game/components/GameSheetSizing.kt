@@ -14,7 +14,7 @@ import androidx.compose.ui.unit.dp
  * Shared height sizing for every bottom sheet on the game screen.
  *
  * Before this existed each sheet capped itself independently and they had all
- * drifted apart — 0.85f of the screen in three of them, and effectively the
+ * drifted apart - 0.85f of the screen in three of them, and effectively the
  * full screen in the help and calculator sheets. Sheets that open to different
  * heights feel inconsistent, and the ones that reach the top of the screen
  * leave nowhere to tap to dismiss.

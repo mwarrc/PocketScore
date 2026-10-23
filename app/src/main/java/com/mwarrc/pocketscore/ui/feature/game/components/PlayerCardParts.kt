@@ -48,8 +48,8 @@ import androidx.compose.ui.unit.sp
  *
  * Minimal and icon-based: no label text, just the glyph in a tinted disc. The
  * label still reaches accessibility via [contentDescription]. A plain player
- * whose turn it is resolves to no badge at all — the card fill and border
- * carry the turn — so nothing extra is needed here. Leader / loser /
+ * whose turn it is resolves to no badge at all - the card fill and border
+ * carry the turn - so nothing extra is needed here. Leader / loser /
  * eliminated roles show through regardless of whose turn it is, because the
  * role branches in [resolvePlayerCardStatus] outrank the turn.
  */
@@ -61,7 +61,7 @@ fun PlayerStatusBadge(
     if (!status.hasBadge || status.icon == null) return
 
     // Solid container, deliberately not alpha-blended. A translucent fill on
-    // top of an arbitrary card colour produces unpredictable contrast — it's
+    // top of an arbitrary card colour produces unpredictable contrast - it's
     // the exact pattern that made this app's dark mode unreadable before. Each
     // container here is paired with its matching on*Content token, so the pair
     // is guaranteed legible in light and dark mode (and under Material You
@@ -104,7 +104,7 @@ enum class PlayerCardRole { LEADER, LOSER }
  * stays square against the card's own edge.
  */
 enum class PlayerRoleChipCorner {
-    /** Bottom-left tab — the leader/loser role slot on a grid tile. */
+    /** Bottom-left tab - the leader/loser role slot on a grid tile. */
     BOTTOM_START,
 }
 
@@ -280,7 +280,7 @@ fun PlayerRoleChip(
  *
  * Same geometry everywhere, so the "last points" indicator reads identically
  * in the focused card and in a grid tile. Both variants are solid M3
- * container/on-container pairs from [resolvePointsChangeStyle] — the older
+ * container/on-container pairs from [resolvePointsChangeStyle] - the older
  * version alpha-blended its fills and derived a border from the text colour,
  * which is why it looked washed out next to everything else on the card.
  */
@@ -317,7 +317,7 @@ fun PointsChangeChip(
  * full-tile film. That version was the loudest thing on the scoreboard: it read
  * as an error alert, competed with the score, and required the tile to fade its
  * own text to stay legible. Elimination is a settled, permanent state rather
- * than an alarm, so the mark is now quiet — a lock (the player is out of the
+ * than an alarm, so the mark is now quiet - a lock (the player is out of the
  * game, points are locked) at a whisper of the accent red, with no film over
  * the card at all.
  *
@@ -381,7 +381,7 @@ private val LeaderStars = listOf(
 )
 
 /**
- * Stars for the grid tile — the same mirrored arrangement, scaled down.
+ * Stars for the grid tile - the same mirrored arrangement, scaled down.
  *
  * The tile is far smaller than the focused card, so the field is sparser and
  * every star is smaller. It is also kept clear of the bottom-left corner,
@@ -404,8 +404,8 @@ private val CompactLeaderStars = listOf(
  *
  * The field used to be pinned to the start edge, which put its biggest star
  * right on top of the role chip in the tile's bottom-left corner. Mirroring it
- * moves the weight to the trailing side and leaves the chip — and the score
- * it has to stay legible — alone.
+ * moves the weight to the trailing side and leaves the chip - and the score
+ * it has to stay legible - alone.
  */
 private fun List<LeaderStar>.flipped(): List<LeaderStar> = map { it.copy(x = 1f - it.x) }
 

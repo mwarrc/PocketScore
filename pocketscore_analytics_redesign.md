@@ -1,35 +1,35 @@
-# PocketScore Analytics Redesign — Production Blueprint
+# PocketScore Analytics Redesign - Production Blueprint
 
-> **Document type:** Implementation guide (no code edits — action plan only)
+> **Document type:** Implementation guide (no code edits - action plan only)
 > **Scope:** Replace the current privacy-over-utility analytics with a production-grade system that answers real business questions.
 
 ---
 
-## 1. Audit of the Current System — Why It's Useless
+## 1. Audit of the Current System - Why It's Useless
 
 ### What exists today
 
 | Layer | File | What it does | Problem |
 |---|---|---|---|
-| **Firebase Analytics** | [`AnalyticsManager.kt`](file:///c:/Users/clint/Main-Dev/Projects/app/src/main/java/com/mwarrc/pocketscore/util/AnalyticsManager.kt) | Fires generic `APP_OPEN`, `LEVEL_START`, `LEVEL_END` events | These map to Firebase's built-in "Level" concept — your data drowns in auto-collected noise. `LEVEL_START` tells you nothing about a *pool game*. |
+| **Firebase Analytics** | [`AnalyticsManager.kt`](file:///c:/Users/clint/Main-Dev/Projects/app/src/main/java/com/mwarrc/pocketscore/util/AnalyticsManager.kt) | Fires generic `APP_OPEN`, `LEVEL_START`, `LEVEL_END` events | These map to Firebase's built-in "Level" concept - your data drowns in auto-collected noise. `LEVEL_START` tells you nothing about a *pool game*. |
 | **Firestore Cloud** | [`CloudAnalyticsManager.kt`](file:///c:/Users/clint/Main-Dev/Projects/app/src/main/java/com/mwarrc/pocketscore/util/CloudAnalyticsManager.kt) | Writes raw docs to 4 Firestore collections (`analytics_installs`, `analytics_daily_activity`, `analytics_matches`, `analytics_events`) | Raw un-aggregated documents. No indexes. No rollups. Firestore costs scale linearly per write. Impossible to query "games per day" without reading every document. |
-| **ViewModel calls** | [`GameViewModel.kt`](file:///c:/Users/clint/Main-Dev/Projects/app/src/main/java/com/mwarrc/pocketscore/ui/viewmodel/GameViewModel.kt) | Calls `logGameStarted`, `logGameEnded`, `logAppOpen` | `analyticsId` is **nullable everywhere** — if settings haven't loaded yet, the event fires with `null` and the Cloud layer silently drops it. |
+| **ViewModel calls** | [`GameViewModel.kt`](file:///c:/Users/clint/Main-Dev/Projects/app/src/main/java/com/mwarrc/pocketscore/ui/viewmodel/GameViewModel.kt) | Calls `logGameStarted`, `logGameEnded`, `logAppOpen` | `analyticsId` is **nullable everywhere** - if settings haven't loaded yet, the event fires with `null` and the Cloud layer silently drops it. |
 
 ### Critical gaps
 
-- ❌ **No screen tracking** — you can't see which screens users visit or how long they stay
-- ❌ **No funnel tracking** — you have no idea where users drop off (onboarding → add players → start game → finish game)
-- ❌ **No retention metrics** — Day 1 / Day 7 / Day 30 retention is invisible
-- ❌ **No feature adoption** — you don't know if anyone uses pool ball management, match splitting, strict mode, custom keyboards, themes, etc.
-- ❌ **No session duration** — `APP_OPEN` fires but you never log `APP_CLOSE` or `APP_BACKGROUND`
-- ❌ **No game completion rate** — you log starts and ends separately with no correlation ID
-- ❌ **No "people per device" concept** — `analyticsId` is per-install, and `playerCount` in match events isn't aggregated
-- ❌ **No error context** — crashes happen with zero analytics breadcrumbs
-- ❌ **No settings snapshot** — you don't know what configuration the average user runs
+- ❌ **No screen tracking** - you can't see which screens users visit or how long they stay
+- ❌ **No funnel tracking** - you have no idea where users drop off (onboarding → add players → start game → finish game)
+- ❌ **No retention metrics** - Day 1 / Day 7 / Day 30 retention is invisible
+- ❌ **No feature adoption** - you don't know if anyone uses pool ball management, match splitting, strict mode, custom keyboards, themes, etc.
+- ❌ **No session duration** - `APP_OPEN` fires but you never log `APP_CLOSE` or `APP_BACKGROUND`
+- ❌ **No game completion rate** - you log starts and ends separately with no correlation ID
+- ❌ **No "people per device" concept** - `analyticsId` is per-install, and `playerCount` in match events isn't aggregated
+- ❌ **No error context** - crashes happen with zero analytics breadcrumbs
+- ❌ **No settings snapshot** - you don't know what configuration the average user runs
 
 ---
 
-## 2. The Metrics You Actually Need — KPI Framework
+## 2. The Metrics You Actually Need - KPI Framework
 
 ### Tier 1: North Star Metrics (check daily)
 
@@ -81,42 +81,42 @@
 
 ---
 
-## 3. Event Taxonomy — The Complete Event Catalog
+## 3. Event Taxonomy - The Complete Event Catalog
 
 Replace the current ad-hoc events with this strict taxonomy. Every event follows the format `category_action`.
 
 ### 3.1 App Lifecycle Events
 
 ```
-┌─────────────────────────────────────────────────────────────────┐
+┌────────────┐
 │ Event Name              │ Parameters                            │
-├─────────────────────────┼───────────────────────────────────────┤
+├─────────┼──┤
 │ app_first_open          │ device_id, device_model,              │
 │                         │ android_version, app_version,         │
 │                         │ install_source                        │
-├─────────────────────────┼───────────────────────────────────────┤
+├─────────┼──┤
 │ app_session_start       │ device_id, app_version,               │
 │                         │ session_id, is_returning_user,        │
 │                         │ days_since_first_open,                │
 │                         │ days_since_last_session               │
-├─────────────────────────┼───────────────────────────────────────┤
+├─────────┼──┤
 │ app_session_end         │ device_id, session_id,                │
 │                         │ session_duration_sec,                 │
 │                         │ games_played_in_session,              │
 │                         │ screens_visited (count),              │
 │                         │ end_reason (background/closed/crash)  │
-├─────────────────────────┼───────────────────────────────────────┤
+├─────────┼──┤
 │ app_update              │ device_id, previous_version,          │
 │                         │ new_version                           │
-└─────────────────────────┴───────────────────────────────────────┘
+└─────────┴──┘
 ```
 
 ### 3.2 Screen / Navigation Events
 
 ```
-┌─────────────────────────────────────────────────────────────────┐
+┌────────────┐
 │ Event Name              │ Parameters                            │
-├─────────────────────────┼───────────────────────────────────────┤
+├─────────┼──┤
 │ screen_view             │ screen_name, previous_screen,         │
 │                         │ device_id, session_id                 │
 │                         │                                       │
@@ -124,15 +124,15 @@ Replace the current ad-hoc events with this strict taxonomy. Every event follows
 │                         │   home, game, history, settings,      │
 │                         │   about, help, feedback, onboarding,  │
 │                         │   splash, winner_screen, settlement   │
-└─────────────────────────┴───────────────────────────────────────┘
+└─────────┴──┘
 ```
 
 ### 3.3 Game Lifecycle Events (THE CORE)
 
 ```
-┌─────────────────────────────────────────────────────────────────┐
+┌────────────┐
 │ Event Name              │ Parameters                            │
-├─────────────────────────┼───────────────────────────────────────┤
+├─────────┼──┤
 │ game_started            │ game_id, device_id, session_id,       │
 │                         │ player_count, is_resume,              │
 │                         │ pool_ball_mgmt_enabled,               │
@@ -140,26 +140,26 @@ Replace the current ad-hoc events with this strict taxonomy. Every event follows
 │                         │ auto_next_turn_enabled,               │
 │                         │ scoreboard_layout (list/grid),        │
 │                         │ device_model, app_version             │
-├─────────────────────────┼───────────────────────────────────────┤
+├─────────┼──┤
 │ game_score_entered      │ game_id, device_id,                   │
 │                         │ player_index (NOT name),              │
 │                         │ points, running_total,                │
 │                         │ turn_number, input_method             │
 │                         │ (custom_keyboard/system),             │
 │                         │ time_since_last_score_sec             │
-├─────────────────────────┼───────────────────────────────────────┤
+├─────────┼──┤
 │ game_undo               │ game_id, device_id,                   │
 │                         │ turn_number, points_reversed          │
-├─────────────────────────┼───────────────────────────────────────┤
+├─────────┼──┤
 │ game_correction         │ game_id, device_id,                   │
 │                         │ player_index, old_score, new_score    │
-├─────────────────────────┼───────────────────────────────────────┤
+├─────────┼──┤
 │ game_paused             │ game_id, device_id,                   │
 │                         │ duration_so_far_sec, turn_number      │
-├─────────────────────────┼───────────────────────────────────────┤
+├─────────┼──┤
 │ game_resumed            │ game_id, device_id,                   │
 │                         │ pause_duration_sec                    │
-├─────────────────────────┼───────────────────────────────────────┤
+├─────────┼──┤
 │ game_completed          │ game_id, device_id, session_id,       │
 │                         │ player_count,                         │
 │                         │ total_turns,                          │
@@ -172,80 +172,80 @@ Replace the current ad-hoc events with this strict taxonomy. Every event follows
 │                         │ undo_count, correction_count,         │
 │                         │ pool_balls_remaining,                 │
 │                         │ device_model, app_version             │
-├─────────────────────────┼───────────────────────────────────────┤
+├─────────┼──┤
 │ game_abandoned          │ game_id, device_id,                   │
 │                         │ player_count, turns_played,           │
 │                         │ duration_sec,                         │
 │                         │ abandon_reason (reset/new_game/exit)  │
-├─────────────────────────┼───────────────────────────────────────┤
+├─────────┼──┤
 │ game_pool_ball_removed  │ game_id, device_id,                   │
 │                         │ ball_number, ball_value,              │
 │                         │ is_auto_removed,                      │
 │                         │ balls_remaining                       │
-└─────────────────────────┴───────────────────────────────────────┘
+└─────────┴──┘
 ```
 
 ### 3.4 Player Management Events
 
 ```
-┌─────────────────────────────────────────────────────────────────┐
+┌────────────┐
 │ Event Name              │ Parameters                            │
-├─────────────────────────┼───────────────────────────────────────┤
+├─────────┼──┤
 │ player_added            │ device_id, total_saved_players,       │
 │                         │ is_new_name (bool)                    │
-├─────────────────────────┼───────────────────────────────────────┤
+├─────────┼──┤
 │ player_removed          │ device_id, total_saved_players        │
-├─────────────────────────┼───────────────────────────────────────┤
+├─────────┼──┤
 │ player_hidden           │ device_id                             │
-├─────────────────────────┼───────────────────────────────────────┤
+├─────────┼──┤
 │ player_quick_select     │ device_id, players_selected_count     │
-├─────────────────────────┼───────────────────────────────────────┤
+├─────────┼──┤
 │ roster_sort_changed     │ device_id, sort_option                │
 │                         │ (manual/alpha/losers/winners/random/  │
 │                         │  most_played)                         │
-└─────────────────────────┴───────────────────────────────────────┘
+└─────────┴──┘
 ```
 
 ### 3.5 Feature Usage Events
 
 ```
-┌─────────────────────────────────────────────────────────────────┐
+┌────────────┐
 │ Event Name              │ Parameters                            │
-├─────────────────────────┼───────────────────────────────────────┤
+├─────────┼──┤
 │ settlement_viewed       │ game_id, device_id,                   │
 │                         │ settlement_method, match_cost,        │
 │                         │ currency, player_count,               │
 │                         │ excluded_player_count                 │
-├─────────────────────────┼───────────────────────────────────────┤
+├─────────┼──┤
 │ game_shared             │ device_id, game_id,                   │
 │                         │ share_method (text/image/etc)         │
-├─────────────────────────┼───────────────────────────────────────┤
+├─────────┼──┤
 │ history_viewed          │ device_id, total_games_in_history     │
-├─────────────────────────┼───────────────────────────────────────┤
+├─────────┼──┤
 │ history_game_opened     │ device_id, game_age_days              │
-├─────────────────────────┼───────────────────────────────────────┤
+├─────────┼──┤
 │ history_game_archived   │ device_id                             │
-├─────────────────────────┼───────────────────────────────────────┤
+├─────────┼──┤
 │ feedback_submitted      │ device_id, feedback_type,             │
 │                         │ rating (if applicable)                │
-├─────────────────────────┼───────────────────────────────────────┤
+├─────────┼──┤
 │ snapshot_created        │ device_id, trigger (auto/manual/      │
 │                         │ after_game), size_bytes               │
-├─────────────────────────┼───────────────────────────────────────┤
+├─────────┼──┤
 │ ball_preset_changed     │ device_id, preset_name,               │
 │                         │ is_custom                             │
-├─────────────────────────┼───────────────────────────────────────┤
+├─────────┼──┤
 │ winner_screen_shown     │ device_id, game_id,                   │
 │                         │ winner_screen_style (wavy/classic)    │
-└─────────────────────────┴───────────────────────────────────────┘
+└─────────┴──┘
 ```
 
 ### 3.6 Settings Change Events
 
 ```
-┌─────────────────────────────────────────────────────────────────┐
+┌────────────┐
 │ Event Name              │ Parameters                            │
-├─────────────────────────┼───────────────────────────────────────┤
+├─────────┼──┤
 │ setting_changed         │ device_id, setting_name,              │
 │                         │ old_value, new_value                  │
 │                         │                                       │
@@ -264,31 +264,31 @@ Replace the current ad-hoc events with this strict taxonomy. Every event follows
 │                         │   global_scale,                       │
 │                         │   winner_screen_style,                │
 │                         │   guest_mode                          │
-└─────────────────────────┴───────────────────────────────────────┘
+└─────────┴──┘
 ```
 
 ### 3.7 Onboarding Events
 
 ```
-┌─────────────────────────────────────────────────────────────────┐
+┌────────────┐
 │ Event Name              │ Parameters                            │
-├─────────────────────────┼───────────────────────────────────────┤
+├─────────┼──┤
 │ onboarding_started      │ device_id                             │
-├─────────────────────────┼───────────────────────────────────────┤
+├─────────┼──┤
 │ onboarding_step_viewed  │ device_id, step_index, step_name      │
-├─────────────────────────┼───────────────────────────────────────┤
+├─────────┼──┤
 │ onboarding_completed    │ device_id, duration_sec               │
-├─────────────────────────┼───────────────────────────────────────┤
+├─────────┼──┤
 │ onboarding_skipped      │ device_id, last_step_index            │
-└─────────────────────────┴───────────────────────────────────────┘
+└─────────┴──┘
 ```
 
 ### 3.8 Device Settings Snapshot (fired once per session)
 
 ```
-┌─────────────────────────────────────────────────────────────────┐
+┌────────────┐
 │ Event Name              │ Parameters                            │
-├─────────────────────────┼───────────────────────────────────────┤
+├─────────┼──┤
 │ device_config_snapshot  │ device_id, app_version,               │
 │                         │ device_model, android_version,        │
 │                         │ screen_density, screen_size,          │
@@ -306,7 +306,7 @@ Replace the current ad-hoc events with this strict taxonomy. Every event follows
 │                         │ guest_mode,                           │
 │                         │ winner_screen_style,                  │
 │                         │ roster_layout, roster_sort            │
-└─────────────────────────┴───────────────────────────────────────┘
+└─────────┴──┘
 ```
 
 ---
@@ -319,60 +319,60 @@ Your current `analyticsId` is a UUID stored in `AppSettings`. It's **nullable**,
 ### The New Approach
 
 ```
-┌──────────────────────────────────────────────────────────────────────┐
+┌─────────┐
 │                        IDENTITY STACK                                │
-├──────────────────┬───────────────────────────────────────────────────┤
+├──────────┬──────┤
 │ device_id        │ Stable per-install UUID. Generated at first       │
 │                  │ launch. Stored in SharedPreferences (NOT          │
-│                  │ DataStore/AppSettings — survives settings reset). │
+│                  │ DataStore/AppSettings - survives settings reset). │
 │                  │ This is your PRIMARY key for everything.          │
-├──────────────────┼───────────────────────────────────────────────────┤
+├──────────┼──────┤
 │ install_id       │ Firebase Installation ID (FID). Use               │
 │                  │ FirebaseInstallations.getId(). Survives app       │
 │                  │ updates but not reinstalls. Cross-reference       │
 │                  │ with device_id to detect reinstalls.              │
-├──────────────────┼───────────────────────────────────────────────────┤
+├──────────┼──────┤
 │ session_id       │ UUID generated each time the app comes to         │
 │                  │ foreground from a cold/warm start. Ties all       │
 │                  │ events in one session together.                   │
-├──────────────────┼───────────────────────────────────────────────────┤
-│ game_id          │ Already exists in GameState.id — USE IT.          │
+├──────────┼──────┤
+│ game_id          │ Already exists in GameState.id - USE IT.          │
 │                  │ Correlates game_started → scores → game_completed │
-└──────────────────┴───────────────────────────────────────────────────┘
+└──────────┴──────┘
 ```
 
 ### Key Rules
 1. **`device_id` is NEVER nullable.** Generate it synchronously in `Application.onCreate()` before any analytics call.
-2. **Every single event** gets `device_id` and `session_id` attached automatically — not optionally.
-3. **`game_id`** is attached to every in-game event — this is how you correlate starts with completions.
-4. **No player names in analytics.** Use `player_index` (0, 1, 2...) — privacy-safe but still useful for per-player behavior.
+2. **Every single event** gets `device_id` and `session_id` attached automatically - not optionally.
+3. **`game_id`** is attached to every in-game event - this is how you correlate starts with completions.
+4. **No player names in analytics.** Use `player_index` (0, 1, 2...) - privacy-safe but still useful for per-player behavior.
 
 ---
 
-## 5. Architecture — What Replaces What
+## 5. Architecture - What Replaces What
 
 ### Drop the Dual-System Complexity
 
 ```
 CURRENT (broken):                    NEW (clean):
                                      
-┌──────────────┐                     ┌──────────────────────┐
+┌──────┐                     ┌──────┐
 │ Firebase     │ ← generic events    │  PocketScoreAnalytics│
 │ Analytics    │   nobody reads      │  (single orchestrator│
-└──────────────┘                     │   singleton)         │
-                                     └──────────┬───────────┘
-┌──────────────┐                                │
-│ Firestore    │ ← raw docs that    ┌───────────┼───────────┐
+└──────┘                     │   singleton)         │
+                                     └──┬───┘
+┌──────┐                                │
+│ Firestore    │ ← raw docs that    ┌───┼───┐
 │ Cloud        │   cost money       │           │           │
 │ Analytics    │   and can't be     ▼           ▼           ▼
-└──────────────┘   queried       Firebase    Firestore    BigQuery
+└──────┘   queried       Firebase    Firestore    BigQuery
                                  Analytics  Aggregates   (optional)
                                  (events)   (rollups)    (warehouse)
 ```
 
 ### New Architecture Components
 
-#### A. `PocketScoreAnalytics` — The Single Entry Point
+#### A. `PocketScoreAnalytics` - The Single Entry Point
 - Replaces both `AnalyticsManager` and `CloudAnalyticsManager`
 - **Initialized in `PocketScoreApp.onCreate()`** (not `MainActivity`)
 - Holds `device_id` (from SharedPrefs) and `session_id` (generated on init)
@@ -380,14 +380,14 @@ CURRENT (broken):                    NEW (clean):
 - Logs to **Firebase Analytics** (primary) with properly named custom events
 - Optionally writes aggregated rollups to Firestore (not raw events)
 
-#### B. Firebase Analytics — The Event Store
+#### B. Firebase Analytics - The Event Store
 - **Stop using generic events** (`LEVEL_START`, `LEVEL_END`, `APP_OPEN`)
 - Use **custom event names** from the taxonomy above (`game_started`, `game_completed`, etc.)
 - Set **User Properties** for segmentation:
 
 ```
 User Properties to register in Firebase Console:
-──────────────────────────────────────────────────
+─────
 • app_theme          (light / dark / system)
 • keyboard_type      (custom / system)
 • pool_ball_mgmt     (enabled / disabled)
@@ -398,7 +398,7 @@ User Properties to register in Firebase Console:
 • device_tier         (low / mid / high based on RAM/SDK)
 ```
 
-#### C. Firestore — Aggregated Rollups Only (NOT Raw Events)
+#### C. Firestore - Aggregated Rollups Only (NOT Raw Events)
 
 > [!CAUTION]
 > **Stop writing raw per-event documents to Firestore.** At scale this will cost you real money and you can't query it efficiently. Firebase Analytics already stores raw events for free (up to limits).
@@ -407,7 +407,7 @@ Use Firestore only for **pre-aggregated daily rollup documents** that you can re
 
 ```
 Firestore Collections (NEW):
-────────────────────────────
+────────────
 
 📁 daily_stats/{YYYY-MM-DD}
    {
@@ -474,7 +474,7 @@ Firestore Collections (NEW):
    }
 ```
 
-#### D. Cloud Functions — The Aggregation Engine
+#### D. Cloud Functions - The Aggregation Engine
 
 Write **one Cloud Function** triggered daily (scheduled via Cloud Scheduler or Pub/Sub) that:
 
@@ -487,7 +487,7 @@ Alternatively, if you don't want BigQuery, use **on-write triggers**:
 
 ---
 
-## 6. Implementation Plan — Step by Step
+## 6. Implementation Plan - Step by Step
 
 ### Phase 1: Foundation (Do First)
 
@@ -503,22 +503,22 @@ Alternatively, if you don't want BigQuery, use **on-write triggers**:
 
 | # | Task | Details |
 |---|---|---|
-| 2.1 | **Wire `game_started`** | In `GameViewModel.startNewGame()` — pass `game_id`, player count, and current game settings (pool mgmt, strict mode, etc.) |
-| 2.2 | **Wire `game_completed`** | In `logGameEndedAnalytics()` — compute ALL the parameters: undo count (count UNDO events in globalEvents), correction count, score spread, avg score, balls remaining. Use `game.id` as `game_id`. |
-| 2.3 | **Wire `game_abandoned`** | In `endGame()` when `isFinalized = false` — include abandon reason (reset vs new game vs exit). |
-| 2.4 | **Wire `game_score_entered`** | In `processScore()` or equivalent — log every score. Include `turn_number` (globalEvents count), `time_since_last_score_sec`. **Use `player_index` not player name.** |
-| 2.5 | **Wire `game_undo`** | In the undo handler — log with turn number and points reversed. |
-| 2.6 | **Wire `game_paused` / `game_resumed`** | In the pause/resume handlers — log duration of pause. |
-| 2.7 | **Wire `game_pool_ball_removed`** | When a ball is removed — log ball number, value, whether auto-removed. |
+| 2.1 | **Wire `game_started`** | In `GameViewModel.startNewGame()` - pass `game_id`, player count, and current game settings (pool mgmt, strict mode, etc.) |
+| 2.2 | **Wire `game_completed`** | In `logGameEndedAnalytics()` - compute ALL the parameters: undo count (count UNDO events in globalEvents), correction count, score spread, avg score, balls remaining. Use `game.id` as `game_id`. |
+| 2.3 | **Wire `game_abandoned`** | In `endGame()` when `isFinalized = false` - include abandon reason (reset vs new game vs exit). |
+| 2.4 | **Wire `game_score_entered`** | In `processScore()` or equivalent - log every score. Include `turn_number` (globalEvents count), `time_since_last_score_sec`. **Use `player_index` not player name.** |
+| 2.5 | **Wire `game_undo`** | In the undo handler - log with turn number and points reversed. |
+| 2.6 | **Wire `game_paused` / `game_resumed`** | In the pause/resume handlers - log duration of pause. |
+| 2.7 | **Wire `game_pool_ball_removed`** | When a ball is removed - log ball number, value, whether auto-removed. |
 
 ### Phase 3: Navigation & Feature Events (Do Third)
 
 | # | Task | Details |
 |---|---|---|
-| 3.1 | **Add `screen_view` tracking** | Add a navigation listener in `MainActivity` or `NavHost`. Log `screen_view` with `screen_name` on every navigation. Firebase has `FirebaseAnalytics.Event.SCREEN_VIEW` — use it with `FirebaseAnalytics.Param.SCREEN_NAME`. |
-| 3.2 | **Wire onboarding events** | In onboarding screens — `onboarding_started`, `onboarding_step_viewed`, `onboarding_completed`, `onboarding_skipped`. |
+| 3.1 | **Add `screen_view` tracking** | Add a navigation listener in `MainActivity` or `NavHost`. Log `screen_view` with `screen_name` on every navigation. Firebase has `FirebaseAnalytics.Event.SCREEN_VIEW` - use it with `FirebaseAnalytics.Param.SCREEN_NAME`. |
+| 3.2 | **Wire onboarding events** | In onboarding screens - `onboarding_started`, `onboarding_step_viewed`, `onboarding_completed`, `onboarding_skipped`. |
 | 3.3 | **Wire feature events** | `settlement_viewed`, `game_shared`, `history_viewed`, `history_game_opened`, `feedback_submitted`, `snapshot_created`, `winner_screen_shown`. |
-| 3.4 | **Wire `setting_changed`** | In `GameViewModel.updateSettings()` — compare old and new settings, log each changed field as a separate `setting_changed` event. |
+| 3.4 | **Wire `setting_changed`** | In `GameViewModel.updateSettings()` - compare old and new settings, log each changed field as a separate `setting_changed` event. |
 | 3.5 | **Wire `device_config_snapshot`** | Fire once per session during `app_session_start`. Captures the full settings state so you can see distributions. |
 
 ### Phase 4: Aggregation Backend (Do Fourth)
@@ -604,7 +604,7 @@ Do these in the Firebase Console **before** deploying code:
 - [ ] **Custom Definitions → Custom Dimensions:**
   - `game_id` (Event scope)
   - `session_id` (Event scope)
-  - `device_id` (User scope — also set as User Property)
+  - `device_id` (User scope - also set as User Property)
   - `player_count` (Event scope)
   - `game_duration_sec` (Event scope)
   - `total_turns` (Event scope)
@@ -668,16 +668,16 @@ Do these in the Firebase Console **before** deploying code:
 | **And you STILL can't query it.** | | 💸 |
 
 ### Guardrails to Add in Code
-1. **Rate limit `game_score_entered`** — If a game has > 200 turns, stop logging individual scores (aggregate at game end instead). Prevents abuse/bugs from flooding events.
-2. **Batch Firestore writes** — Don't write `device_profiles` on every event. Buffer updates and write once on `app_session_end`.
-3. **Max event params** — Firebase allows 25 custom parameters per event. The taxonomy above stays within limits, but validate before adding more.
+1. **Rate limit `game_score_entered`** - If a game has > 200 turns, stop logging individual scores (aggregate at game end instead). Prevents abuse/bugs from flooding events.
+2. **Batch Firestore writes** - Don't write `device_profiles` on every event. Buffer updates and write once on `app_session_end`.
+3. **Max event params** - Firebase allows 25 custom parameters per event. The taxonomy above stays within limits, but validate before adding more.
 
 ---
 
 ## 11. Privacy Considerations
 
 > [!IMPORTANT]
-> This design is still privacy-respectful — it just stops being *uselessly* private.
+> This design is still privacy-respectful - it just stops being *uselessly* private.
 
 | What we track | What we DON'T track |
 |---|---|
@@ -699,7 +699,7 @@ Do these in the Firebase Console **before** deploying code:
 ## 12. Migration Checklist
 
 ```
-Phase 1 — Foundation:
+Phase 1 - Foundation:
   □ Create DeviceIdManager (SharedPreferences-based)
   □ Create SessionManager (ProcessLifecycleOwner-based)  
   □ Create PocketScoreAnalytics singleton
@@ -708,7 +708,7 @@ Phase 1 — Foundation:
   □ Register User Properties in Firebase Console
   □ Register Custom Definitions in Firebase Console
 
-Phase 2 — Core Events:
+Phase 2 - Core Events:
   □ Wire game_started with full parameters
   □ Wire game_completed with computed stats
   □ Wire game_abandoned with reason
@@ -718,7 +718,7 @@ Phase 2 — Core Events:
   □ Wire game_pool_ball_removed
   □ Test: Start game → play → end → verify events in DebugView
 
-Phase 3 — Navigation & Features:
+Phase 3 - Navigation & Features:
   □ Add screen_view tracking to NavHost
   □ Wire onboarding funnel events
   □ Wire settlement_viewed, game_shared, history events
@@ -726,14 +726,14 @@ Phase 3 — Navigation & Features:
   □ Wire device_config_snapshot on session start
   □ Test: Walk through every screen → verify in DebugView
 
-Phase 4 — Backend:
+Phase 4 - Backend:
   □ Deploy device_profiles upsert logic in app
   □ Deploy daily_stats Cloud Function
   □ Deploy retention Cloud Function
   □ Enable BigQuery export
   □ Test: Verify daily_stats populates correctly
 
-Phase 5 — Cleanup:
+Phase 5 - Cleanup:
   □ Build Firebase Console dashboards
   □ Create Audiences for segmentation
   □ Delete old Firestore collections (analytics_*)

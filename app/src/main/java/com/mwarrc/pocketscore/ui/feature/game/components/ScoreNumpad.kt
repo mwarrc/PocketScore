@@ -49,7 +49,7 @@ import kotlin.math.roundToInt
  * @param onNumberClick Callback when a numeric or decimal key is pressed
  * @param onBackspaceClick Callback for character deletion
  * @param onDismiss Callback to close the keyboard
- * @param isPinned Whether the numpad is locked open — while locked, neither
+ * @param isPinned Whether the numpad is locked open - while locked, neither
  *   the back button nor the drag gesture can close it
  * @param onTogglePin Callback to lock or unlock the numpad
  * @param settings Current application configuration
@@ -139,7 +139,7 @@ fun ScoreNumpad(
             ) {
                 // Left: text settings. This opens a sheet that only controls
                 // the keyboard's text size and button height, so a generic cog
-                // (Icons.Default.Settings) over-promised — the FormatSize glyph
+                // (Icons.Default.Settings) over-promised - the FormatSize glyph
                 // ("Aa" with size arrows) says exactly what's behind it.
                 FilledTonalIconButton(
                     onClick = {
@@ -199,7 +199,7 @@ fun ScoreNumpad(
                             // is lock the numpad open so the back button and
                             // the drag gesture can't close it halfway through a
                             // round. A closed padlock says precisely that, and
-                            // its open partner says the opposite — which a
+                            // its open partner says the opposite - which a
                             // filled/outlined pair of the same glyph cannot.
                             if (isPinned) Icons.Filled.Lock else Icons.Outlined.LockOpen,
                             contentDescription = if (isPinned) {

@@ -80,7 +80,7 @@ fun PassivePlayerCard(
     // Every tile is exactly this tall. Derived from the theme's score size so
     // it grows with the user's UI scale instead of clipping, and so a leader
     // tile (chip) and an ordinary tile end up identical. The extra space at the
-    // end is the third line — the "Eliminated" label — which only some tiles
+    // end is the third line - the "Eliminated" label - which only some tiles
     // show. It is reserved on every tile rather than only on eliminated ones so
     // a grid row can never go ragged.
     val tileHeight = with(LocalDensity.current) {
@@ -88,7 +88,7 @@ fun PassivePlayerCard(
     }
 
     // Contender math: the shared rule also handles the empty-table and
-    // nobody-has-scored cases, which the old inline version here did not — so a
+    // nobody-has-scored cases, which the old inline version here did not - so a
     // tile could read ELIMINATED while the turn rotation still used it.
     val isEliminated = EliminationRules.isEliminated(
         player = player,
@@ -113,7 +113,7 @@ fun PassivePlayerCard(
     // one place so both cards agree.
     val eliminated = rememberEliminatedColors(baseContainer = scheme.surfaceContainerLow)
 
-    // The leader claims a hue of its own — violet by default — so a leader
+    // The leader claims a hue of its own - violet by default - so a leader
     // card can never be mistaken for the active player's card. The two used to
     // share the primary's family (Material You derives secondary as a
     // near-neighbour of primary), which made them impossible to tell apart.
@@ -147,7 +147,7 @@ fun PassivePlayerCard(
         label = "tile_container",
     )
 
-    // Eliminated ink is a muted on-surface variant — readable, but visibly
+    // Eliminated ink is a muted on-surface variant - readable, but visibly
     // stepped back from the players still in the match. The score sits a little
     // quieter again than the name so the tile's hierarchy survives.
     val contentColor by animateColorAsState(
@@ -190,8 +190,8 @@ fun PassivePlayerCard(
         modifier = modifier
             .fillMaxWidth()
             // The reference states the eliminated card's accessibility
-            // description as a single sentence — "Name, 14 points, eliminated"
-            // — rather than letting a screen reader wander over three
+            // description as a single sentence - "Name, 14 points, eliminated"
+            // - rather than letting a screen reader wander over three
             // separate text nodes. Merging the tile's contents and giving the
             // card one description does exactly that, and the description
             // takes precedence over the merged text for the announcement.
@@ -220,7 +220,7 @@ fun PassivePlayerCard(
         shape = RoundedCornerShape(16.dp),
     ) {
         Box(modifier = Modifier.fillMaxWidth()) {
-            // Elimination watermark — a quiet lock, matching the focused card.
+            // Elimination watermark - a quiet lock, matching the focused card.
             if (isEliminated) {
                 EliminatedWatermark(isCompact = true)
             }
@@ -230,7 +230,7 @@ fun PassivePlayerCard(
             //
             // Gated on isLeader alone. It previously also required
             // !isActualTurn, which killed the stars as soon as the leader
-            // became the current turn — leadership is a lasting property, not a
+            // became the current turn - leadership is a lasting property, not a
             // turn state.
             if (isLeader && !isEliminated) {
                 LeaderStarField(
@@ -239,7 +239,7 @@ fun PassivePlayerCard(
                 )
             }
 
-            // Leading accent bar only for players without a role chip — the
+            // Leading accent bar only for players without a role chip - the
             // chip carries the leader/loser signal at the bottom-left now, and
             // stacking two markers on the left edge reads as clutter.
             // Eliminated is excluded as well: its label and lock watermark
@@ -257,7 +257,7 @@ fun PassivePlayerCard(
                 )
             }
 
-            // Role chip — LEADER / TIED LEADER / LOSER / TIED LOSER — flush to
+            // Role chip - LEADER / TIED LEADER / LOSER / TIED LOSER - flush to
             // the bottom-left edge as an integrated tab instead of floating
             // mid-edge. The tab shape is square against the card's left and
             // bottom edges, so the chip and the card corner read as one
@@ -265,7 +265,7 @@ fun PassivePlayerCard(
             //
             // Role membership comes from the raw flags, not from [status]:
             // an eliminated player resolves to the ELIMINATED status, which
-            // would otherwise swallow their LOSER role — and "bottom of the
+            // would otherwise swallow their LOSER role - and "bottom of the
             // table" is still true (and still worth showing) after a player is
             // out of the match. Elimination has its own label under the score,
             // so the two facts coexist instead of competing for this slot.
@@ -278,7 +278,7 @@ fun PassivePlayerCard(
             // two-sided border merges into the card's own border.
             // Leader is suppressed for an eliminated player. A player on the
             // leading score can never be eliminated, so this is belt and
-            // braces — but if the two ever disagree, "out of the match" is the
+            // braces - but if the two ever disagree, "out of the match" is the
             // stronger claim and the tile shouldn't carry both stamps.
             val tileRole = when {
                 isLeader && !isEliminated -> PlayerCardRole.LEADER
@@ -295,7 +295,7 @@ fun PassivePlayerCard(
                 )
             }
 
-            // Status mark for a plain player whose turn it is — no badge at
+            // Status mark for a plain player whose turn it is - no badge at
             // all otherwise, since the fill and border carry the turn. Leader
             // and loser are skipped because their role tab already says it, and
             // eliminated carries its own label under the score.

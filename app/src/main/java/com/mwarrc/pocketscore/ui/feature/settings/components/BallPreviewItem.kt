@@ -99,7 +99,7 @@ fun BallPreviewItem(
                 contentAlignment = Alignment.Center
             ) {
                 when (type) {
-                    // ── Stripe: white base + colour band ────────────────
+                    // ── Stripe: white base + colour band ────────
                     BallType.STRIPE -> {
                         // Slightly off-white base to reduce "aggression"
                         Box(
@@ -149,7 +149,7 @@ fun BallPreviewItem(
                         }
                     }
 
-                    // ── 8-Ball: dark with white number circle ────────────
+                    // ── 8-Ball: dark with white number circle ────
                     BallType.EIGHT_BALL -> {
                         // Subtle specular on the dark surface
                         Box(
@@ -181,7 +181,7 @@ fun BallPreviewItem(
                         }
                     }
 
-                    // ── Solid: full colour + specular ────────────────────
+                    // ── Solid: full colour + specular ────
                     BallType.SOLID -> {
                         Box(
                             modifier = Modifier
@@ -215,7 +215,7 @@ fun BallPreviewItem(
             }
         }
 
-        // ── Label + value pill ──────────────────────────────────────────
+        // ── Label + value pill ─────
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
             Text(
                 text = typeLabel,

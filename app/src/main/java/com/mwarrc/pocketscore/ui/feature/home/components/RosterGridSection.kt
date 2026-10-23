@@ -167,9 +167,9 @@ fun RosterGridSection(
     }
 }
 
-// --───────────────────────────────
-// Section header — label + selection count + sort chip + layout toggle
-// --───────────────────────────────
+// --───────
+// Section header - label + selection count + sort chip + layout toggle
+// --───────
 
 @Composable
 private fun RosterSectionHeader(
@@ -283,9 +283,9 @@ private fun RosterSectionHeader(
     }
 }
 
-// --───────────────────────────────
+// --───────
 // Layouts
-// --───────────────────────────────
+// --───────
 
 @Composable
 private fun RosterGridLayout(
@@ -390,9 +390,9 @@ private fun RosterListLayout(
     }
 }
 
-// --───────────────────────────────
-// Sort chip — premium pill with drawn border
-// --───────────────────────────────
+// --───────
+// Sort chip - premium pill with drawn border
+// --───────
 
 @Composable
 private fun PremiumSortChip(
@@ -473,9 +473,9 @@ private fun PremiumSortChip(
     }
 }
 
-// --───────────────────────────────
-// Sort dropdown — refined surface
-// --───────────────────────────────
+// --───────
+// Sort dropdown - refined surface
+// --───────
 
 @Composable
 private fun RosterSortMenu(

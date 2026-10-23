@@ -14,8 +14,8 @@ data class Hsl(val hue: Float, val saturation: Float, val lightness: Float)
 /**
  * Converts this colour to its HSL components.
  *
- * The conversion runs on the sRGB-encoded channels — the same space CSS's
- * `hsl()` uses — so the result round-trips through [Color.hsl] without drift.
+ * The conversion runs on the sRGB-encoded channels - the same space CSS's
+ * `hsl()` uses - so the result round-trips through [Color.hsl] without drift.
  */
 fun Color.toHsl(): Hsl {
     val r = red

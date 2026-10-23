@@ -1,18 +1,23 @@
 package com.mwarrc.pocketscore.ui.feature.history.components
 
 import androidx.compose.animation.*
+import androidx.compose.animation.core.FastOutLinearInEasing
+import androidx.compose.animation.core.LinearOutSlowInEasing
 import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -37,17 +42,16 @@ data class HistoryTab(
 /**
  * Modern floating capsule navigation bar for the History / Records screen.
  *
- * Designed with a sleek floating island aesthetic:
- *  - Elevated rounded pill dock with tonal depth and soft shadow.
- *  - Animated active tab pill with spring bounce micro-interactions on icons.
- *  - Haptic feedback on tab changes for tactile feel.
- *  - Borderless, clean Material 3 design conforming to PocketScore aesthetics.
- *  - Seamlessly pairs with [MatchSelectionBar] during bulk selection mode.
+ * Features:
+ *  - Floating island dock aesthetic that floats gracefully over scrolling records.
+ *  - Silky-smooth sliding indicator pill that glides seamlessly across tabs without layout jumping.
+ *  - Instant responsive micro-interactions with haptic tactile feedback.
+ *  - Glassmorphic translucent surface container with soft depth shadow.
  *
  * @param tabs List of tabs to display
  * @param selectedIndex Currently active tab index
  * @param onTabClick Callback when a tab is selected
- * @param isVisible Controls visibility — animated enter/exit
+ * @param isVisible Controls visibility - animated enter/exit
  * @param modifier Modifier applied to the outer container
  */
 @Composable
@@ -62,121 +66,156 @@ fun FloatingHistoryNavBar(
 
     AnimatedVisibility(
         visible = isVisible,
-        enter = fadeIn(animationSpec = tween(220)) + slideInVertically(
-            animationSpec = spring(dampingRatio = Spring.DampingRatioLowBouncy, stiffness = Spring.StiffnessMediumLow)
-        ) { it },
-        exit = fadeOut(animationSpec = tween(160)) + slideOutVertically(
-            animationSpec = tween(160)
-        ) { it },
+        enter = fadeIn(animationSpec = tween(220, easing = LinearOutSlowInEasing)) + scaleIn(
+            initialScale = 0.94f,
+            animationSpec = tween(220, easing = LinearOutSlowInEasing)
+        ),
+        exit = fadeOut(animationSpec = tween(160, easing = FastOutLinearInEasing)) + scaleOut(
+            targetScale = 0.94f,
+            animationSpec = tween(160, easing = FastOutLinearInEasing)
+        ),
         modifier = modifier.fillMaxWidth()
     ) {
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 20.dp, vertical = 8.dp),
+                .padding(start = 20.dp, end = 20.dp, top = 6.dp, bottom = 10.dp),
             contentAlignment = Alignment.Center
         ) {
             Surface(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(66.dp),
-                shape = RoundedCornerShape(28.dp),
-                color = MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = 0.96f),
-                tonalElevation = 6.dp,
-                shadowElevation = 10.dp
+                    .height(64.dp)
+                    .graphicsLayer {
+                        this.shadowElevation = 8.dp.toPx()
+                        this.shape = CircleShape
+                        this.clip = false
+                        this.ambientShadowColor = Color.Black.copy(alpha = 0.20f)
+                        this.spotShadowColor = Color.Black.copy(alpha = 0.30f)
+                    },
+                shape = CircleShape,
+                color = MaterialTheme.colorScheme.surfaceContainerHighest,
+                border = BorderStroke(
+                    width = 1.dp,
+                    color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f)
+                ),
+                tonalElevation = 3.dp,
+                shadowElevation = 0.dp
             ) {
-                Row(
+                BoxWithConstraints(
                     modifier = Modifier
                         .fillMaxSize()
-                        .padding(horizontal = 6.dp, vertical = 6.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceEvenly
+                        .padding(all = 5.dp)
                 ) {
-                    tabs.forEachIndexed { index, tab ->
-                        val isSelected = selectedIndex == index
+                    val tabCount = tabs.size.coerceAtLeast(1)
+                    val tabWidth = maxWidth / tabCount
+                    val safeIndex = selectedIndex.coerceIn(0, tabCount - 1)
 
-                        val iconScale by animateFloatAsState(
-                            targetValue = if (isSelected) 1.15f else 1.0f,
-                            animationSpec = spring(
-                                dampingRatio = Spring.DampingRatioMediumBouncy,
-                                stiffness = Spring.StiffnessLow
-                            ),
-                            label = "tab_scale_$index"
-                        )
+                    val indicatorOffset by animateDpAsState(
+                        targetValue = tabWidth * safeIndex,
+                        animationSpec = spring(
+                            dampingRatio = Spring.DampingRatioNoBouncy,
+                            stiffness = Spring.StiffnessMediumLow
+                        ),
+                        label = "active_tab_indicator_offset"
+                    )
 
-                        val bgColor by animateColorAsState(
-                            targetValue = if (isSelected) MaterialTheme.colorScheme.primaryContainer
-                                          else Color.Transparent,
-                            animationSpec = tween(200),
-                            label = "tab_bg_$index"
-                        )
+                    // Sliding Active Pill Background
+                    Box(
+                        modifier = Modifier
+                            .offset(x = indicatorOffset)
+                            .width(tabWidth)
+                            .fillMaxHeight()
+                            .clip(CircleShape)
+                            .background(MaterialTheme.colorScheme.primaryContainer)
+                    )
 
-                        val iconTint by animateColorAsState(
-                            targetValue = if (isSelected) MaterialTheme.colorScheme.primary
-                                          else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.65f),
-                            animationSpec = tween(180),
-                            label = "tab_icon_$index"
-                        )
+                    // Tab Items
+                    Row(
+                        modifier = Modifier.fillMaxSize(),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        tabs.forEachIndexed { index, tab ->
+                            val isSelected = selectedIndex == index
 
-                        val textColor by animateColorAsState(
-                            targetValue = if (isSelected) MaterialTheme.colorScheme.onPrimaryContainer
-                                          else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.65f),
-                            animationSpec = tween(180),
-                            label = "tab_text_$index"
-                        )
+                            val iconScale by animateFloatAsState(
+                                targetValue = if (isSelected) 1.12f else 1.0f,
+                                animationSpec = spring(
+                                    dampingRatio = Spring.DampingRatioNoBouncy,
+                                    stiffness = Spring.StiffnessMedium
+                                ),
+                                label = "tab_icon_scale_$index"
+                            )
 
-                        Box(
-                            modifier = Modifier
-                                .weight(1f)
-                                .fillMaxHeight()
-                                .clip(RoundedCornerShape(22.dp))
-                                .background(bgColor)
-                                .clickable {
-                                    if (!isSelected) {
-                                        haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                                    }
-                                    onTabClick(index)
-                                },
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Column(
-                                horizontalAlignment = Alignment.CenterHorizontally,
-                                verticalArrangement = Arrangement.Center,
-                                modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp)
+                            val contentColor by animateColorAsState(
+                                targetValue = if (isSelected) MaterialTheme.colorScheme.onPrimaryContainer
+                                              else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+                                animationSpec = tween(180),
+                                label = "tab_content_color_$index"
+                            )
+
+                            val iconColor by animateColorAsState(
+                                targetValue = if (isSelected) MaterialTheme.colorScheme.primary
+                                              else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+                                animationSpec = tween(180),
+                                label = "tab_icon_color_$index"
+                            )
+
+                            Box(
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .fillMaxHeight()
+                                    .clip(CircleShape)
+                                    .clickable(
+                                        interactionSource = remember { MutableInteractionSource() },
+                                        indication = null
+                                    ) {
+                                        if (!isSelected) {
+                                            haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                        }
+                                        onTabClick(index)
+                                    },
+                                contentAlignment = Alignment.Center
                             ) {
-                                Box(contentAlignment = Alignment.TopEnd) {
-                                    Icon(
-                                        imageVector = tab.icon,
-                                        contentDescription = tab.title,
-                                        tint = iconTint,
-                                        modifier = Modifier
-                                            .size(22.dp)
-                                            .graphicsLayer {
-                                                scaleX = iconScale
-                                                scaleY = iconScale
-                                            }
-                                    )
-                                    if (tab.badgeCount != null && tab.badgeCount > 0) {
-                                        Box(
+                                Column(
+                                    horizontalAlignment = Alignment.CenterHorizontally,
+                                    verticalArrangement = Arrangement.Center,
+                                    modifier = Modifier.padding(horizontal = 2.dp)
+                                ) {
+                                    Box(contentAlignment = Alignment.TopEnd) {
+                                        Icon(
+                                            imageVector = tab.icon,
+                                            contentDescription = tab.title,
+                                            tint = iconColor,
                                             modifier = Modifier
-                                                .offset(x = 6.dp, y = (-4).dp)
-                                                .size(8.dp)
-                                                .clip(CircleShape)
-                                                .background(MaterialTheme.colorScheme.error)
+                                                .size(20.dp)
+                                                .graphicsLayer {
+                                                    scaleX = iconScale
+                                                    scaleY = iconScale
+                                                }
                                         )
+                                        if (tab.badgeCount != null && tab.badgeCount > 0) {
+                                            Box(
+                                                modifier = Modifier
+                                                    .offset(x = 6.dp, y = (-3).dp)
+                                                    .size(7.dp)
+                                                    .clip(CircleShape)
+                                                    .background(MaterialTheme.colorScheme.error)
+                                            )
+                                        }
                                     }
+
+                                    Spacer(Modifier.height(2.dp))
+
+                                    Text(
+                                        text = tab.title,
+                                        style = MaterialTheme.typography.labelSmall,
+                                        fontWeight = FontWeight.Bold,
+                                        color = contentColor,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis
+                                    )
                                 }
-
-                                Spacer(Modifier.height(3.dp))
-
-                                Text(
-                                    text = tab.title,
-                                    style = MaterialTheme.typography.labelSmall,
-                                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
-                                    color = textColor,
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis
-                                )
                             }
                         }
                     }

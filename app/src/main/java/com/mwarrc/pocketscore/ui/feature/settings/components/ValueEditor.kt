@@ -75,7 +75,7 @@ fun ValueEditor(
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(10.dp)
         ) {
-            // ── Ball indicator ───────────────────────────────────────────
+            // ── Ball indicator ──────
             Box(
                 modifier = Modifier
                     .size(28.dp)

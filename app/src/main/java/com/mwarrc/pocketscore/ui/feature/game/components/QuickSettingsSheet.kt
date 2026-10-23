@@ -63,6 +63,7 @@ import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
 import androidx.compose.ui.input.nestedscroll.NestedScrollSource
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalContext
+import kotlinx.coroutines.launch
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Velocity
@@ -96,8 +97,17 @@ fun QuickSettingsSheet(
 ) {
     var settings by remember(initialSettings) { mutableStateOf(initialSettings) }
     var isPeeking by remember { mutableStateOf(false) }
-    var localScale by remember(settings.globalScale) { mutableFloatStateOf(settings.globalScale) }
+    var initialPeekScale by remember { mutableFloatStateOf(initialSettings.globalScale) }
+    var localScale by remember { mutableFloatStateOf(initialSettings.globalScale) }
     var showDisablePoolDialog by remember { mutableStateOf(false) }
+
+    val coroutineScope = rememberCoroutineScope()
+
+    LaunchedEffect(initialSettings.globalScale) {
+        if (!isPeeking) {
+            localScale = initialSettings.globalScale
+        }
+    }
 
     val handleUpdateSettings: ((AppSettings) -> AppSettings) -> Unit = { updater ->
         val updated = updater(settings)
@@ -146,7 +156,12 @@ fun QuickSettingsSheet(
     ModalBottomSheet(
         onDismissRequest = {
             if (isPeeking) {
+                localScale = initialPeekScale
+                onLiveScaleChange(initialPeekScale)
                 isPeeking = false
+                coroutineScope.launch {
+                    try { sheetState.expand() } catch (e: Exception) {}
+                }
             } else {
                 onDismiss()
             }
@@ -158,7 +173,7 @@ fun QuickSettingsSheet(
             // Deliberately no displayCutoutPadding() here. It used to be applied
             // on the drag handle AND again on the content column below, and in
             // immersive mode the status-bar inset is zero while the cutout
-            // inset is still real — so the two stacked into a dead band of empty
+            // inset is still real - so the two stacked into a dead band of empty
             // space at the top of the sheet. The handle is centred purely
             // horizontally, so it needs no inset handling at all: the sheet's
             // own surface already starts below the cutout.
@@ -202,6 +217,9 @@ fun QuickSettingsSheet(
                     onDone = {
                         handleUpdateSettings { it.copy(globalScale = localScale) }
                         isPeeking = false
+                        coroutineScope.launch {
+                            try { sheetState.expand() } catch (e: Exception) {}
+                        }
                     }
                 )
             } else {
@@ -488,7 +506,10 @@ fun QuickSettingsSheet(
                             }
 
                             FilledTonalButton(
-                                onClick = { isPeeking = true },
+                                onClick = {
+                                    initialPeekScale = localScale
+                                    isPeeking = true
+                                },
                                 shape = RoundedCornerShape(12.dp),
                                 contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
                             ) {

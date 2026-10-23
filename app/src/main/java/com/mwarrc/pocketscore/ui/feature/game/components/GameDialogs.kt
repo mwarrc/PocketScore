@@ -158,7 +158,7 @@ fun ResetGameDialog(
                     )
                 }
 
-                // ── Guest override toggle ─────────────────────────────────────
+                // ── Guest override toggle ─────────────
                 if (isGuestRestricted) {
                     Surface(
                         onClick = { overrideGuest = !overrideGuest },

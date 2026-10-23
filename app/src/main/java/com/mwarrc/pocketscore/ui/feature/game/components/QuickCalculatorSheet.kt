@@ -147,7 +147,7 @@ fun QuickCalculatorSheet(
         dragHandle = {
             // Deliberately uncapped (the keyboard needs the room) but the handle
             // still matches every other game sheet, and no longer stacks
-            // statusBarsPadding() with displayCutoutPadding() — in immersive mode
+            // statusBarsPadding() with displayCutoutPadding() - in immersive mode
             // the status-bar inset is zero while the cutout inset is real, so the
             // two combined into a dead band of empty space at the top.
             Column(

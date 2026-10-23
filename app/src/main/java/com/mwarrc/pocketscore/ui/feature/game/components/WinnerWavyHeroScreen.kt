@@ -70,17 +70,17 @@ import kotlin.math.sin
  * Wavy-hero variant of the end-of-match winner screen.
  *
  * Layout (top → bottom):
- *   1. Tinted hero — eyebrow, a large count-up of the winning score, the winner's
+ *   1. Tinted hero - eyebrow, a large count-up of the winning score, the winner's
  *      name, and a margin or tie note. The hero's bottom edge is an animated
  *      two-layer wave that drifts horizontally against the page below.
- *   2. Final standings — every player, ranked, with a "Last place" chip.
- *   3. Actions — Save & Archive / Play Again.
+ *   2. Final standings - every player, ranked, with a "Last place" chip.
+ *   3. Actions - Save & Archive / Play Again.
  *
  * All colors come from [MaterialTheme.colorScheme], so the screen tracks the app
  * theme, dynamic color, dark mode and the user's chosen app font automatically.
  *
  * @param standings     All players in the match, in any order; ranked here.
- * @param winners       Winning [Player] list — 1 item = sole winner, 2+ = tie
+ * @param winners       Winning [Player] list - 1 item = sole winner, 2+ = tie
  * @param onDismiss     Tap the close button
  * @param onRestart     Tap "Play Again"
  * @param onArchive     Tap "Save & Archive"
@@ -97,7 +97,7 @@ fun WinnerWavyHeroScreen(
     val isTie = winners.size > 1
 
     // Rank every player: highest score first. Ties share a rank, and the rank is
-    // "how many players finished ahead of you, plus one" — same rule the game
+    // "how many players finished ahead of you, plus one" - same rule the game
     // screen uses for leader/loser badges.
     val ranked = remember(standings) {
         standings
@@ -116,7 +116,7 @@ fun WinnerWavyHeroScreen(
 
     val winnerNames = winners.joinToString(" & ") { it.name }
 
-    // ── Entrance ────────────────────────────────────────────────────────────
+    // ── Entrance ───────
     var visible by remember { mutableStateOf(false) }
     LaunchedEffect(Unit) { visible = true }
 
@@ -131,7 +131,7 @@ fun WinnerWavyHeroScreen(
         label = "contentScale"
     )
 
-    // ── Hero score count-up ─────────────────────────────────────────────────
+    // ── Hero score count-up ────
     // Starts at 0 and eases up to the final score, mirroring the mock's
     // cubic ease-out counter.
     var countUpTarget by remember { mutableStateOf(0) }
@@ -145,7 +145,7 @@ fun WinnerWavyHeroScreen(
         label = "winnerScore"
     )
 
-    // ── Wave drift phase ────────────────────────────────────────────────────
+    // ── Wave drift phase ───────
     val infiniteTransition = rememberInfiniteTransition(label = "hero_waves")
     val waveDrift by infiniteTransition.animateFloat(
         initialValue = 0f,
@@ -175,7 +175,7 @@ fun WinnerWavyHeroScreen(
     ) {
         Column(modifier = Modifier.fillMaxSize()) {
 
-            // ── HERO ────────────────────────────────────────────────────────
+            // ── HERO ───────────
             Box(modifier = Modifier.fillMaxWidth()) {
                 Column(
                     modifier = Modifier
@@ -264,7 +264,7 @@ fun WinnerWavyHeroScreen(
                     }
                 }
 
-                // Wave edge — pinned to the hero's bottom, drawn over it so the
+                // Wave edge - pinned to the hero's bottom, drawn over it so the
                 // page colour appears to cut into the hero as a wave.
                 Canvas(
                     modifier = Modifier
@@ -281,7 +281,7 @@ fun WinnerWavyHeroScreen(
                 }
             }
 
-            // ── STANDINGS ───────────────────────────────────────────────────
+            // ── STANDINGS ──────
             Text(
                 text = "Final standings",
                 style = MaterialTheme.typography.labelLarge,
@@ -312,7 +312,7 @@ fun WinnerWavyHeroScreen(
                 }
             }
 
-            // ── ACTIONS ─────────────────────────────────────────────────────
+            // ── ACTIONS ────────
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -372,7 +372,7 @@ private fun StandingRow(
 ) {
     val colorScheme = MaterialTheme.colorScheme
 
-    // Winners lead with the primary container. Last place deliberately *recedes* —
+    // Winners lead with the primary container. Last place deliberately *recedes* -
     // it is the least important row, so instead of an accent tone (tertiaryContainer,
     // which is saturated and made the loser the loudest thing on screen) it gets a
     // washed-out surface with muted text. The "Last place" chip carries the meaning.
@@ -472,9 +472,9 @@ private fun StandingRow(
     }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
+// ────────
 // Wave edge
-// ─────────────────────────────────────────────────────────────────────────────
+// ────────
 
 /**
  * Draws the hero's wave edge: two horizontal sine layers of the page colour,
@@ -482,7 +482,7 @@ private fun StandingRow(
  * page appears to cut up into the hero.
  *
  * The two layers use a single seamless wavelength across the full width, so the
- * crest meets the right edge at the same height it left the left edge — the
+ * crest meets the right edge at the same height it left the left edge - the
  * shape tiles without a visible seam as it drifts.
  *
  * @param phase     Drift phase in radians (0 → 2π, looping)

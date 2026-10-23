@@ -15,7 +15,7 @@ import androidx.compose.ui.unit.dp
 import com.mwarrc.pocketscore.R
 
 /**
- * Home screen header — app identity + minimal help access.
+ * Home screen header - app identity + minimal help access.
  */
 @Composable
 fun HomeHeader(
@@ -38,7 +38,7 @@ fun HomeHeader(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.SpaceBetween,
     ) {
-        // ── Logo + wordmark ────────────────────────────────────────────
+        // ── Logo + wordmark ───────
         Row(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(12.dp),
@@ -72,7 +72,7 @@ fun HomeHeader(
             }
         }
 
-        // ── Help icon button ───────────────────────────────────────────
+        // ── Help icon button ──────
         IconButton(
             onClick = onNavigateToHelp,
             modifier = Modifier.size(40.dp)

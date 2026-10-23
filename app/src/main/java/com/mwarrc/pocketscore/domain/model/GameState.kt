@@ -75,8 +75,8 @@ data class GameState(
      * Whether this match is worth keeping in history.
      *
      * Deliberately NOT based on the final scores. A player can finish a real,
-     * fully-played match on 0 net points — they potted, then fouled, and it
-     * washed out — and pinning "worth saving" to `score != 0` threw those games
+     * fully-played match on 0 net points - they potted, then fouled, and it
+     * washed out - and pinning "worth saving" to `score != 0` threw those games
      * away. Equally, a long game where everyone happened to net 0 is still a
      * game that was played.
      *
@@ -85,7 +85,7 @@ data class GameState(
      * records that: a 0 tap is stored as a SCORE event with `isZeroInput = true`,
      * so filtering those out leaves exactly the real score changes.
      *
-     * Note [getScoringEventCount] is not a usable substitute — it counts 0 taps
+     * Note [getScoringEventCount] is not a usable substitute - it counts 0 taps
      * too, which is why the old guard let pointless sessions into history.
      */
     fun hasRecordedScore(): Boolean = globalEvents.any {

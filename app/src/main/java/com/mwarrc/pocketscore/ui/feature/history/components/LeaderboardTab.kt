@@ -1,33 +1,43 @@
 package com.mwarrc.pocketscore.ui.feature.history.components
 
-import androidx.compose.animation.*
-import androidx.compose.animation.core.*
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.EmojiEvents
 import androidx.compose.material.icons.filled.ExpandMore
+import androidx.compose.material.icons.filled.Leaderboard
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import com.mwarrc.pocketscore.domain.model.AppSettings
 import com.mwarrc.pocketscore.domain.model.GameHistory
+import com.mwarrc.pocketscore.domain.model.GameState
 import java.text.SimpleDateFormat
-import java.util.*
+import java.util.Date
+import java.util.Locale
+import kotlin.math.absoluteValue
 
 /**
  * Data model for an entry in the leaderboard.
@@ -46,24 +56,18 @@ data class LeaderboardEntry(
     val worstScore: Int
 )
 
-private val GoldColor   = Color(0xFFFFBF00)
-private val SilverColor = Color(0xFF9EABB5)
-private val BronzeColor = Color(0xFFCD7F52)
-
-private fun podiumColor(rank: Int, fallback: Color) = when (rank) {
-    1    -> GoldColor
-    2    -> SilverColor
-    3    -> BronzeColor
-    else -> fallback
-}
-
 /**
- * Tab component showing player rankings based on match history.
+ * Tab component showing player rankings based on match history,
+ * restyled to match the larger Friends / Matches tab design.
  *
  * Features:
- * - Time-based filtering (Today, Week, Month, All-Time)
- * - Top-3 podium hero section
- * - Ranked rows (4+) with tap-to-expand stats
+ * - Period filters using tonal chips
+ * - Clean top-3 podium without emojis or gradients
+ * - Ranked cards (4+) with avatar badges and tap-to-expand stats
+ * - Polished empty state
+ *
+ * @param history Complete game history used to calculate standings.
+ * @param settings App settings, including players hidden from the board.
  */
 @Composable
 fun LeaderboardTab(
@@ -73,17 +77,28 @@ fun LeaderboardTab(
     var selectedFilter by remember { mutableStateOf("All") }
     val filters = listOf("All", "Today", "Week", "Month")
 
-    val leaderboard = remember(history, selectedFilter, settings.hiddenPlayers) {
-        calculateLeaderboard(history, selectedFilter, settings.hiddenPlayers)
+    val filteredGames = remember(history, selectedFilter) {
+        filterGames(history, selectedFilter)
+    }
+    val leaderboard = remember(filteredGames, settings.hiddenPlayers) {
+        calculateLeaderboard(filteredGames, settings.hiddenPlayers)
     }
 
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(top = 16.dp, start = 16.dp, end = 16.dp, bottom = 120.dp),
+        contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 6.dp, bottom = 120.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
-        // ── Filter Chips ────────────────────────────────────────────────────
-        item {
+        // ── Summary header ──
+        item(key = "lb_summary") {
+            LeaderboardSummaryHeader(
+                playerCount = leaderboard.size,
+                matchCount = filteredGames.size
+            )
+        }
+
+        // ── Period filters ──
+        item(key = "lb_filters") {
             LeaderboardFilterChips(
                 filters = filters,
                 selected = selectedFilter,
@@ -92,47 +107,81 @@ fun LeaderboardTab(
         }
 
         if (leaderboard.isEmpty()) {
-            item { EmptyLeaderboardState() }
+            item(key = "lb_empty") { EmptyLeaderboardState() }
         } else {
-            // ── Podium (top 3) ───────────────────────────────────────────────
+            // ── Top 3 podium ──
             if (leaderboard.size >= 2) {
-                item {
-                    Spacer(Modifier.height(8.dp))
-                    PodiumSection(leaderboard.take(minOf(3, leaderboard.size)))
-                    Spacer(Modifier.height(8.dp))
+                item(key = "lb_podium") {
+                    PodiumSection(leaderboard.take(3))
                 }
             }
 
-            // ── Rest of the list (rank 4+) ───────────────────────────────────
+            // ── Remaining ranks ──
             val restStartRank = if (leaderboard.size >= 2) 3 else 0
-            val restList = if (leaderboard.size > restStartRank) leaderboard.drop(restStartRank) else emptyList()
+            val restList = if (leaderboard.size > restStartRank) {
+                leaderboard.drop(restStartRank)
+            } else {
+                emptyList()
+            }
 
             if (restList.isNotEmpty()) {
-                item {
-                    Text(
-                        text = "Rankings",
-                        style = MaterialTheme.typography.labelMedium,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.padding(start = 4.dp, bottom = 4.dp)
-                    )
+                item(key = "lb_rest_header") {
+                    RankingsHeader(count = restList.size)
                 }
                 itemsIndexed(
                     items = restList,
-                    key = { i, e -> "${selectedFilter}_rest_${e.name}" }
-                ) { i, entry ->
-                    RankedRow(rank = restStartRank + i + 1, entry = entry)
+                    key = { _, entry -> "${selectedFilter}_rest_${entry.name}" }
+                ) { index, entry ->
+                    RankedRow(rank = restStartRank + index + 1, entry = entry)
                 }
             } else if (leaderboard.size == 1) {
-                item { RankedRow(rank = 1, entry = leaderboard.first()) }
+                item(key = "lb_single") {
+                    RankedRow(rank = 1, entry = leaderboard.first())
+                }
             }
         }
     }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Filter chips
-// ─────────────────────────────────────────────────────────────────────────────
+// ────────
+// Summary header
+// ────────
+
+@Composable
+private fun LeaderboardSummaryHeader(
+    playerCount: Int,
+    matchCount: Int
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 4.dp, vertical = 2.dp),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(
+            text = buildString {
+                append(playerCount)
+                append(if (playerCount == 1) " player" else " players")
+                append(" • ")
+                append(matchCount)
+                append(if (matchCount == 1) " match" else " matches")
+            },
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            maxLines = 1
+        )
+        Text(
+            text = "Ranked by wins",
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f)
+        )
+    }
+}
+
+// ────────
+// Period filter chips
+// ────────
 
 @Composable
 private fun LeaderboardFilterChips(
@@ -140,31 +189,45 @@ private fun LeaderboardFilterChips(
     selected: String,
     onSelect: (String) -> Unit
 ) {
-    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .horizontalScroll(rememberScrollState()),
+        horizontalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
         filters.forEach { label ->
             val isSelected = selected == label
             Surface(
                 onClick = { onSelect(label) },
                 shape = CircleShape,
-                color = if (isSelected) MaterialTheme.colorScheme.primary
-                        else MaterialTheme.colorScheme.surfaceContainerHigh
+                color = if (isSelected) {
+                    MaterialTheme.colorScheme.secondaryContainer
+                } else {
+                    Color.Transparent
+                },
+                border = if (!isSelected) {
+                    BorderStroke(1.dp, MaterialTheme.colorScheme.outline)
+                } else null
             ) {
                 Text(
                     text = label,
                     style = MaterialTheme.typography.labelMedium,
                     fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
-                    color = if (isSelected) MaterialTheme.colorScheme.onPrimary
-                            else MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
+                    color = if (isSelected) {
+                        MaterialTheme.colorScheme.onSecondaryContainer
+                    } else {
+                        MaterialTheme.colorScheme.onSurfaceVariant
+                    },
+                    modifier = Modifier.padding(horizontal = 18.dp, vertical = 9.dp)
                 )
             }
         }
     }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Podium section — top 3 in classic 2nd | 1st | 3rd layout
-// ─────────────────────────────────────────────────────────────────────────────
+// ────────
+// Podium section - top 3 in classic 2nd | 1st | 3rd layout
+// ────────
 
 @Composable
 private fun PodiumSection(top: List<LeaderboardEntry>) {
@@ -175,84 +238,60 @@ private fun PodiumSection(top: List<LeaderboardEntry>) {
         if (top.size >= 3) add(IndexedValue(2, top[2]))
     }
 
-    Row(
+    Surface(
         modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(10.dp),
-        verticalAlignment = Alignment.Bottom
+        shape = RoundedCornerShape(24.dp),
+        color = MaterialTheme.colorScheme.surfaceContainerLow,
+        tonalElevation = 1.dp
     ) {
-        ordered.forEach { (idx, entry) ->
-            val rank         = idx + 1
-            val podiumHeight = when (rank) { 1 -> 80.dp; 2 -> 60.dp; else -> 50.dp }
-            val avatarSize   = when (rank) { 1 -> 56.dp; 2 -> 48.dp; else -> 44.dp }
-            val color        = podiumColor(rank, MaterialTheme.colorScheme.primary)
-
-            Column(
-                modifier = Modifier.weight(1f),
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.Bottom
+        Column(modifier = Modifier.padding(16.dp)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                // Medal emoji
-                Text(
-                    text = when (rank) { 1 -> "👑"; 2 -> "🥈"; else -> "🥉" },
-                    fontSize = if (rank == 1) 22.sp else 18.sp
-                )
-                Spacer(Modifier.height(4.dp))
-
-                // Initial avatar
-                Box(
-                    modifier = Modifier
-                        .size(avatarSize)
-                        .clip(CircleShape)
-                        .background(color.copy(alpha = 0.15f)),
-                    contentAlignment = Alignment.Center
-                ) {
+                Column(modifier = Modifier.weight(1f)) {
                     Text(
-                        text = entry.name.take(1).uppercase(),
-                        style = MaterialTheme.typography.titleLarge,
-                        fontWeight = FontWeight.Black,
-                        color = color
+                        text = "Top performers",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.SemiBold,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                    Text(
+                        text = "Ranked by wins, then win rate",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
-                Spacer(Modifier.height(6.dp))
 
-                // Name
-                Text(
-                    text = entry.name,
-                    style = MaterialTheme.typography.labelMedium,
-                    fontWeight = FontWeight.SemiBold,
-                    color = MaterialTheme.colorScheme.onSurface,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                    textAlign = TextAlign.Center
-                )
-
-                // Win count
-                Text(
-                    text = "${entry.wins}W · ${entry.winRate.toInt()}%",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    textAlign = TextAlign.Center
-                )
-                Spacer(Modifier.height(8.dp))
-
-                // Podium block with gradient
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(podiumHeight)
-                        .clip(RoundedCornerShape(topStart = 10.dp, topEnd = 10.dp))
-                        .background(
-                            Brush.verticalGradient(
-                                listOf(color.copy(alpha = 0.35f), color.copy(alpha = 0.12f))
-                            )
-                        ),
-                    contentAlignment = Alignment.Center
+                Surface(
+                    shape = CircleShape,
+                    color = MaterialTheme.colorScheme.primaryContainer,
+                    modifier = Modifier.size(40.dp)
                 ) {
-                    Text(
-                        text = "#$rank",
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Black,
-                        color = color
+                    Box(contentAlignment = Alignment.Center) {
+                        Icon(
+                            imageVector = Icons.Default.Leaderboard,
+                            contentDescription = null,
+                            modifier = Modifier.size(20.dp),
+                            tint = MaterialTheme.colorScheme.onPrimaryContainer
+                        )
+                    }
+                }
+            }
+
+            Spacer(Modifier.height(18.dp))
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.Bottom
+            ) {
+                ordered.forEach { (index, entry) ->
+                    PodiumColumn(
+                        rank = index + 1,
+                        entry = entry,
+                        modifier = Modifier.weight(1f)
                     )
                 }
             }
@@ -260,9 +299,91 @@ private fun PodiumSection(top: List<LeaderboardEntry>) {
     }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Ranked row (rank 4+) — tap to expand
-// ─────────────────────────────────────────────────────────────────────────────
+@Composable
+private fun PodiumColumn(
+    rank: Int,
+    entry: LeaderboardEntry,
+    modifier: Modifier = Modifier
+) {
+    val avatarSize = when (rank) {
+        1 -> 72.dp
+        2 -> 60.dp
+        else -> 56.dp
+    }
+    val (containerColor, contentColor) = when (rank) {
+        1 -> MaterialTheme.colorScheme.primaryContainer to MaterialTheme.colorScheme.onPrimaryContainer
+        2 -> MaterialTheme.colorScheme.tertiaryContainer to MaterialTheme.colorScheme.onTertiaryContainer
+        else -> MaterialTheme.colorScheme.secondaryContainer to MaterialTheme.colorScheme.onSecondaryContainer
+    }
+
+    Column(
+        modifier = modifier,
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        // Avatars align along their baseline so names line up
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(78.dp),
+            contentAlignment = Alignment.BottomCenter
+        ) {
+            Box {
+                Surface(
+                    shape = CircleShape,
+                    color = containerColor,
+                    modifier = Modifier.size(avatarSize)
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Text(
+                            text = entry.name.firstOrNull()?.uppercase() ?: "?",
+                            style = if (rank == 1) {
+                                MaterialTheme.typography.headlineSmall
+                            } else {
+                                MaterialTheme.typography.titleLarge
+                            },
+                            fontWeight = FontWeight.Bold,
+                            color = contentColor
+                        )
+                    }
+                }
+
+                RankBadge(
+                    rank = rank,
+                    isTopRank = rank == 1,
+                    borderColor = MaterialTheme.colorScheme.surfaceContainerLow,
+                    modifier = Modifier
+                        .align(Alignment.TopStart)
+                        .offset(x = (-5).dp, y = (-5).dp)
+                )
+            }
+        }
+
+        Spacer(Modifier.height(10.dp))
+
+        Text(
+            text = entry.name,
+            style = MaterialTheme.typography.titleSmall,
+            fontWeight = FontWeight.SemiBold,
+            color = MaterialTheme.colorScheme.onSurface,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            textAlign = TextAlign.Center
+        )
+
+        Spacer(Modifier.height(2.dp))
+
+        Text(
+            text = "${entry.wins}W • ${entry.winRate.toInt()}%",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            textAlign = TextAlign.Center
+        )
+    }
+}
+
+// ────────
+// Ranked row (rank 4+) - tap to expand
+// ────────
 
 @Composable
 private fun RankedRow(rank: Int, entry: LeaderboardEntry) {
@@ -273,85 +394,103 @@ private fun RankedRow(rank: Int, entry: LeaderboardEntry) {
         label = "lb_chevron_$rank"
     )
 
+    val colorCycleIndex = entry.name.hashCode().absoluteValue % 3
+    val (avatarContainer, avatarOnContainer) = when (colorCycleIndex) {
+        0 -> MaterialTheme.colorScheme.primaryContainer to MaterialTheme.colorScheme.onPrimaryContainer
+        1 -> MaterialTheme.colorScheme.tertiaryContainer to MaterialTheme.colorScheme.onTertiaryContainer
+        else -> MaterialTheme.colorScheme.secondaryContainer to MaterialTheme.colorScheme.onSecondaryContainer
+    }
+
     Surface(
         onClick = { expanded = !expanded },
-        shape = RoundedCornerShape(16.dp),
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(24.dp),
         color = MaterialTheme.colorScheme.surfaceContainerLow,
-        modifier = Modifier.fillMaxWidth()
+        tonalElevation = 1.dp
     ) {
-        Column(modifier = Modifier.padding(horizontal = 14.dp, vertical = 12.dp)) {
+        Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 14.dp)) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(14.dp)
             ) {
-                // Rank number
-                Text(
-                    text = "$rank",
-                    style = MaterialTheme.typography.titleSmall,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.width(28.dp),
-                    textAlign = TextAlign.Center
-                )
+                // Avatar with rank badge
+                Box {
+                    Surface(
+                        shape = CircleShape,
+                        color = avatarContainer,
+                        modifier = Modifier.size(48.dp)
+                    ) {
+                        Box(contentAlignment = Alignment.Center) {
+                            Text(
+                                text = entry.name.firstOrNull()?.uppercase() ?: "?",
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Bold,
+                                color = avatarOnContainer
+                            )
+                        }
+                    }
 
-                Spacer(Modifier.width(10.dp))
-
-                // Initial avatar
-                Box(
-                    modifier = Modifier
-                        .size(36.dp)
-                        .clip(CircleShape)
-                        .background(MaterialTheme.colorScheme.surfaceContainerHighest),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text(
-                        text = entry.name.take(1).uppercase(),
-                        style = MaterialTheme.typography.labelLarge,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.primary
+                    RankBadge(
+                        rank = rank,
+                        isTopRank = false,
+                        borderColor = MaterialTheme.colorScheme.surfaceContainerLow,
+                        modifier = Modifier
+                            .align(Alignment.TopStart)
+                            .offset(x = (-5).dp, y = (-5).dp)
                     )
                 }
 
-                Spacer(Modifier.width(12.dp))
-
-                // Name + games
+                // Name and meta
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
                         text = entry.name,
-                        style = MaterialTheme.typography.bodyMedium,
+                        style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.SemiBold,
                         color = MaterialTheme.colorScheme.onSurface,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )
+                    Spacer(Modifier.height(2.dp))
                     Text(
-                        text = "${entry.gamesPlayed} games",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                        text = "${entry.gamesPlayed} games • ${entry.winRate.toInt()}% win rate",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
                     )
                 }
 
-                // Wins badge
+                // Wins chip
                 Surface(
                     shape = RoundedCornerShape(8.dp),
                     color = MaterialTheme.colorScheme.primaryContainer
                 ) {
-                    Text(
-                        text = "${entry.wins}W",
-                        style = MaterialTheme.typography.labelSmall,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onPrimaryContainer,
-                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
-                    )
+                    Row(
+                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.EmojiEvents,
+                            contentDescription = null,
+                            modifier = Modifier.size(16.dp),
+                            tint = MaterialTheme.colorScheme.onPrimaryContainer
+                        )
+                        Text(
+                            text = "${entry.wins}W",
+                            style = MaterialTheme.typography.labelSmall,
+                            fontWeight = FontWeight.Medium,
+                            color = MaterialTheme.colorScheme.onPrimaryContainer
+                        )
+                    }
                 }
-
-                Spacer(Modifier.width(6.dp))
 
                 Icon(
                     imageVector = Icons.Default.ExpandMore,
-                    contentDescription = null,
+                    contentDescription = if (expanded) "Collapse" else "Expand",
                     modifier = Modifier
-                        .size(18.dp)
+                        .size(24.dp)
                         .graphicsLayer { rotationZ = chevronRotation },
                     tint = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -361,11 +500,11 @@ private fun RankedRow(rank: Int, entry: LeaderboardEntry) {
             AnimatedVisibility(
                 visible = expanded,
                 enter = fadeIn(tween(180)) + expandVertically(tween(220)),
-                exit  = fadeOut(tween(130)) + shrinkVertically(tween(180))
+                exit = fadeOut(tween(130)) + shrinkVertically(tween(180))
             ) {
                 Column(modifier = Modifier.padding(top = 12.dp)) {
                     HorizontalDivider(
-                        color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f)
+                        color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
                     )
                     Spacer(Modifier.height(12.dp))
                     InlineStatGrid(entry)
@@ -375,9 +514,44 @@ private fun RankedRow(rank: Int, entry: LeaderboardEntry) {
     }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
+/**
+ * Small circular rank badge used on avatars.
+ */
+@Composable
+private fun RankBadge(
+    rank: Int,
+    isTopRank: Boolean,
+    borderColor: Color,
+    modifier: Modifier = Modifier
+) {
+    Surface(
+        shape = CircleShape,
+        color = if (isTopRank) {
+            MaterialTheme.colorScheme.primary
+        } else {
+            MaterialTheme.colorScheme.surfaceContainerHighest
+        },
+        border = BorderStroke(2.dp, borderColor),
+        modifier = modifier.size(24.dp)
+    ) {
+        Box(contentAlignment = Alignment.Center) {
+            Text(
+                text = "$rank",
+                style = MaterialTheme.typography.labelSmall,
+                fontWeight = FontWeight.Bold,
+                color = if (isTopRank) {
+                    MaterialTheme.colorScheme.onPrimary
+                } else {
+                    MaterialTheme.colorScheme.onSurfaceVariant
+                }
+            )
+        }
+    }
+}
+
+// ────────
 // Inline stat grid shown when a row is expanded
-// ─────────────────────────────────────────────────────────────────────────────
+// ────────
 
 @Composable
 private fun InlineStatGrid(entry: LeaderboardEntry) {
@@ -388,10 +562,10 @@ private fun InlineStatGrid(entry: LeaderboardEntry) {
         horizontalArrangement = Arrangement.spacedBy(10.dp)
     ) {
         Text(
-            text = "Win Rate",
-            style = MaterialTheme.typography.labelSmall,
+            text = "Win rate",
+            style = MaterialTheme.typography.labelMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.width(58.dp)
+            modifier = Modifier.width(64.dp)
         )
         val animatedRate by animateFloatAsState(
             targetValue = (entry.winRate / 100f).coerceIn(0f, 1f),
@@ -401,7 +575,7 @@ private fun InlineStatGrid(entry: LeaderboardEntry) {
         Box(
             modifier = Modifier
                 .weight(1f)
-                .height(6.dp)
+                .height(8.dp)
                 .clip(CircleShape)
                 .background(MaterialTheme.colorScheme.surfaceContainerHighest)
         ) {
@@ -415,100 +589,160 @@ private fun InlineStatGrid(entry: LeaderboardEntry) {
         }
         Text(
             text = "${entry.winRate.toInt()}%",
-            style = MaterialTheme.typography.labelSmall,
+            style = MaterialTheme.typography.labelMedium,
             fontWeight = FontWeight.Bold,
             color = MaterialTheme.colorScheme.primary,
-            modifier = Modifier.width(34.dp),
+            modifier = Modifier.width(36.dp),
             textAlign = TextAlign.End
         )
     }
 
     Spacer(Modifier.height(12.dp))
 
-    // 4-column mini stats
+    // Four compact stat tiles
     Row(
         modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.SpaceBetween
+        horizontalArrangement = Arrangement.spacedBy(8.dp)
     ) {
-        MiniStat(label = "Net Pts",  value = "${entry.totalPoints}")
-        MiniStat(label = "Best",     value = "${entry.bestScore}")
-        MiniStat(label = "Worst",    value = "${entry.worstScore}")
-        MiniStat(label = "Avg",      value = String.format(Locale.US, "%.1f", entry.avgScore))
+        MiniStatTile(label = "Net", value = "${entry.totalPoints}", modifier = Modifier.weight(1f))
+        MiniStatTile(label = "Best", value = "${entry.bestScore}", modifier = Modifier.weight(1f))
+        MiniStatTile(label = "Worst", value = "${entry.worstScore}", modifier = Modifier.weight(1f))
+        MiniStatTile(
+            label = "Avg",
+            value = String.format(Locale.US, "%.1f", entry.avgScore),
+            modifier = Modifier.weight(1f)
+        )
     }
 }
 
 @Composable
-private fun RowScope.MiniStat(label: String, value: String) {
-    Column(
-        modifier = Modifier.weight(1f),
-        horizontalAlignment = Alignment.CenterHorizontally
+private fun MiniStatTile(
+    label: String,
+    value: String,
+    modifier: Modifier = Modifier
+) {
+    Surface(
+        modifier = modifier,
+        shape = RoundedCornerShape(14.dp),
+        color = MaterialTheme.colorScheme.surfaceContainerHighest.copy(alpha = 0.4f)
+    ) {
+        Column(
+            modifier = Modifier.padding(vertical = 10.dp, horizontal = 6.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Text(
+                text = value,
+                style = MaterialTheme.typography.titleSmall,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onSurface,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+            Spacer(Modifier.height(2.dp))
+            Text(
+                text = label,
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+    }
+}
+
+// ────────
+// Rankings header for rank 4+
+// ────────
+
+@Composable
+private fun RankingsHeader(count: Int) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 4.dp)
+            .padding(top = 8.dp, bottom = 2.dp),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
     ) {
         Text(
-            text = value,
+            text = "Rankings",
             style = MaterialTheme.typography.titleSmall,
             fontWeight = FontWeight.Bold,
             color = MaterialTheme.colorScheme.onSurface
         )
-        Text(
-            text = label,
-            style = MaterialTheme.typography.labelSmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
+        Surface(
+            shape = CircleShape,
+            color = MaterialTheme.colorScheme.surfaceContainerHighest.copy(alpha = 0.6f)
+        ) {
+            Text(
+                text = if (count == 1) "1 player" else "$count players",
+                style = MaterialTheme.typography.labelSmall,
+                fontWeight = FontWeight.SemiBold,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(horizontal = 10.dp, vertical = 3.dp)
+            )
+        }
     }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
+// ────────
 // Empty state
-// ─────────────────────────────────────────────────────────────────────────────
+// ────────
 
 @Composable
 private fun EmptyLeaderboardState() {
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(top = 80.dp),
+            .padding(top = 64.dp, bottom = 32.dp),
         contentAlignment = Alignment.Center
     ) {
         Column(
             horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(8.dp)
+            modifier = Modifier.padding(horizontal = 24.dp)
         ) {
-            Icon(
-                imageVector = Icons.Default.EmojiEvents,
-                contentDescription = null,
-                modifier = Modifier.size(56.dp),
-                tint = MaterialTheme.colorScheme.outlineVariant
-            )
+            Surface(
+                shape = CircleShape,
+                color = MaterialTheme.colorScheme.surfaceContainerHigh,
+                modifier = Modifier.size(100.dp)
+            ) {
+                Box(contentAlignment = Alignment.Center) {
+                    Icon(
+                        imageVector = Icons.Default.Leaderboard,
+                        contentDescription = null,
+                        modifier = Modifier.size(48.dp),
+                        tint = MaterialTheme.colorScheme.primary
+                    )
+                }
+            }
+
+            Spacer(Modifier.height(24.dp))
+
             Text(
-                text = "No games yet",
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.SemiBold,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
+                text = "No rankings yet",
+                style = MaterialTheme.typography.headlineSmall,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onSurface,
+                textAlign = TextAlign.Center
             )
+
+            Spacer(Modifier.height(8.dp))
+
             Text(
-                text = "Play some matches to see the rankings",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
+                text = "Play a match to start building the leaderboard.",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                textAlign = TextAlign.Center
             )
         }
     }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Data calculation (unchanged logic)
-// ─────────────────────────────────────────────────────────────────────────────
+// ────────
+// Data calculation
+// ────────
 
-private fun calculateLeaderboard(
-    history: GameHistory,
-    filter: String,
-    hiddenPlayers: List<String>
-): List<LeaderboardEntry> {
-    val statsMap    = mutableMapOf<String, MutableList<Int>>()
-    val totalWins   = mutableMapOf<String, Int>()
-    val totalLosses = mutableMapOf<String, Int>()
-    val now         = System.currentTimeMillis()
-
-    val filteredGames = history.pastGames.filter { game ->
+private fun filterGames(history: GameHistory, filter: String): List<GameState> {
+    val now = System.currentTimeMillis()
+    return history.pastGames.filter { game ->
         if (game.isArchived) return@filter false
         val gameTime = game.endTime ?: game.startTime
         when (filter) {
@@ -516,54 +750,69 @@ private fun calculateLeaderboard(
                 val sdf = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
                 sdf.format(Date(gameTime)) == sdf.format(Date(now))
             }
-            "Week"  -> gameTime >= now - 7L  * 24 * 60 * 60 * 1000L
+            "Week" -> gameTime >= now - 7L * 24 * 60 * 60 * 1000L
             "Month" -> gameTime >= now - 30L * 24 * 60 * 60 * 1000L
-            else    -> true
+            else -> true
         }
     }
+}
 
-    filteredGames.forEach { game ->
+private fun calculateLeaderboard(
+    games: List<GameState>,
+    hiddenPlayers: List<String>
+): List<LeaderboardEntry> {
+    val statsMap = mutableMapOf<String, MutableList<Int>>()
+    val totalWins = mutableMapOf<String, Int>()
+    val totalLosses = mutableMapOf<String, Int>()
+
+    games.forEach { game ->
         val maxScore = if (game.players.isNotEmpty()) game.players.maxOf { it.score } else 0
-        val winners  = if (game.isFinalized && (maxScore > 0 || game.players.any { it.score != 0 })) {
+        val winners = if (game.isFinalized && (maxScore > 0 || game.players.any { it.score != 0 })) {
             game.players.filter { it.score == maxScore }.map { it.name.trim().lowercase() }.toSet()
-        } else emptySet()
+        } else {
+            emptySet()
+        }
 
         game.players.forEach { player ->
             val name = player.name.trim()
             if (name.isNotEmpty() && name !in hiddenPlayers) {
                 val key = statsMap.keys.find { it.equals(name, ignoreCase = true) } ?: name
                 statsMap.getOrPut(key) { mutableListOf() }.add(player.score)
-                if (name.lowercase() in winners) totalWins[key]   = (totalWins[key]   ?: 0) + 1
-                else                             totalLosses[key] = (totalLosses[key] ?: 0) + 1
+                if (name.lowercase() in winners) {
+                    totalWins[key] = (totalWins[key] ?: 0) + 1
+                } else {
+                    totalLosses[key] = (totalLosses[key] ?: 0) + 1
+                }
             }
         }
     }
 
     return statsMap.map { (name, scores) ->
-        val wins   = totalWins[name]   ?: 0
+        val wins = totalWins[name] ?: 0
         val losses = totalLosses[name] ?: 0
         val played = wins + losses
 
         val sorted = scores.sorted()
-        val median = if (sorted.isEmpty()) 0f else {
-            if (sorted.size % 2 == 0)
-                ((sorted[sorted.size / 2 - 1] + sorted[sorted.size / 2]) / 2.0).toFloat()
-            else
-                sorted[sorted.size / 2].toFloat()
+        val median = if (sorted.isEmpty()) {
+            0f
+        } else if (sorted.size % 2 == 0) {
+            ((sorted[sorted.size / 2 - 1] + sorted[sorted.size / 2]) / 2.0).toFloat()
+        } else {
+            sorted[sorted.size / 2].toFloat()
         }
 
         LeaderboardEntry(
-            name           = name,
-            wins           = wins,
-            losses         = losses,
-            gamesPlayed    = played,
-            winRate        = if (played > 0) (wins.toFloat() / played) * 100f else 0f,
-            totalPoints    = scores.sum(),
+            name = name,
+            wins = wins,
+            losses = losses,
+            gamesPlayed = played,
+            winRate = if (played > 0) (wins.toFloat() / played) * 100f else 0f,
+            totalPoints = scores.sum(),
             positivePoints = scores.filter { it > 0 }.sum(),
             negativePoints = scores.filter { it < 0 }.sum(),
-            avgScore       = median,
-            bestScore      = scores.maxOrNull() ?: 0,
-            worstScore     = scores.minOrNull() ?: 0
+            avgScore = median,
+            bestScore = scores.maxOrNull() ?: 0,
+            worstScore = scores.minOrNull() ?: 0
         )
     }.sortedWith(
         compareByDescending<LeaderboardEntry> { it.wins }
@@ -571,4 +820,3 @@ private fun calculateLeaderboard(
             .thenByDescending { it.totalPoints }
     )
 }
-

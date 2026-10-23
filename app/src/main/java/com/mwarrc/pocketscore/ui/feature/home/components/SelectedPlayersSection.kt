@@ -102,7 +102,7 @@ private fun ActivePlayerChip(
                 Spacer(Modifier.width(4.dp))
             }
 
-            // Sequential Order Badge — matches PlayerTile's identity slot
+            // Sequential Order Badge - matches PlayerTile's identity slot
             Surface(
                 shape = CircleShape,
                 color = colorScheme.primary,
