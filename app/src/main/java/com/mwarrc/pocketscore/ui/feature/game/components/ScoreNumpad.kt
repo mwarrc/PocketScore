@@ -75,10 +75,14 @@ fun ScoreNumpad(
     val scope = rememberCoroutineScope()
     val haptic = LocalHapticFeedback.current
 
-    val buttonHeight = when (settings.keyboardHeight) {
-        KeyboardHeight.COMPACT -> 48.dp
-        KeyboardHeight.MEDIUM -> 56.dp
-        KeyboardHeight.LARGE -> 64.dp
+    val buttonHeight = if (settings.keyboardButtonHeight > 0f) {
+        settings.keyboardButtonHeight.dp
+    } else {
+        when (settings.keyboardHeight) {
+            KeyboardHeight.COMPACT -> 48.dp
+            KeyboardHeight.MEDIUM -> 56.dp
+            KeyboardHeight.LARGE -> 64.dp
+        }
     }
 
     Surface(
@@ -419,12 +423,33 @@ private fun KeyboardSettingsSheet(
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 KeyboardHeight.entries.forEach { height ->
                     FilterChip(
-                        selected = settings.keyboardHeight == height,
-                        onClick = { onUpdateSettings { it.copy(keyboardHeight = height) } },
+                        selected = settings.keyboardHeight == height && settings.keyboardButtonHeight <= 0f,
+                        onClick = {
+                            onUpdateSettings { current ->
+                                val dp = when (height) {
+                                    KeyboardHeight.COMPACT -> 48f
+                                    KeyboardHeight.MEDIUM -> 56f
+                                    KeyboardHeight.LARGE -> 64f
+                                }
+                                current.copy(keyboardHeight = height, keyboardButtonHeight = dp)
+                            }
+                        },
                         label = { Text(height.name.lowercase().replaceFirstChar { it.uppercase() }) }
                     )
                 }
             }
+
+            Spacer(Modifier.height(16.dp))
+
+            Text("Custom Height: ${settings.keyboardButtonHeight.toInt()}dp", style = MaterialTheme.typography.labelLarge)
+            Slider(
+                value = if (settings.keyboardButtonHeight > 0f) settings.keyboardButtonHeight else 56f,
+                onValueChange = { newHeight ->
+                    onUpdateSettings { it.copy(keyboardButtonHeight = newHeight) }
+                },
+                valueRange = 48f..96f,
+                steps = 23
+            )
 
             Spacer(Modifier.height(24.dp))
 

@@ -29,34 +29,68 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
+/**
+ * Legacy DataStore instance for this class.
+ *
+ * Note: the app now uses [com.mwarrc.pocketscore.data.local.di.DataStoreModule].
+ * This duplicate is kept for compatibility with code paths that might instantiate
+ * this class directly, but the active DI graph should use
+ * [GameRepositoryImplRoom].
+ */
 private val Context.dataStore: DataStore<Preferences> by preferencesDataStore(name = "game_prefs")
 
 /**
- * Implementation of GameRepository using DataStore for persistence.
- * 
+ * Legacy implementation of [GameRepository] backed by DataStore + JSON.
+ *
  * Features:
  * - Reactive data flows using DataStore
- * - JSON serialization for complex objects
- * - Multi-location snapshot backups
- * - Smart data merging with deduplication
+ * - JSON serialization for complex objects ([GameState], [GameHistory], [AppSettings])
+ * - Multi-location snapshot backups (internal, SAF-linked folder, MediaStore,
+ *   and Downloads on Android Q+)
+ * - Smart data merging with deduplication (by ID for games, case-insensitive
+ *   for players)
  * - Guest mode support
- * 
- * @property context Application context
+ *
+ * This implementation has been superseded by [GameRepositoryImplRoom], which
+ * uses normalised Room tables for better performance, referential integrity
+ * and efficient partial updates. It remains in the tree for reference and for
+ * any code that still depends on it; it is not expected to be wired into the
+ * current production DI graph.
+ *
+ * @property context Application context.
  */
 class GameRepositoryImpl(private val context: Context) : GameRepository {
 
     private companion object {
+        /** Logcat tag for diagnostics. */
         const val TAG = "GameRepositoryImpl"
-        const val MAX_HISTORY_SIZE = 1000000 // Effectively "as many as possible" for standard use
-        const val MAX_MERGED_HISTORY_SIZE = 1500000 // Buffer for large migration batches
-        const val MAX_SAVED_PLAYERS = 200000 // Massive roster support
+
+        /**
+         * Soft cap for history size when archiving. Effectively unlimited for
+         * normal play, but keeps JSON blobs from growing unboundedly.
+         */
+        const val MAX_HISTORY_SIZE = 1000000
+
+        /** Larger buffer used during merge/import to avoid dropping games. */
+        const val MAX_MERGED_HISTORY_SIZE = 1500000
+
+        /** Cap for saved players in the legacy layout. */
+        const val MAX_SAVED_PLAYERS = 200000
+
+        /** Below this count the UI may hide the identity tip. */
         const val GAMES_TO_HIDE_TIP = 5
     }
 
+    /** DataStore key for the active game blob. */
     private val gameStateKey = stringPreferencesKey("game_state")
+
+    /** DataStore key for the history blob. */
     private val gameHistoryKey = stringPreferencesKey("game_history")
+
+    /** DataStore key for serialized [AppSettings]. */
     private val appSettingsKey = stringPreferencesKey("app_settings")
 
+    /** JSON configuration shared by serialization/deserialization. */
     private val json = Json {
         ignoreUnknownKeys = true
         coerceInputValues = true
@@ -132,15 +166,15 @@ class GameRepositoryImpl(private val context: Context) : GameRepository {
         try {
             val currentHistory = gameHistory.first()
             val currentSettings = appSettings.first()
-            
+
             // Save the record when:
             //  - the caller explicitly forces a save (saveOverride), OR
             //  - this is a pause (always preserve paused sessions), OR
             //  - we're NOT in guest mode, or guest mode has guestSaveRecords on
             val shouldSaveRecord = saveOverride ||
-                isPause ||
-                (!currentSettings.isGuestSession || currentSettings.guestSaveRecords)
-            
+                    isPause ||
+                    (!currentSettings.isGuestSession || currentSettings.guestSaveRecords)
+
             val updatedHistory = if (shouldSaveRecord) {
                 val archivedGame = gameState.copy(
                     endTime = System.currentTimeMillis(),
@@ -160,7 +194,7 @@ class GameRepositoryImpl(private val context: Context) : GameRepository {
             } else {
                 currentHistory
             }
-            
+
             // Only increment games played count for finalized games, not pauses
             if (!isPause) {
                 val newGamesPlayedCount = currentSettings.gamesPlayedCount + 1
@@ -168,7 +202,7 @@ class GameRepositoryImpl(private val context: Context) : GameRepository {
                     gamesPlayedCount = newGamesPlayedCount,
                     showIdentityTip = newGamesPlayedCount < GAMES_TO_HIDE_TIP
                 )
-                
+
                 context.dataStore.edit { preferences ->
                     if (shouldSaveRecord) {
                         preferences[gameHistoryKey] = json.encodeToString(updatedHistory)
@@ -194,7 +228,7 @@ class GameRepositoryImpl(private val context: Context) : GameRepository {
             val updatedHistory = currentHistory.copy(
                 pastGames = currentHistory.pastGames.filter { it.id != gameId }
             )
-            
+
             context.dataStore.edit { preferences ->
                 preferences[gameHistoryKey] = json.encodeToString(updatedHistory)
             }
@@ -212,7 +246,7 @@ class GameRepositoryImpl(private val context: Context) : GameRepository {
             val updatedHistory = currentHistory.copy(
                 pastGames = currentHistory.pastGames.filter { it.id !in idSet }
             )
-            
+
             context.dataStore.edit { preferences ->
                 preferences[gameHistoryKey] = json.encodeToString(updatedHistory)
             }
@@ -236,11 +270,11 @@ class GameRepositoryImpl(private val context: Context) : GameRepository {
         try {
             val currentHistory = gameHistory.first()
             val updatedHistory = currentHistory.copy(
-                pastGames = currentHistory.pastGames.map { 
+                pastGames = currentHistory.pastGames.map {
                     if (it.id == game.id) game else it
                 }
             )
-            
+
             context.dataStore.edit { preferences ->
                 preferences[gameHistoryKey] = json.encodeToString(updatedHistory)
             }
@@ -266,7 +300,7 @@ class GameRepositoryImpl(private val context: Context) : GameRepository {
         try {
             val history = gameHistory.first()
             val settings = appSettings.first()
-            
+
             return if (gameIds == null) {
                 // Full backup
                 PocketScoreShare(
@@ -280,7 +314,7 @@ class GameRepositoryImpl(private val context: Context) : GameRepository {
                 val friendsInGames = games
                     .flatMap { it.players.map { p -> p.name } }
                     .distinct()
-                
+
                 PocketScoreShare(
                     sourceDevice = settings.customDeviceName ?: Build.MODEL,
                     friends = friendsInGames,
@@ -303,7 +337,7 @@ class GameRepositoryImpl(private val context: Context) : GameRepository {
 
             // Normalize mappings for robust case-insensitive matching
             val normalizedMappings = playerNameMappings.mapKeys { it.key.trim().lowercase() }
-            
+
             fun getMappedName(rawName: String): String {
                 val trimmed = rawName.trim()
                 return normalizedMappings[trimmed.lowercase()] ?: trimmed
@@ -321,7 +355,7 @@ class GameRepositoryImpl(private val context: Context) : GameRepository {
                     }
                 )
             }
-            
+
             val mappedFriends = share.friends.map { name ->
                 getMappedName(name)
             }
@@ -329,7 +363,7 @@ class GameRepositoryImpl(private val context: Context) : GameRepository {
             // Smart merge games: avoid duplicates by ID
             val existingIds = currentHistory.pastGames.map { it.id }.toSet()
             val newGames = mappedGames.filter { it.id !in existingIds }
-            
+
             val updatedHistory = currentHistory.copy(
                 pastGames = (newGames + currentHistory.pastGames)
                     .take(MAX_MERGED_HISTORY_SIZE)
@@ -339,10 +373,10 @@ class GameRepositoryImpl(private val context: Context) : GameRepository {
             val existingNamesLower = currentSettings.savedPlayerNames
                 .map { it.lowercase() }
                 .toSet()
-            val newFriends = mappedFriends.filter { 
-                it.lowercase() !in existingNamesLower 
+            val newFriends = mappedFriends.filter {
+                it.lowercase() !in existingNamesLower
             }
-            
+
             val updatedSettings = currentSettings.copy(
                 savedPlayerNames = (currentSettings.savedPlayerNames + newFriends)
                     .distinct()
@@ -353,7 +387,7 @@ class GameRepositoryImpl(private val context: Context) : GameRepository {
                 preferences[gameHistoryKey] = json.encodeToString(updatedHistory)
                 preferences[appSettingsKey] = json.encodeToString(updatedSettings)
             }
-            
+
             Log.d(TAG, "Merged ${newGames.size} games and ${newFriends.size} players")
         } catch (e: Exception) {
             Log.e(TAG, "Failed to merge share data", e)
@@ -366,7 +400,7 @@ class GameRepositoryImpl(private val context: Context) : GameRepository {
             Log.w(TAG, "Invalid rename: old='$oldName', new='$newName'")
             return
         }
-        
+
         try {
             val currentSettings = appSettings.first()
             val currentHistory = gameHistory.first()
@@ -422,28 +456,28 @@ class GameRepositoryImpl(private val context: Context) : GameRepository {
                     preferences[gameStateKey] = json.encodeToString(updatedActiveGameState)
                 }
             }
-            
+
             Log.d(TAG, "Renamed player: '$oldName' -> '$newName'")
         } catch (e: Exception) {
             Log.e(TAG, "Failed to rename player", e)
             throw e
         }
     }
-    
+
     // Backup directories
-    
+
     private val internalBackupDir: File by lazy {
-        val dir = context.getExternalFilesDir("backups") 
+        val dir = context.getExternalFilesDir("backups")
             ?: File(context.filesDir, "backups")
         if (!dir.exists()) {
             dir.mkdirs()
         }
         dir
     }
-    
+
     private val publicBackupDir: File by lazy {
         // Use app-private external documents if available, else internal documents
-        context.getExternalFilesDir(Environment.DIRECTORY_DOCUMENTS) 
+        context.getExternalFilesDir(Environment.DIRECTORY_DOCUMENTS)
             ?: File(context.filesDir, "Documents")
     }
 
@@ -458,19 +492,19 @@ class GameRepositoryImpl(private val context: Context) : GameRepository {
         try {
             val share = getShareableData(null)
             val jsonString = json.encodeToString(share)
-            
+
             // 1. Internal Private (Always)
             File(internalBackupDir, "$name.pscore").writeText(jsonString)
-            
+
             // 2. Linked Folder / Documents (User Accessible)
             saveToPublicStorage(name, jsonString)
-            
+
             // 3. Android Sync (Survives until uninstall)
             saveToSyncStorage(name, jsonString)
-            
+
             // 4. Auto-Download (Background Download System)
             saveToDownloadsStorage(name, jsonString)
-            
+
             updateSnapshotMetadata(jsonString.length)
         } catch (e: Exception) {
             Log.e(TAG, "Failed to create snapshot", e)
@@ -480,7 +514,7 @@ class GameRepositoryImpl(private val context: Context) : GameRepository {
 
     private suspend fun saveToPublicStorage(name: String, jsonString: String) {
         val settings = appSettings.first()
-        
+
         // 1. Try saved persistent folder first (if linked)
         settings.backupsFolderUri?.let { uriString ->
             try {
@@ -583,7 +617,7 @@ class GameRepositoryImpl(private val context: Context) : GameRepository {
             } else {
                 String.format(Locale.US, "%.1f MB", sizeInKb / 1024.0)
             }
-            
+
             updateSettings(currentSettings.copy(
                 lastLocalSnapshotTime = System.currentTimeMillis(),
                 lastSnapshotSize = sizeStr
@@ -600,12 +634,12 @@ class GameRepositoryImpl(private val context: Context) : GameRepository {
                 Log.w(TAG, "Snapshot not found for export: $name")
                 return false
             }
-            
+
             if (!publicBackupDir.exists()) publicBackupDir.mkdirs()
-            
+
             val destFile = File(publicBackupDir, "$name.pscore")
             sourceFile.copyTo(destFile, overwrite = true)
-            
+
             Log.d(TAG, "Exported snapshot to public storage: $name")
             true
         } catch (e: IOException) {
@@ -617,10 +651,10 @@ class GameRepositoryImpl(private val context: Context) : GameRepository {
     override suspend fun getLocalSnapshots(): List<Pair<String, Long>> {
         val snapshots = mutableMapOf<String, Long>()
         val settings = appSettings.first()
-        
+
         // 1. Scan internal private backups
-        listSnapshotsInDir(internalBackupDir).forEach { 
-            snapshots[it.first] = it.second 
+        listSnapshotsInDir(internalBackupDir).forEach {
+            snapshots[it.first] = it.second
         }
 
         // 2. Scan Persistent Linked Folder (if available)
@@ -642,7 +676,7 @@ class GameRepositoryImpl(private val context: Context) : GameRepository {
                 Log.w(TAG, "Persistent folder scan failed", e)
             }
         }
-        
+
         // 3. Scan MediaStore (Public Documents) as fallback/supplement
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
             try {
@@ -652,7 +686,7 @@ class GameRepositoryImpl(private val context: Context) : GameRepository {
                 )
                 val selection = "${MediaStore.MediaColumns.RELATIVE_PATH} LIKE ?"
                 val selectionArgs = arrayOf("${Environment.DIRECTORY_DOCUMENTS}/Backups/PocketScore/Games%")
-                
+
                 context.contentResolver.query(
                     MediaStore.Files.getContentUri("external"),
                     projection,
@@ -662,7 +696,7 @@ class GameRepositoryImpl(private val context: Context) : GameRepository {
                 )?.use { cursor ->
                     val nameColumn = cursor.getColumnIndexOrThrow(MediaStore.MediaColumns.DISPLAY_NAME)
                     val dateColumn = cursor.getColumnIndexOrThrow(MediaStore.MediaColumns.DATE_MODIFIED)
-                    
+
                     while (cursor.moveToNext()) {
                         val fileName = cursor.getString(nameColumn)
                         if (fileName.endsWith(".pscore")) {
@@ -686,7 +720,7 @@ class GameRepositoryImpl(private val context: Context) : GameRepository {
                 val projection = arrayOf(MediaStore.MediaColumns.DISPLAY_NAME, MediaStore.MediaColumns.DATE_MODIFIED)
                 val selection = "${MediaStore.MediaColumns.RELATIVE_PATH} LIKE ?"
                 val selectionArgs = arrayOf("${Environment.DIRECTORY_DOWNLOADS}/PocketScore%")
-                
+
                 context.contentResolver.query(
                     MediaStore.Downloads.getContentUri("external"),
                     projection, selection, selectionArgs, null
@@ -744,7 +778,9 @@ class GameRepositoryImpl(private val context: Context) : GameRepository {
         if (internalFile.exists()) {
             return try {
                 json.decodeFromString<PocketScoreShare>(internalFile.readText())
-            } catch (e: Exception) { null }
+            } catch (e: Exception) {
+                null
+            }
         }
 
         // 2. Try Persistent Linked Folder
@@ -763,22 +799,22 @@ class GameRepositoryImpl(private val context: Context) : GameRepository {
                 Log.w(TAG, "Persistent folder read failed for $name", e)
             }
         }
-        
+
         // 3. Try MediaStore (Public Documents & Downloads)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
             val searchPaths = listOf(
                 "${Environment.DIRECTORY_DOCUMENTS}/Backups/PocketScore/Games",
                 "${Environment.DIRECTORY_DOWNLOADS}/PocketScore"
             )
-            
+
             for (relativePath in searchPaths) {
                 try {
                     val selection = "${MediaStore.MediaColumns.DISPLAY_NAME} = ? AND ${MediaStore.MediaColumns.RELATIVE_PATH} LIKE ?"
                     val selectionArgs = arrayOf("$name.pscore", "$relativePath%")
-                    
-                    val uri = if (relativePath.contains(Environment.DIRECTORY_DOWNLOADS)) 
-                        MediaStore.Downloads.getContentUri("external") 
-                    else 
+
+                    val uri = if (relativePath.contains(Environment.DIRECTORY_DOWNLOADS))
+                        MediaStore.Downloads.getContentUri("external")
+                    else
                         MediaStore.Files.getContentUri("external")
 
                     context.contentResolver.query(uri, null, selection, selectionArgs, null)?.use { cursor ->
@@ -786,7 +822,7 @@ class GameRepositoryImpl(private val context: Context) : GameRepository {
                             val idColumn = cursor.getColumnIndexOrThrow(MediaStore.MediaColumns._ID)
                             val id = cursor.getLong(idColumn)
                             val contentUri = Uri.withAppendedPath(uri, id.toString())
-                            
+
                             context.contentResolver.openInputStream(contentUri)?.use { inputStream ->
                                 val jsonString = inputStream.bufferedReader().use { it.readText() }
                                 return json.decodeFromString<PocketScoreShare>(jsonString)
@@ -798,7 +834,7 @@ class GameRepositoryImpl(private val context: Context) : GameRepository {
                 }
             }
         }
-        
+
         Log.w(TAG, "Snapshot not found in any location: $name")
         return null
     }
@@ -811,7 +847,7 @@ class GameRepositoryImpl(private val context: Context) : GameRepository {
             File(internalBackupDir, "$name.pscore"),
             File(context.getExternalFilesDir(null), "sync/games/$name.pscore")
         )
-        
+
         for (file in locations) {
             try {
                 if (file.exists() && file.delete()) {
@@ -848,7 +884,7 @@ class GameRepositoryImpl(private val context: Context) : GameRepository {
                         MediaStore.Downloads.getContentUri("external")
                     else
                         MediaStore.Files.getContentUri("external")
-                    
+
                     context.contentResolver.delete(uri, selection, selectionArgs)
                 } catch (e: Exception) {
                     Log.w(TAG, "Failed to delete MediaStore snapshot in $path", e)
@@ -873,11 +909,11 @@ class GameRepositoryImpl(private val context: Context) : GameRepository {
 
             // Create the snapshot
             createLocalSnapshot("Daily-Auto-$today")
-            
+
             // Update the auto-snapshot date
             val updatedSettings = appSettings.first()
             updateSettings(updatedSettings.copy(lastAutoSnapshotDate = today))
-            
+
             Log.d(TAG, "Created daily auto-snapshot: $today")
         } catch (e: Exception) {
             Log.e(TAG, "Failed to create daily auto-snapshot", e)

@@ -175,6 +175,7 @@ data class AppSettings(
     val useCustomKeyboard: Boolean = true,
     val keyboardTextSize: Float = 24f,
     val keyboardHeight: KeyboardHeight = KeyboardHeight.MEDIUM,
+    val keyboardButtonHeight: Float = 56f,
     val keyboardBordersEnabled: Boolean = false,
     
     // Advanced Settings
@@ -212,11 +213,21 @@ data class AppSettings(
          * Minimum allowed value for keyboardTextSize.
          */
         const val MIN_KEYBOARD_TEXT_SIZE = 24f
-        
+
         /**
          * Maximum allowed value for keyboardTextSize.
          */
         const val MAX_KEYBOARD_TEXT_SIZE = 52f
+
+        /**
+         * Minimum allowed value for keyboard button height.
+         */
+        const val MIN_KEYBOARD_BUTTON_HEIGHT = 48f
+
+        /**
+         * Maximum allowed value for keyboard button height.
+         */
+        const val MAX_KEYBOARD_BUTTON_HEIGHT = 96f
         
         /**
          * Minimum allowed value for maxPlayers.
@@ -280,10 +291,16 @@ data class AppSettings(
             }
         }
 
+        val validatedButtonHeight = keyboardButtonHeight.coerceIn(
+            MIN_KEYBOARD_BUTTON_HEIGHT,
+            MAX_KEYBOARD_BUTTON_HEIGHT
+        )
+
         return copy(
             globalScale = globalScale.coerceIn(MIN_GLOBAL_SCALE, MAX_GLOBAL_SCALE),
             maxPlayers = maxPlayers.coerceIn(16, MAX_PLAYERS_LIMIT),
             keyboardTextSize = keyboardTextSize.coerceIn(MIN_KEYBOARD_TEXT_SIZE, MAX_KEYBOARD_TEXT_SIZE),
+            keyboardButtonHeight = validatedButtonHeight,
             lastLosersCount = lastLosersCount.coerceAtLeast(1),
             matchCost = matchCost.coerceAtLeast(0.0),
             ballValuePresets = migratedPresets

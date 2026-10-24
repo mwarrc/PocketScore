@@ -6,7 +6,7 @@ import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
-import androidx.datastore.preferences.preferencesDataStore
+import com.mwarrc.pocketscore.data.local.di.DataStoreModule
 import com.mwarrc.pocketscore.data.local.room.AppDatabase
 import com.mwarrc.pocketscore.data.local.room.entity.GameEntity
 import com.mwarrc.pocketscore.data.local.room.entity.GameEventEntity
@@ -20,43 +20,84 @@ import kotlinx.coroutines.flow.first
 import kotlinx.serialization.json.Json
 import java.util.UUID
 
-import com.mwarrc.pocketscore.data.local.di.DataStoreModule
+/**
+ * Helper accessor for the shared preferences store.
+ *
+ * Kept local to this file because the migrator is one of the last places that
+ * still reads the legacy blob keys directly.
+ */
 private val Context.dataStore: DataStore<Preferences> get() = DataStoreModule.getDataStore(this)
 
+/**
+ * One-time migrator that moves data from the legacy DataStore JSON blobs to
+ * the new Room database.
+ *
+ * Legacy layout (DataStore keys):
+ * - `game_state`    - currently active match serialized as [GameState].
+ * - `game_history`  - past matches serialized as [GameHistory].
+ * - `app_settings`  - application settings serialized as [AppSettings].
+ *
+ * After migration completes, a marker key (`room_migration_completed`) is
+ * written so future app launches skip the work. The migrator is idempotent and
+ * swallows per-game failures to avoid blocking startup entirely.
+ *
+ * Saved players are imported from `AppSettings.savedPlayerNames` with synthetic
+ * IDs derived from the name (UUID v3) so duplicates don't accumulate.
+ *
+ * @param context Application context used to read DataStore and to pass to Room.
+ * @param database Room database instance to write into.
+ */
 class DataStoreToRoomMigrator(
     private val context: Context,
     private val database: AppDatabase
 ) {
-    
+
     private val json = Json {
         ignoreUnknownKeys = true
         coerceInputValues = true
     }
-    
+
+    /** Legacy DataStore key holding the active [GameState]. */
     private val gameStateKey = stringPreferencesKey("game_state")
+
+    /** Legacy DataStore key holding [GameHistory]. */
     private val gameHistoryKey = stringPreferencesKey("game_history")
+
+    /** Legacy DataStore key holding [AppSettings]. */
     private val appSettingsKey = stringPreferencesKey("app_settings")
+
+    /** Marker key written once migration finishes successfully. */
     private val migrationCompletedKey = stringPreferencesKey("room_migration_completed")
-    
-    companion object {
+
+    private companion object {
+        /** Logcat tag for migration diagnostics. */
         private const val TAG = "DataStoreToRoomMigrator"
     }
-    
+
+    /**
+     * Runs migration if it has not been completed before.
+     *
+     * Reads all legacy blobs, converts domain models to Room entities via
+     * [migrateGameStateToDb], inserts saved players, then marks migration as
+     * complete.
+     *
+     * @return A [MigrationResult] describing what happened.
+     */
     suspend fun migrateIfNeeded(): MigrationResult {
         return try {
             val prefs = context.dataStore.data.first()
             val migrationCompleted = prefs[migrationCompletedKey] == "true"
-            
+
             if (migrationCompleted) {
                 Log.d(TAG, "Migration already completed")
                 return MigrationResult.AlreadyCompleted
             }
-            
+
             Log.d(TAG, "Starting migration from DataStore to Room")
-            
+
             var gamesMigrated = 0
             var playersSaved = 0
-            
+
             // Migrate game history
             prefs[gameHistoryKey]?.let { historyJson ->
                 try {
@@ -70,7 +111,7 @@ class DataStoreToRoomMigrator(
                     Log.e(TAG, "Failed to migrate game history", e)
                 }
             }
-            
+
             // Migrate active game state
             prefs[gameStateKey]?.let { stateJson ->
                 try {
@@ -84,7 +125,7 @@ class DataStoreToRoomMigrator(
                     Log.e(TAG, "Failed to migrate active game state", e)
                 }
             }
-            
+
             // Migrate saved players
             prefs[appSettingsKey]?.let { settingsJson ->
                 try {
@@ -106,24 +147,33 @@ class DataStoreToRoomMigrator(
                     Log.e(TAG, "Failed to migrate settings", e)
                 }
             }
-            
+
             context.dataStore.edit { preferences ->
                 preferences[migrationCompletedKey] = "true"
             }
-            
+
             Log.d(TAG, "Migration completed: games=$gamesMigrated, players=$playersSaved")
             MigrationResult.Success(gamesMigrated, playersSaved)
-            
+
         } catch (e: Exception) {
             Log.e(TAG, "Migration failed", e)
             MigrationResult.Error(e)
         }
     }
-    
+
+    /**
+     * Converts a domain [GameState] to Room entities and persists it.
+     *
+     * Preserves lifecycle flags exactly as they were stored so that a game
+     * that was active remains active and a finished game remains finished.
+     *
+     * @param gameState Domain model to persist.
+     */
     private suspend fun migrateGameStateToDb(gameState: GameState) {
         val gameEntity = GameEntity(
             id = gameState.id,
             isGameActive = gameState.isGameActive,
+            isPaused = gameState.isPaused,
             startTime = gameState.startTime,
             endTime = gameState.endTime,
             lastUpdate = gameState.lastUpdate,
@@ -167,12 +217,23 @@ class DataStoreToRoomMigrator(
         )
         database.gameDao().saveFullGame(gameWithDetails)
     }
-    
+
+    /**
+     * Checks whether migration has already completed.
+     *
+     * @return `true` if the marker is present in DataStore.
+     */
     suspend fun isMigrationCompleted(): Boolean {
         val prefs = context.dataStore.data.first()
         return prefs[migrationCompletedKey] == "true"
     }
-    
+
+    /**
+     * Clears the migration marker.
+     *
+     * Useful for testing; running the app again will re-run migration from the
+     * legacy blobs (which may still exist if not cleaned up).
+     */
     suspend fun resetMigration() {
         context.dataStore.edit { preferences ->
             preferences.remove(migrationCompletedKey)
@@ -180,8 +241,25 @@ class DataStoreToRoomMigrator(
     }
 }
 
+/**
+ * Result of a migration attempt.
+ */
 sealed class MigrationResult {
+    /** Migration was already marked complete; no work performed. */
     object AlreadyCompleted : MigrationResult()
+
+    /**
+     * Migration completed.
+     *
+     * @property gamesCount Number of games migrated (history + active).
+     * @property playersCount Number of saved players imported.
+     */
     data class Success(val gamesCount: Int, val playersCount: Int) : MigrationResult()
+
+    /**
+     * Migration failed fatally.
+     *
+     * @property exception Root cause of failure.
+     */
     data class Error(val exception: Exception) : MigrationResult()
 }

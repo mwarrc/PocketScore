@@ -12,7 +12,6 @@ import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
-import androidx.datastore.preferences.preferencesDataStore
 import com.mwarrc.pocketscore.data.local.room.AppDatabase
 import androidx.room.withTransaction
 import com.mwarrc.pocketscore.data.local.room.entity.GameEntity
@@ -41,31 +40,60 @@ import java.util.Locale
 import java.util.UUID
 
 import com.mwarrc.pocketscore.data.local.di.DataStoreModule
+
+/**
+ * Helper accessor for the shared preferences store.
+ *
+ * Room holds games/players/events; settings and snapshots metadata still live
+ * in DataStore. Using the shared store from [DataStoreModule] prevents
+ * duplicate DataStore instances.
+ */
 private val Context.dataStore: DataStore<Preferences> get() = DataStoreModule.getDataStore(this)
 
 /**
- * High-performance Room-based implementation of GameRepository.
- * This is the professional, scalable solution that avoids the blob duplication issues
- * by storing data in normalized SQLite tables.
+ * Room-backed implementation of [GameRepository].
+ *
+ * This is the production implementation. Data is normalised across:
+ * - [AppDatabase] (`games`, `players`, `game_events`, `saved_players`)
+ * - [DataStore] ([AppSettings], snapshot metadata, backups folder URI)
+ *
+ * Key design points:
+ * - [gameState] emits the active match only; finished games never appear here.
+ * - [gameHistory] emits finished/archived games with players but without events
+ *   (lightweight) to keep the Records list fast.
+ * - Imports run inside `database.withTransaction {}` so Room flows don't emit
+ *   intermediate states that could flip the UI between screens.
+ * - All imported games are forced to inactive/finalized to prevent them from
+ *   becoming the "current" game.
+ * - Snapshots are written to internal storage plus an optional user-linked
+ *   folder (SAF) and mirrored for compatibility with the legacy snapshot flow.
+ *
+ * @param context Application context.
+ * @param database Room database instance.
  */
 class GameRepositoryImplRoom(
     private val context: Context,
     private val database: AppDatabase
 ) : GameRepository {
-    
+
     private companion object {
+        /** Logcat tag for diagnostics. */
         const val TAG = "GameRepositoryImplRoom"
+
+        /** Below this count the UI may hide the identity tip (mirrors domain behavior). */
         const val GAMES_TO_HIDE_TIP = 5
     }
-    
+
+    /** DataStore key for serialized [AppSettings]. */
     private val appSettingsKey = stringPreferencesKey("app_settings")
-    
+
+    /** JSON configuration shared by serialization/deserialization. */
     private val json = Json {
         ignoreUnknownKeys = true
         coerceInputValues = true
         encodeDefaults = true
     }
-    
+
     // Game state - current active game
     override val gameState: Flow<GameState> = try {
         database.gameDao().getActiveGame()
@@ -84,9 +112,9 @@ class GameRepositoryImplRoom(
             }
     } catch (e: Exception) {
         Log.e(TAG, "Error creating gameState flow", e)
-        kotlinx.coroutines.flow.flowOf(GameState())
+        flowOf(GameState())
     }
-    
+
     // Game history - all games including paused sessions (lightweight, loads without thousands of events)
     // Paused games are now included in history so users can resume them from the Records screen.
     override val gameHistory: Flow<GameHistory> = try {
@@ -105,9 +133,9 @@ class GameRepositoryImplRoom(
             }
     } catch (e: Exception) {
         Log.e(TAG, "Error creating gameHistory flow", e)
-        kotlinx.coroutines.flow.flowOf(GameHistory())
+        flowOf(GameHistory())
     }
-    
+
     // Settings (still stored in DataStore for simplicity and atomic updates)
     override val appSettings: Flow<AppSettings> = context.dataStore.data.map { preferences ->
         preferences[appSettingsKey]?.let { jsonString ->
@@ -119,7 +147,7 @@ class GameRepositoryImplRoom(
             }
         } ?: AppSettings()
     }
-    
+
     override suspend fun saveGameState(gameState: GameState) {
         if (gameState.players.isEmpty()) {
             Log.w(TAG, "Skipping save of game with no players")
@@ -133,7 +161,7 @@ class GameRepositoryImplRoom(
             throw e
         }
     }
-    
+
     override suspend fun clearGameState() {
         try {
             val activeGame = database.gameDao().getActiveGame().first()
@@ -146,7 +174,7 @@ class GameRepositoryImplRoom(
             throw e
         }
     }
-    
+
     override suspend fun archiveCurrentGame(gameState: GameState, saveOverride: Boolean, isPause: Boolean) {
         if (gameState.players.isEmpty()) {
             Log.w(TAG, "Skipping archive of game with no players")
@@ -154,15 +182,15 @@ class GameRepositoryImplRoom(
         }
         try {
             val currentSettings = appSettings.first()
-            
+
             // Save the record when:
             //  - the caller explicitly forces a save (saveOverride), OR
             //  - this is a pause (always preserve paused sessions), OR
             //  - we're NOT in guest mode, or guest mode has guestSaveRecords on
             val shouldSaveRecord = saveOverride ||
-                isPause ||
-                (!currentSettings.isGuestSession || currentSettings.guestSaveRecords)
-            
+                    isPause ||
+                    (!currentSettings.isGuestSession || currentSettings.guestSaveRecords)
+
             if (shouldSaveRecord) {
                 val archivedGame = gameState.copy(
                     endTime = if (gameState.endTime == null) System.currentTimeMillis() else gameState.endTime,
@@ -183,7 +211,7 @@ class GameRepositoryImplRoom(
                 // If not saving, just delete active game
                 database.gameDao().deleteFullGame(gameState.id)
             }
-            
+
             // Only increment games played count for finalized games, not pauses
             if (!isPause) {
                 val newGamesPlayedCount = currentSettings.gamesPlayedCount + 1
@@ -198,7 +226,7 @@ class GameRepositoryImplRoom(
             throw e
         }
     }
-    
+
     override suspend fun deleteGameFromHistory(gameId: String) {
         try {
             database.gameDao().deleteFullGame(gameId)
@@ -207,7 +235,7 @@ class GameRepositoryImplRoom(
             throw e
         }
     }
-    
+
     override suspend fun deleteGamesFromHistory(gameIds: List<String>) {
         if (gameIds.isEmpty()) return
         try {
@@ -225,7 +253,7 @@ class GameRepositoryImplRoom(
     override suspend fun getGameWithDetailsOnce(gameId: String): GameState? {
         return database.gameDao().getGameWithDetailsOnce(gameId)?.toDomainGameState()
     }
-    
+
     override suspend fun updateGameInHistory(game: GameState) {
         try {
             val gameWithDetails = game.toGameWithDetails()
@@ -235,7 +263,7 @@ class GameRepositoryImplRoom(
             throw e
         }
     }
-    
+
     override suspend fun updateSettings(settings: AppSettings) {
         try {
             val validatedSettings = settings.validate()
@@ -247,11 +275,11 @@ class GameRepositoryImplRoom(
             throw e
         }
     }
-    
+
     override suspend fun getShareableData(gameIds: List<String>?): PocketScoreShare {
         try {
             val settings = appSettings.first()
-            
+
             return if (gameIds == null) {
                 val allGames = database.gameDao().getAllGamesWithDetails().first()
                 val pastGames = allGames.map { it.toDomainGameState() }
@@ -282,19 +310,19 @@ class GameRepositoryImplRoom(
             throw e
         }
     }
-    
+
     override suspend fun mergeShareData(
         share: PocketScoreShare,
         playerNameMappings: Map<String, String>
     ) {
         try {
             val normalizedMappings = playerNameMappings.mapKeys { it.key.trim().lowercase() }
-            
+
             fun getMappedName(rawName: String): String {
                 val trimmed = rawName.trim()
                 return normalizedMappings[trimmed.lowercase()] ?: trimmed
             }
-            
+
             // FORCE all imported games inactive and finalized - regardless of source data
             val mappedGames = share.games.map { game ->
                 game.copy(
@@ -310,13 +338,13 @@ class GameRepositoryImplRoom(
                     }
                 )
             }
-            
+
             val mappedFriends = share.friends.map { getMappedName(it) }
-            
+
             // Capture the user's current active game BEFORE import so we can preserve it
             val currentActiveGame = database.gameDao().getActiveGame().first()
             val currentActiveGameId = currentActiveGame?.game?.id
-            
+
             // Wrap entire import in a single transaction so the Room Flow
             // doesn't emit intermediate states (prevents the "open 500 games" bug)
             database.withTransaction {
@@ -332,7 +360,7 @@ class GameRepositoryImplRoom(
                         database.gameDao().saveFullGame(existing.copy(game = updated))
                     }
                 }
-                
+
                 // Merge saved players (inside same transaction)
                 val existingNames = database.savedPlayerDao().getSavedPlayerNames()
                 val existingNamesLower = existingNames.map { it.lowercase() }.toSet()
@@ -348,7 +376,7 @@ class GameRepositoryImplRoom(
                 if (savedEntities.isNotEmpty()) {
                     database.savedPlayerDao().insertSavedPlayers(savedEntities)
                 }
-                
+
                 // Safety net: deactivate ALL games except the user's prior active game
                 if (currentActiveGameId != null) {
                     database.gameDao().deactivateAllGamesExcept(currentActiveGameId)
@@ -376,24 +404,24 @@ class GameRepositoryImplRoom(
                     )
                 }
             }
-            
+
             Log.d(TAG, "Merged ${mappedGames.size} games and ${mappedFriends.size} players (transaction committed)")
         } catch (e: Exception) {
             Log.e(TAG, "Failed to merge share data", e)
             throw e
         }
     }
-    
+
     override suspend fun renamePlayer(oldName: String, newName: String) {
         if (oldName == newName || newName.isBlank()) return
         try {
             val oldTrimmed = oldName.trim()
             val newTrimmed = newName.trim()
-            
+
             // Execute atomic update queries across players and events in SQLite
             database.gameDao().renamePlayerInPlayers(oldTrimmed, newTrimmed)
             database.gameDao().renamePlayerInEvents(oldTrimmed, newTrimmed)
-            
+
             val existing = database.savedPlayerDao().getSavedPlayerNames()
             if (existing.contains(oldTrimmed)) {
                 database.savedPlayerDao().deleteSavedPlayer(oldTrimmed)
@@ -406,7 +434,7 @@ class GameRepositoryImplRoom(
                     )
                 )
             }
-            
+
             // Keep saved players in appSettings DataStore synchronized
             val currentSettings = appSettings.first()
             if (currentSettings.savedPlayerNames.contains(oldTrimmed)) {
@@ -420,20 +448,20 @@ class GameRepositoryImplRoom(
             throw e
         }
     }
-    
+
     // Snapshot methods - keep same implementation as before for compatibility
     private val internalBackupDir: File by lazy {
-        val dir = context.getExternalFilesDir("backups") 
+        val dir = context.getExternalFilesDir("backups")
             ?: File(context.filesDir, "backups")
         if (!dir.exists()) dir.mkdirs()
         dir
     }
-    
+
     private val publicBackupDir: File by lazy {
-        context.getExternalFilesDir(Environment.DIRECTORY_DOCUMENTS) 
+        context.getExternalFilesDir(Environment.DIRECTORY_DOCUMENTS)
             ?: File(context.filesDir, "Documents")
     }
-    
+
     override suspend fun createLocalSnapshot(name: String) {
         try {
             val share = getShareableData(null)
@@ -446,7 +474,7 @@ class GameRepositoryImplRoom(
             throw e
         }
     }
-    
+
     private suspend fun saveToExternalVaultIfLinked(name: String, jsonString: String) {
         val settings = appSettings.first()
         settings.backupsFolderUri?.let { uriString ->
@@ -454,7 +482,7 @@ class GameRepositoryImplRoom(
                 val folderUri = Uri.parse(uriString)
                 val pickedDir = DocumentFile.fromTreeUri(context, folderUri)
                 if (pickedDir != null && pickedDir.exists() && pickedDir.canWrite()) {
-                    val pscoreFile = pickedDir.findFile("$name.pscore") 
+                    val pscoreFile = pickedDir.findFile("$name.pscore")
                         ?: pickedDir.createFile("application/octet-stream", "$name.pscore")
                     pscoreFile?.uri?.let { fileUri ->
                         context.contentResolver.openOutputStream(fileUri)?.use { output ->
@@ -467,7 +495,7 @@ class GameRepositoryImplRoom(
             }
         }
     }
-    
+
     private suspend fun updateSnapshotMetadata(jsonLength: Int) {
         try {
             val currentSettings = appSettings.first()
@@ -483,7 +511,7 @@ class GameRepositoryImplRoom(
             ))
         } catch (e: Exception) { }
     }
-    
+
     /**
      * Copies an internal snapshot into the public documents folder.
      *
@@ -492,6 +520,9 @@ class GameRepositoryImplRoom(
      * happened. Now it mirrors the DataStore implementation: verify the source
      * exists, copy it, and return false on any failure so callers can tell the
      * truth.
+     *
+     * @param name Snapshot name (without extension).
+     * @return `true` if copied successfully, `false` otherwise.
      */
     override suspend fun exportSnapshotToPublic(name: String): Boolean {
         return try {
@@ -513,6 +544,7 @@ class GameRepositoryImplRoom(
             false
         }
     }
+
     override suspend fun getLocalSnapshots(): List<Pair<String, Long>> {
         // Delegate to a simplified implementation or use DataStore settings
         val snapshots = mutableMapOf<String, Long>()
@@ -534,27 +566,35 @@ class GameRepositoryImplRoom(
         }
         return snapshots.toList().sortedByDescending { it.second }
     }
-    
+
     private fun listSnapshotsInDir(dir: File): List<Pair<String, Long>> {
         return try {
             if (!dir.exists()) return emptyList()
             dir.listFiles { _, name -> name.endsWith(".pscore") }
                 ?.map { it.nameWithoutExtension to it.lastModified() }
                 ?: emptyList()
-        } catch (e: Exception) { emptyList() }
+        } catch (e: Exception) {
+            emptyList()
+        }
     }
-    
+
     override suspend fun restoreFromSnapshot(name: String) {
         try {
             getSnapshotContent(name)?.let { share -> mergeShareData(share) }
-        } catch (e: Exception) { throw e }
+        } catch (e: Exception) {
+            throw e
+        }
     }
-    
+
     override suspend fun getSnapshotContent(name: String): PocketScoreShare? {
         val settings = appSettings.first()
         val internalFile = File(internalBackupDir, "$name.pscore")
         if (internalFile.exists()) {
-            return try { json.decodeFromString<PocketScoreShare>(internalFile.readText()) } catch (e: Exception) { null }
+            return try {
+                json.decodeFromString<PocketScoreShare>(internalFile.readText())
+            } catch (e: Exception) {
+                null
+            }
         }
         settings.backupsFolderUri?.let { uriString ->
             try {
@@ -571,7 +611,7 @@ class GameRepositoryImplRoom(
         }
         return null
     }
-    
+
     override suspend fun deleteSnapshot(name: String) {
         val settings = appSettings.first()
         try {
@@ -586,7 +626,7 @@ class GameRepositoryImplRoom(
             } catch (e: Exception) { }
         }
     }
-    
+
     override suspend fun triggerDailyAutoSnapshot() {
         try {
             val settings = appSettings.first()
@@ -601,10 +641,13 @@ class GameRepositoryImplRoom(
         }
     }
 
+    /**
+     * Deletes daily auto-snapshots older than the 7 most recent.
+     */
     private fun pruneOldDailySnapshots() {
         try {
-            val dailyFiles = internalBackupDir.listFiles { _, name -> 
-                name.startsWith("Daily-Auto-") && name.endsWith(".pscore") 
+            val dailyFiles = internalBackupDir.listFiles { _, name ->
+                name.startsWith("Daily-Auto-") && name.endsWith(".pscore")
             }
             if (dailyFiles != null && dailyFiles.size > 7) {
                 dailyFiles.sortedBy { it.lastModified() }
@@ -615,17 +658,24 @@ class GameRepositoryImplRoom(
             Log.w(TAG, "Failed to prune old daily snapshots", e)
         }
     }
-    
+
     override suspend fun triggerCloudBackup() {
         Log.d(TAG, "Cloud backup not yet implemented")
     }
-    
+
     override suspend fun updateBackupsFolderUri(uri: String?) {
         updateSettings(appSettings.first().copy(backupsFolderUri = uri))
     }
 }
 
 // Mappers
+
+/**
+ * Converts Room aggregate to domain [GameState].
+ *
+ * Maps entity fields 1:1 where possible. [GameEventEntity.details] becomes
+ * [GameEvent.message] (empty string is normalized to `null`).
+ */
 private fun GameWithPlayersAndEvents.toDomainGameState(): GameState {
     return GameState(
         id = game.id,
@@ -667,6 +717,12 @@ private fun GameWithPlayersAndEvents.toDomainGameState(): GameState {
     )
 }
 
+/**
+ * Converts lightweight aggregate (no events) to domain [GameState].
+ *
+ * Used by the history list. [GameState.globalEvents] is set to empty list
+ * because events are not loaded for performance.
+ */
 private fun GameWithPlayers.toDomainGameState(): GameState {
     return GameState(
         id = game.id,
@@ -693,6 +749,11 @@ private fun GameWithPlayers.toDomainGameState(): GameState {
     )
 }
 
+/**
+ * Converts domain [GameState] to Room aggregate for persistence.
+ *
+ * @return Aggregate ready to be passed to [GameDao.saveFullGame].
+ */
 private fun GameState.toGameWithDetails(): GameWithPlayersAndEvents {
     val gameEntity = GameEntity(
         id = id,
