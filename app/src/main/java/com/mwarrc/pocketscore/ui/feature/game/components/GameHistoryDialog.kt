@@ -24,6 +24,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Undo
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.History
+import androidx.compose.material.icons.filled.SwapVert
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -57,6 +58,15 @@ import com.mwarrc.pocketscore.ui.util.ImmersiveMode
 
 /** The two views available inside the history dialog. */
 private enum class HistoryView { TIMELINE, BALLS }
+
+/**
+ * Display order shared by both history views.
+ *
+ * The underlying event log is always chronological (oldest first), so a single
+ * setting keeps Timeline and Pocketed consistent with each other. Both default
+ * to newest first, which matches the rest of the app's history screens.
+ */
+private enum class HistorySort { NEWEST_FIRST, OLDEST_FIRST }
 
 /**
  * A scoring entry during the match, derived from the event log.
@@ -104,6 +114,8 @@ private sealed interface BallVisual {
  * @param events List of events for the current match
  * @param playerNames Names of active players to build the filter list
  * @param ballValues Current ball-to-points mapping used to resolve a ball from a score
+ * @param poolBallManagementEnabled Whether pool-ball tracking is on. When off there
+ *        are no balls to show, so the Pocketed tab is hidden entirely.
  * @param onDismiss Callback to close the dialog
  */
 @OptIn(ExperimentalMaterial3Api::class)
@@ -112,9 +124,13 @@ fun GameHistoryDialog(
     events: List<GameEvent>,
     playerNames: List<String>,
     ballValues: Map<Int, Int> = emptyMap(),
+    poolBallManagementEnabled: Boolean = ballValues.isNotEmpty(),
     onDismiss: () -> Unit
 ) {
-    var view by remember { mutableStateOf(HistoryView.TIMELINE) }
+    var view by remember(poolBallManagementEnabled) {
+        mutableStateOf(HistoryView.TIMELINE)
+    }
+    var sort by remember { mutableStateOf(HistorySort.NEWEST_FIRST) }
     var selectedPlayer by remember { mutableStateOf<String?>(null) }
     val pottedBalls = remember(events, ballValues) { derivePottedBalls(events, ballValues) }
 
@@ -166,74 +182,78 @@ fun GameHistoryDialog(
                 }
 
                 // --- Sleek, borderless View switcher (fixes icon/text overlap) ---
-                Surface(
-                    shape = RoundedCornerShape(16.dp),
-                    color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f),
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 20.dp, vertical = 6.dp)
-                ) {
-                    BoxWithConstraints(
+                if (poolBallManagementEnabled) {
+                    Surface(
+                        shape = RoundedCornerShape(16.dp),
+                        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f),
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(4.dp)
+                            .padding(horizontal = 20.dp, vertical = 6.dp)
                     ) {
-                        val tabWidth = maxWidth / 2
-                        val indicatorOffset by animateDpAsState(
-                            targetValue = if (view == HistoryView.TIMELINE) 0.dp else tabWidth,
-                            animationSpec = spring(
-                                dampingRatio = 0.85f,
-                                stiffness = Spring.StiffnessMediumLow
-                            ),
-                            label = "history_tab_indicator"
-                        )
-
-                        // Smooth sliding indicator pill
-                        Box(
+                        BoxWithConstraints(
                             modifier = Modifier
-                                .offset(x = indicatorOffset)
-                                .width(tabWidth)
-                                .matchParentSize()
-                                .clip(RoundedCornerShape(12.dp))
-                                .background(MaterialTheme.colorScheme.surface)
-                        )
-
-                        Row(
-                            modifier = Modifier.fillMaxWidth()
+                                .fillMaxWidth()
+                                .padding(4.dp)
                         ) {
-                            HistoryViewTab(
-                                selected = view == HistoryView.TIMELINE,
-                                onClick = { view = HistoryView.TIMELINE },
-                                label = "Timeline",
-                                count = events.size,
-                                modifier = Modifier.weight(1f),
-                                icon = { tint ->
-                                    Icon(
-                                        imageVector = Icons.Default.History,
-                                        contentDescription = null,
-                                        modifier = Modifier.size(18.dp),
-                                        tint = tint
-                                    )
-                                }
+                            val tabWidth = maxWidth / 2
+                            val indicatorOffset by animateDpAsState(
+                                targetValue = if (view == HistoryView.TIMELINE) 0.dp else tabWidth,
+                                animationSpec = spring(
+                                    dampingRatio = 0.85f,
+                                    stiffness = Spring.StiffnessMediumLow
+                                ),
+                                label = "history_tab_indicator"
                             )
 
-                            HistoryViewTab(
-                                selected = view == HistoryView.BALLS,
-                                onClick = { view = HistoryView.BALLS },
-                                label = "Pocketed",
-                                count = pottedBalls.size.takeIf { it > 0 },
-                                modifier = Modifier.weight(1f),
-                                icon = { tint ->
-                                    Icon(
-                                        painter = painterResource(id = R.drawable.ic_pool_balls),
-                                        contentDescription = null,
-                                        modifier = Modifier.size(18.dp),
-                                        tint = tint
-                                    )
-                                }
+                            // Smooth sliding indicator pill
+                            Box(
+                                modifier = Modifier
+                                    .offset(x = indicatorOffset)
+                                    .width(tabWidth)
+                                    .matchParentSize()
+                                    .clip(RoundedCornerShape(12.dp))
+                                    .background(MaterialTheme.colorScheme.surface)
                             )
+
+                            Row(
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                HistoryViewTab(
+                                    selected = view == HistoryView.TIMELINE,
+                                    onClick = { view = HistoryView.TIMELINE },
+                                    label = "Timeline",
+                                    count = events.size,
+                                    modifier = Modifier.weight(1f),
+                                    icon = { tint ->
+                                        Icon(
+                                            imageVector = Icons.Default.History,
+                                            contentDescription = null,
+                                            modifier = Modifier.size(18.dp),
+                                            tint = tint
+                                        )
+                                    }
+                                )
+
+                                HistoryViewTab(
+                                    selected = view == HistoryView.BALLS,
+                                    onClick = { view = HistoryView.BALLS },
+                                    label = "Pocketed",
+                                    count = pottedBalls.size.takeIf { it > 0 },
+                                    modifier = Modifier.weight(1f),
+                                    icon = { tint ->
+                                        Icon(
+                                            painter = painterResource(id = R.drawable.ic_pool_balls),
+                                            contentDescription = null,
+                                            modifier = Modifier.size(18.dp),
+                                            tint = tint
+                                        )
+                                    }
+                                )
+                            }
                         }
                     }
+                } else {
+                    Spacer(modifier = Modifier.height(8.dp))
                 }
 
                 when (view) {
@@ -242,14 +262,48 @@ fun GameHistoryDialog(
                         playerNames = playerNames,
                         selectedPlayer = selectedPlayer,
                         onSelectPlayer = { selectedPlayer = it },
-                        ballValues = ballValues
+                        ballValues = ballValues,
+                        sort = sort,
+                        onToggleSort = {
+                            sort = if (sort == HistorySort.NEWEST_FIRST) {
+                                HistorySort.OLDEST_FIRST
+                            } else {
+                                HistorySort.NEWEST_FIRST
+                            }
+                        }
                     )
 
-                    HistoryView.BALLS -> PocketedBallsView(
-                        events = events,
-                        ballValues = ballValues,
-                        pottedBalls = pottedBalls
-                    )
+                    HistoryView.BALLS -> if (poolBallManagementEnabled) {
+                        PocketedBallsView(
+                            events = events,
+                            ballValues = ballValues,
+                            pottedBalls = pottedBalls,
+                            sort = sort,
+                            onToggleSort = {
+                                sort = if (sort == HistorySort.NEWEST_FIRST) {
+                                    HistorySort.OLDEST_FIRST
+                                } else {
+                                    HistorySort.NEWEST_FIRST
+                                }
+                            }
+                        )
+                    } else {
+                        TimelineView(
+                            events = events,
+                            playerNames = playerNames,
+                            selectedPlayer = selectedPlayer,
+                            onSelectPlayer = { selectedPlayer = it },
+                            ballValues = ballValues,
+                            sort = sort,
+                            onToggleSort = {
+                                sort = if (sort == HistorySort.NEWEST_FIRST) {
+                                    HistorySort.OLDEST_FIRST
+                                } else {
+                                    HistorySort.NEWEST_FIRST
+                                }
+                            }
+                        )
+                    }
                 }
             }
         }
@@ -349,11 +403,13 @@ private fun TimelineView(
     playerNames: List<String>,
     selectedPlayer: String?,
     onSelectPlayer: (String?) -> Unit,
-    ballValues: Map<Int, Int>
+    ballValues: Map<Int, Int>,
+    sort: HistorySort,
+    onToggleSort: () -> Unit
 ) {
-    val filteredEvents = remember(selectedPlayer, events) {
+    val filteredEvents = remember(selectedPlayer, events, sort) {
         val source = if (selectedPlayer == null) events else events.filter { it.playerName == selectedPlayer }
-        source.reversed()
+        if (sort == HistorySort.NEWEST_FIRST) source.asReversed() else source
     }
 
     val ballVisuals = remember(events, ballValues) { resolveBallVisuals(events, ballValues) }
@@ -387,15 +443,24 @@ private fun TimelineView(
             }
         }
 
-        Text(
-            text = "${filteredEvents.size} ${if (filteredEvents.size == 1) "event" else "events"}",
-            style = MaterialTheme.typography.labelMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
-            textAlign = TextAlign.End,
+        Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(start = 20.dp, end = 20.dp, top = 6.dp, bottom = 4.dp)
-        )
+                .padding(start = 20.dp, end = 20.dp, top = 6.dp, bottom = 4.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = buildString {
+                    append("${filteredEvents.size} ${if (filteredEvents.size == 1) "event" else "events"}")
+                    append(" · ")
+                    append(if (sort == HistorySort.NEWEST_FIRST) "newest first" else "oldest first")
+                },
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
+            )
+            SortOrderChip(sort = sort, onToggle = onToggleSort)
+        }
 
         Box(modifier = Modifier.weight(1f)) {
             if (filteredEvents.isEmpty()) {
@@ -462,7 +527,9 @@ private fun PlayerFilterChip(
 private fun PocketedBallsView(
     events: List<GameEvent>,
     ballValues: Map<Int, Int>,
-    pottedBalls: List<PottedBall> = remember(events, ballValues) { derivePottedBalls(events, ballValues) }
+    pottedBalls: List<PottedBall>,
+    sort: HistorySort,
+    onToggleSort: () -> Unit
 ) {
     val ballVisuals = remember(events, ballValues) { resolveBallVisuals(events, ballValues) }
 
@@ -473,8 +540,15 @@ private fun PocketedBallsView(
         return
     }
 
-    val ballCount = pottedBalls.count { it.ball != null }
-    val otherCount = pottedBalls.size - ballCount
+    // Keep each entry paired with its true scoring order (1 = potted first), so
+    // reversing the list never renumbers the badges.
+    val displayItems = remember(pottedBalls, sort) {
+        val numbered = pottedBalls.mapIndexed { index, potted -> (index + 1) to potted }
+        if (sort == HistorySort.NEWEST_FIRST) numbered.asReversed() else numbered
+    }
+    val knownCount = pottedBalls.count { ballVisuals[it.eventId] is BallVisual.Known }
+    val sharedCount = pottedBalls.count { ballVisuals[it.eventId] is BallVisual.SharedValue }
+    val otherCount = pottedBalls.size - knownCount - sharedCount
 
     Column(modifier = Modifier.fillMaxSize()) {
         Row(
@@ -484,29 +558,46 @@ private fun PocketedBallsView(
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Text(
-                "Scoring order",
-                style = MaterialTheme.typography.labelLarge,
-                fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.primary
-            )
-            Text(
-                buildString {
-                    append("$ballCount ${if (ballCount == 1) "ball" else "balls"}")
-                    if (otherCount > 0) append(" · $otherCount other")
-                },
-                style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
-            )
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    "Pocketed balls",
+                    style = MaterialTheme.typography.labelLarge,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.primary
+                )
+                Text(
+                    buildString {
+                        append("$knownCount ${if (knownCount == 1) "ball" else "balls"}")
+                        if (sharedCount > 0) append(" · $sharedCount shared")
+                        if (otherCount > 0) append(" · $otherCount other")
+                    },
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
+                )
+            }
+            SortOrderChip(sort = sort, onToggle = onToggleSort)
         }
+
+        // Explicitly state both the order and what the number badge means, since
+        // this list can now read newest-first just like the Timeline.
+        Text(
+            text = if (sort == HistorySort.NEWEST_FIRST) {
+                "Newest first · the number is the order each ball was potted"
+            } else {
+                "Oldest first · the number is the order each ball was potted"
+            },
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+            modifier = Modifier.padding(start = 20.dp, end = 20.dp, top = 2.dp, bottom = 4.dp)
+        )
 
         LazyColumn(
             modifier = Modifier.fillMaxSize(),
             contentPadding = PaddingValues(start = 20.dp, end = 20.dp, top = 8.dp, bottom = 20.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            itemsIndexed(pottedBalls, key = { _, ball -> ball.eventId }) { index, potted ->
-                PottedBallRow(order = index + 1, potted = potted, ballVisuals = ballVisuals)
+            items(displayItems, key = { (_, potted) -> potted.eventId }) { (order, potted) ->
+                PottedBallRow(order = order, potted = potted, ballVisuals = ballVisuals)
             }
         }
     }
@@ -567,11 +658,7 @@ private fun PottedBallRow(order: Int, potted: PottedBall, ballVisuals: Map<Strin
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
-                val description = when (visual) {
-                    is BallVisual.Known -> "Ball ${visual.number}"
-                    is BallVisual.SharedValue -> "${visual.points} pts"
-                    is BallVisual.NonBall -> "Not a ball"
-                }
+                val description = describeBallVisual(visual, potted.points)
                 Text(
                     text = "$description · ${formatTimeAgo(potted.timestamp)}",
                     style = MaterialTheme.typography.labelSmall,
@@ -593,6 +680,58 @@ private fun PottedBallRow(order: Int, potted: PottedBall, ballVisuals: Map<Strin
                     modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp)
                 )
             }
+        }
+    }
+}
+
+/**
+ * Wording shared by both history views so the same score never reads differently
+ * depending on which tab the user is on.
+ */
+private fun describeBallVisual(visual: BallVisual?, points: Int): String = when (visual) {
+    is BallVisual.Known -> "Pocketed ball ${visual.number}"
+    is BallVisual.SharedValue -> "Shared worth ${visual.points} pts"
+    is BallVisual.NonBall -> if (points > 0) {
+        "Added $points pts · not a ball"
+    } else {
+        "Deducted ${-points} pts · not a ball"
+    }
+    null -> if (points > 0) "Added $points pts" else "Score updated"
+}
+
+/**
+ * Compact pill that shows the current display order and flips it on tap. It lives
+ * inside each view (rather than above the tabs) so the label sits next to the list
+ * it actually controls.
+ */
+@Composable
+private fun SortOrderChip(sort: HistorySort, onToggle: () -> Unit) {
+    val label = if (sort == HistorySort.NEWEST_FIRST) "Newest first" else "Oldest first"
+
+    Surface(
+        shape = CircleShape,
+        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+    ) {
+        Row(
+            modifier = Modifier
+                .clip(CircleShape)
+                .clickable(onClickLabel = "Change sort order", onClick = onToggle)
+                .padding(horizontal = 10.dp, vertical = 6.dp),
+            horizontalArrangement = Arrangement.spacedBy(4.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Icon(
+                imageVector = Icons.Default.SwapVert,
+                contentDescription = null,
+                modifier = Modifier.size(14.dp),
+                tint = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Text(
+                text = label,
+                style = MaterialTheme.typography.labelSmall,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
         }
     }
 }
@@ -827,16 +966,7 @@ private fun ImprovedEventItem(event: GameEvent, ballValues: Map<Int, Int>, visua
                 )
 
                 val description = when (event.type) {
-                    GameEventType.SCORE -> when (visual) {
-                        is BallVisual.Known -> "Pocketed ball ${visual.number}"
-                        is BallVisual.SharedValue -> "Shared worth ${visual.points} pts"
-                        is BallVisual.NonBall -> if (event.points > 0) {
-                            "Added ${event.points} pts · not a ball"
-                        } else {
-                            "Deducted ${-event.points} pts · not a ball"
-                        }
-                        null -> if (event.points > 0) "Added ${event.points} pts" else "Score updated"
-                    }
+                    GameEventType.SCORE -> describeBallVisual(visual, event.points)
                     GameEventType.UNDO -> "Reverted ${event.points} pts for ${event.playerName}"
                     GameEventType.STATUS_CHANGE -> event.message ?: "Game status updated"
                     else -> "Manual adjustment"

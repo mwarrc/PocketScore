@@ -541,6 +541,7 @@ fun GameScreen(
             events = globalEvents,
             playerNames = players.map { it.name },
             ballValues = if (settings.poolBallManagementEnabled) settings.ballValues else emptyMap(),
+            poolBallManagementEnabled = settings.poolBallManagementEnabled,
             onDismiss = { showHistoryDialog = false }
         )
     }
